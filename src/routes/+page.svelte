@@ -57,7 +57,6 @@
   </nav>
 
   <section class="hero">
-    <div class="hero-badge">open source latex editor</div>
     <h1 class="hero-title">
       Write LaTeX<br />
       <span class="hero-accent">without the baggage.</span>
