@@ -13,7 +13,7 @@ const config = {
       strict: true
     }),
     paths: {
-      base: process.env.GITHUB_ACTIONS ? '/texbrain' : ''
+      base: ''
     }
   }
 };
