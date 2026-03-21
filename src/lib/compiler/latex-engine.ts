@@ -8,7 +8,7 @@ let restLoadingPromise: Promise<void> | null = null;
 
 const IDB_NAME = 'texbrain-texlive';
 const IDB_STORE = 'cache';
-const IDB_VERSION = 1;
+const IDB_VERSION = 2;
 
 const createdDirs = new Set<string>();
 
@@ -21,7 +21,11 @@ function openIdb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(IDB_NAME, IDB_VERSION);
     req.onupgradeneeded = () => {
-      req.result.createObjectStore(IDB_STORE);
+      const db = req.result;
+      if (db.objectStoreNames.contains(IDB_STORE)) {
+        db.deleteObjectStore(IDB_STORE);
+      }
+      db.createObjectStore(IDB_STORE);
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
