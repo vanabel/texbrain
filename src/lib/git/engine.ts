@@ -554,6 +554,94 @@ function simpleDiff(oldLines: string[], newLines: string[]): GitDiffLine[] {
   return result;
 }
 
+// get all files in a tree as map of path -> blob oid
+async function listTreeFiles(commitSha: string): Promise<Map<string, string>> {
+  const files = new Map<string, string>();
+  try {
+    await git.walk({
+      fs: getFs(),
+      dir: DIR,
+      trees: [git.TREE({ ref: commitSha })],
+      map: async (filepath, [entry]) => {
+        if (!entry || filepath === '.') return;
+        const type = await entry.type();
+        if (type === 'blob') {
+          const oid = await entry.oid();
+          files.set(filepath, oid);
+        }
+      }
+    });
+  } catch { /* ignore */ }
+  return files;
+}
+
+// list all files changed in a commit compared to its parent
+export async function getCommitChangedFiles(sha: string): Promise<Array<{ path: string; status: 'added' | 'modified' | 'deleted' }>> {
+  try {
+    const commit = await git.readCommit({ fs: getFs(), dir: DIR, oid: sha });
+    const parentSha = commit.commit.parent.length > 0 ? commit.commit.parent[0] : null;
+
+    const currentFiles = await listTreeFiles(sha);
+    const parentFiles = parentSha ? await listTreeFiles(parentSha) : new Map<string, string>();
+
+    const changes: Array<{ path: string; status: 'added' | 'modified' | 'deleted' }> = [];
+
+    for (const [path, oid] of currentFiles) {
+      const parentOid = parentFiles.get(path);
+      if (!parentOid) {
+        changes.push({ path, status: 'added' });
+      } else if (parentOid !== oid) {
+        changes.push({ path, status: 'modified' });
+      }
+    }
+
+    for (const [path] of parentFiles) {
+      if (!currentFiles.has(path)) {
+        changes.push({ path, status: 'deleted' });
+      }
+    }
+
+    return changes.sort((a, b) => a.path.localeCompare(b.path));
+  } catch {
+    return [];
+  }
+}
+
+// read file content at a specific commit
+export async function readFileAtCommit(sha: string, filepath: string): Promise<string> {
+  const { blob } = await git.readBlob({
+    fs: getFs(),
+    dir: DIR,
+    oid: sha,
+    filepath
+  });
+  return new TextDecoder().decode(blob);
+}
+
+// diff a specific file between a commit and its parent
+export async function getCommitFileDiff(sha: string, filepath: string): Promise<GitFileDiff> {
+  const commit = await git.readCommit({ fs: getFs(), dir: DIR, oid: sha });
+  const parentSha = commit.commit.parent.length > 0 ? commit.commit.parent[0] : null;
+
+  let newContent = '';
+  try {
+    newContent = await readFileAtCommit(sha, filepath);
+  } catch { /* deleted or doesn't exist */ }
+
+  let oldContent = '';
+  if (parentSha) {
+    try {
+      oldContent = await readFileAtCommit(parentSha, filepath);
+    } catch { /* new file */ }
+  }
+
+  const lines = computeLineDiff(oldContent, newContent);
+  const additions = lines.filter(l => l.type === 'add').length;
+  const deletions = lines.filter(l => l.type === 'remove').length;
+
+  return { path: filepath, lines, additions, deletions };
+}
+
 export async function refreshGitState(): Promise<void> {
   await ensureBuffer();
   gitLoading.set(true);

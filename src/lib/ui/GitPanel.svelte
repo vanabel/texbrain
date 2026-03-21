@@ -10,7 +10,7 @@
     commit, getLog, createBranch, switchBranch, deleteBranch, merge,
     addRemote, listRemotes, removeRemote, push, pull,
     refreshGitState, getFileDiff, readAllFilesFromGit, writeFileToGit, checkAndLoadGit,
-    getBranchTips
+    getBranchTips, getCommitChangedFiles, getCommitFileDiff
   } from '$lib/git/engine';
   import type { GitFileDiff, GitCommitInfo } from '$lib/git/types';
   import { addToast } from '$lib/stores/app';
@@ -28,6 +28,13 @@
   let showingDiff = false;
   let operating = false;
 
+  // commit detail view
+  let inspectCommit: GitCommitInfo | null = null;
+  let inspectFiles: Array<{ path: string; status: 'added' | 'modified' | 'deleted' }> = [];
+  let inspectLoading = false;
+  let inspectDiff: GitFileDiff | null = null;
+  let inspectDiffFile: string | null = null;
+
   $: if ($gitPanelOpen && $gitPanelTab === 'remote' && $gitEnabled) {
     loadRemotes();
   }
@@ -40,6 +47,8 @@
     gitPanelOpen.set(false);
     showingDiff = false;
     diffResult = null;
+    inspectCommit = null;
+    inspectDiff = null;
   }
 
   function handleOverlayClick(e: MouseEvent) {
@@ -48,7 +57,9 @@
 
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') {
-      if (showingDiff) { showingDiff = false; diffResult = null; }
+      if (inspectDiff) { inspectDiff = null; inspectDiffFile = null; }
+      else if (inspectCommit) { inspectCommit = null; inspectFiles = []; }
+      else if (showingDiff) { showingDiff = false; diffResult = null; }
       else close();
     }
   }
@@ -237,6 +248,44 @@
     }
   }
 
+  // open commit detail view
+  async function handleInspectCommit(c: GitCommitInfo) {
+    if (inspectCommit?.sha === c.sha) {
+      inspectCommit = null;
+      inspectFiles = [];
+      inspectDiff = null;
+      return;
+    }
+    inspectCommit = c;
+    inspectDiff = null;
+    inspectDiffFile = null;
+    inspectLoading = true;
+    try {
+      inspectFiles = await getCommitChangedFiles(c.sha);
+    } catch {
+      inspectFiles = [];
+    } finally {
+      inspectLoading = false;
+    }
+  }
+
+  // view diff for a file in a specific commit
+  async function handleInspectFileDiff(sha: string, path: string) {
+    if (inspectDiffFile === path) {
+      inspectDiff = null;
+      inspectDiffFile = null;
+      return;
+    }
+    inspectDiffFile = path;
+    try {
+      inspectDiff = await getCommitFileDiff(sha, path);
+    } catch (err: any) {
+      addToast('Failed to load diff: ' + (err?.message || err), 'error');
+      inspectDiff = null;
+      inspectDiffFile = null;
+    }
+  }
+
   function statusLetter(status: string): string {
     switch (status) {
       case 'modified': return 'M';
@@ -316,7 +365,6 @@
         if (p0Row !== undefined) {
           const existingCol = columns.indexOf(p0);
           if (existingCol !== -1 && existingCol !== col) {
-            // parent already tracked elsewhere, draw line to it and free this column
             edges.push({ fromCol: col, toCol: existingCol, toRow: p0Row, color: GRAPH_COLORS[col % GRAPH_COLORS.length], isMerge: false });
             columns[col] = null;
           } else {
@@ -327,7 +375,6 @@
           columns[col] = p0;
         }
 
-        // additional parents (merge commits)
         for (let pi = 1; pi < parents.length; pi++) {
           const pSha = parents[pi];
           const pRow = shaToRow.get(pSha);
@@ -358,9 +405,9 @@
 
   $: graphRows = computeGraph($gitCommitLog);
 
-  const ROW_HEIGHT = 60;
-  const COL_WIDTH = 16;
-  const DOT_R = 4;
+  const ROW_HEIGHT = 40;
+  const COL_WIDTH = 18;
+  const DOT_R = 3.5;
 
   function graphSvgWidth(rows: GraphRow[]): number {
     if (rows.length === 0) return 24;
@@ -379,6 +426,16 @@
     const day = d.getDate();
     const year = d.getFullYear();
     return year === now.getFullYear() ? `${month} ${day}` : `${month} ${day}, ${year}`;
+  }
+
+  function fileName(path: string): string {
+    return path.split('/').pop() || path;
+  }
+
+  function fileDir(path: string): string {
+    const parts = path.split('/');
+    if (parts.length <= 1) return '';
+    return parts.slice(0, -1).join('/') + '/';
   }
 </script>
 
@@ -413,7 +470,7 @@
             Changes
             {#if $gitChangeCount > 0}<span class="tab-badge">{$gitChangeCount}</span>{/if}
           </button>
-          <button class="tab" class:active={$gitPanelTab === 'history'} on:click={() => gitPanelTab.set('history')}>History</button>
+          <button class="tab" class:active={$gitPanelTab === 'history'} on:click={() => { gitPanelTab.set('history'); inspectCommit = null; inspectDiff = null; }}>History</button>
           <button class="tab" class:active={$gitPanelTab === 'branches'} on:click={() => gitPanelTab.set('branches')}>Branches</button>
           <button class="tab" class:active={$gitPanelTab === 'remote'} on:click={() => gitPanelTab.set('remote')}>Remote</button>
         </div>
@@ -461,8 +518,10 @@
                 {#each $gitStagedFiles as file}
                   <div class="file-item">
                     <span class="file-status" style="color:{statusColor(file.status)}">{statusLetter(file.status)}</span>
-                    <button class="file-name" on:click={() => handleViewDiff(file.path)} title="View diff">{file.path}</button>
-                    <button class="file-action" on:click={() => handleUnstage(file.path)} title="Unstage">−</button>
+                    <button class="file-name" on:click={() => handleViewDiff(file.path)} title="View diff">
+                      <span class="fname-dir">{fileDir(file.path)}</span><span class="fname-name">{fileName(file.path)}</span>
+                    </button>
+                    <button class="file-action" on:click={() => handleUnstage(file.path)} title="Unstage">&#x2212;</button>
                   </div>
                 {/each}
               </div>
@@ -479,7 +538,9 @@
                 {#each $gitUnstagedFiles as file}
                   <div class="file-item">
                     <span class="file-status" style="color:{statusColor(file.status)}">{statusLetter(file.status)}</span>
-                    <button class="file-name" on:click={() => handleViewDiff(file.path)} title="View diff">{file.path}</button>
+                    <button class="file-name" on:click={() => handleViewDiff(file.path)} title="View diff">
+                      <span class="fname-dir">{fileDir(file.path)}</span><span class="fname-name">{fileName(file.path)}</span>
+                    </button>
                     <button class="file-action add" on:click={() => handleStage(file.path)} title="Stage">+</button>
                   </div>
                 {/each}
@@ -505,59 +566,127 @@
             {#if $gitCommitLog.length === 0}
               <p class="empty-msg">No commits yet</p>
             {:else}
-              <div class="history-graph">
-                <div class="graph-canvas" style="width:{graphSvgWidth(graphRows)}px">
-                  <svg width="{graphSvgWidth(graphRows)}" height="{graphRows.length * ROW_HEIGHT}" class="graph-svg">
-                    {#each graphRows as row, i}
-                      {#each row.edges as edge}
-                        {@const x1 = edge.fromCol * COL_WIDTH + COL_WIDTH / 2 + 4}
-                        {@const y1 = i * ROW_HEIGHT + ROW_HEIGHT / 2}
-                        {@const x2 = edge.toCol * COL_WIDTH + COL_WIDTH / 2 + 4}
-                        {@const y2 = edge.toRow * ROW_HEIGHT + ROW_HEIGHT / 2}
-                        {#if edge.fromCol === edge.toCol}
-                          <line {x1} {y1} {x2} {y2} stroke="{edge.color}" stroke-width="2" stroke-opacity="0.6" />
-                        {:else}
-                          {@const midY = y1 + (y2 - y1) * 0.35}
-                          <path d="M{x1},{y1} C{x1},{midY} {x2},{midY} {x2},{y2}" stroke="{edge.color}" stroke-width="2" fill="none" stroke-opacity="0.5" />
-                        {/if}
-                      {/each}
-                    {/each}
-                    {#each graphRows as row, i}
-                      {@const cx = row.col * COL_WIDTH + COL_WIDTH / 2 + 4}
-                      {@const cy = i * ROW_HEIGHT + ROW_HEIGHT / 2}
-                      {@const color = GRAPH_COLORS[row.col % GRAPH_COLORS.length]}
-                      {@const isMerge = row.commit.parentShas.length > 1}
-                      <circle {cx} {cy} r="{isMerge ? DOT_R + 1 : DOT_R}" fill="{color}" />
-                      <circle {cx} {cy} r="{isMerge ? DOT_R + 4 : DOT_R + 2}" fill="{color}" fill-opacity="0.15" />
-                    {/each}
-                  </svg>
-                </div>
-                <div class="commit-details">
-                  {#each graphRows as row, i}
-                    <div class="commit-row" style="height:{ROW_HEIGHT}px">
-                      <div class="commit-row-inner">
-                        <div class="commit-top-row">
-                          <span class="commit-sha">{row.commit.shortSha}</span>
-                          {#each row.commit.refs as ref}
-                            {@const refIdx = $gitBranches.indexOf(ref)}
-                            {@const tagColor = GRAPH_COLORS[(refIdx >= 0 ? refIdx : row.commit.refs.indexOf(ref)) % GRAPH_COLORS.length]}
-                            <span class="branch-tag" style="background:{tagColor}18;color:{tagColor};border-color:{tagColor}40">
-                              {#if ref === $gitCurrentBranch}<span class="tag-dot" style="background:{tagColor}"></span>{/if}
-                              {ref}
-                            </span>
-                          {/each}
-                          {#if row.commit.parentShas.length > 1}
-                            <span class="merge-badge">merge</span>
+              <div class="history-scroll">
+                <div class="history-graph">
+                  <div class="graph-canvas" style="width:{graphSvgWidth(graphRows)}px">
+                    <svg width="{graphSvgWidth(graphRows)}" height="{graphRows.length * ROW_HEIGHT}" class="graph-svg">
+                      {#each graphRows as row, i}
+                        {#each row.edges as edge}
+                          {@const x1 = edge.fromCol * COL_WIDTH + COL_WIDTH / 2 + 4}
+                          {@const y1 = i * ROW_HEIGHT + ROW_HEIGHT / 2}
+                          {@const x2 = edge.toCol * COL_WIDTH + COL_WIDTH / 2 + 4}
+                          {@const y2 = edge.toRow * ROW_HEIGHT + ROW_HEIGHT / 2}
+                          {#if edge.fromCol === edge.toCol}
+                            <line {x1} {y1} {x2} {y2} stroke="{edge.color}" stroke-width="2" stroke-opacity="0.6" />
+                          {:else}
+                            {@const midY = y1 + (y2 - y1) * 0.4}
+                            <path d="M{x1},{y1} C{x1},{midY} {x2},{midY} {x2},{y2}" stroke="{edge.color}" stroke-width="2" fill="none" stroke-opacity="0.5" stroke-dasharray={edge.isMerge ? '4 2' : 'none'} />
                           {/if}
-                        </div>
-                        <div class="commit-msg">{row.commit.message.split('\n')[0]}</div>
-                        <div class="commit-meta">
-                          <span class="commit-author-name">{row.commit.author.name}</span>
-                          <span class="commit-date">{formatDate(row.commit.author.timestamp)}</span>
-                        </div>
+                        {/each}
+                      {/each}
+                      {#each graphRows as row, i}
+                        {@const cx = row.col * COL_WIDTH + COL_WIDTH / 2 + 4}
+                        {@const cy = i * ROW_HEIGHT + ROW_HEIGHT / 2}
+                        {@const color = GRAPH_COLORS[row.col % GRAPH_COLORS.length]}
+                        {@const isMerge = row.commit.parentShas.length > 1}
+                        {@const isActive = inspectCommit?.sha === row.commit.sha}
+                        <circle {cx} {cy} r="{isActive ? DOT_R + 3 : DOT_R + 1}" fill="{color}" fill-opacity="{isActive ? 0.25 : 0.12}" />
+                        <circle {cx} {cy} r="{isMerge ? DOT_R + 1 : DOT_R}" fill="{isActive ? color : color}" stroke="{isActive ? '#fff' : 'none'}" stroke-width="1" />
+                      {/each}
+                    </svg>
+                  </div>
+                  <div class="commit-list">
+                    {#each graphRows as row, i}
+                      {@const isOpen = inspectCommit?.sha === row.commit.sha}
+                      <div class="commit-entry" class:commit-open={isOpen}>
+                        <button class="commit-row" style="height:{ROW_HEIGHT}px" on:click={() => handleInspectCommit(row.commit)}>
+                          <div class="commit-row-inner">
+                            <div class="commit-top-row">
+                              <span class="commit-sha">{row.commit.shortSha}</span>
+                              {#each row.commit.refs as ref}
+                                {@const refIdx = $gitBranches.indexOf(ref)}
+                                {@const tagColor = GRAPH_COLORS[(refIdx >= 0 ? refIdx : row.commit.refs.indexOf(ref)) % GRAPH_COLORS.length]}
+                                <span class="branch-tag" style="background:{tagColor}18;color:{tagColor};border-color:{tagColor}40">
+                                  {#if ref === $gitCurrentBranch}<span class="tag-dot" style="background:{tagColor}"></span>{/if}
+                                  {ref}
+                                </span>
+                              {/each}
+                              {#if row.commit.parentShas.length > 1}
+                                <span class="merge-badge">merge</span>
+                              {/if}
+                              <span class="commit-date">{formatDate(row.commit.author.timestamp)}</span>
+                            </div>
+                            <div class="commit-msg">{row.commit.message.split('\n')[0]}</div>
+                          </div>
+                          <svg class="expand-icon" class:expanded={isOpen} width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+
+                        {#if isOpen}
+                          <div class="commit-detail">
+                            <div class="detail-meta">
+                              <span class="detail-author">{inspectCommit?.author.name}</span>
+                              <span class="detail-email">&lt;{inspectCommit?.author.email}&gt;</span>
+                              <span class="detail-sha">{inspectCommit?.sha.slice(0, 12)}</span>
+                            </div>
+                            {#if inspectCommit?.message && inspectCommit.message.includes('\n')}
+                              <div class="detail-body">{inspectCommit.message.split('\n').slice(1).join('\n').trim()}</div>
+                            {/if}
+
+                            {#if inspectLoading}
+                              <div class="detail-loading">loading files...</div>
+                            {:else if inspectFiles.length === 0}
+                              <div class="empty-msg">No file changes found</div>
+                            {:else}
+                              <div class="detail-section-header">
+                                <span>Changed files ({inspectFiles.length})</span>
+                                <span class="detail-stats">
+                                  <span style="color:var(--success)">{inspectFiles.filter(f => f.status === 'added').length} added</span>
+                                  <span style="color:var(--warning)">{inspectFiles.filter(f => f.status === 'modified').length} modified</span>
+                                  <span style="color:var(--error)">{inspectFiles.filter(f => f.status === 'deleted').length} deleted</span>
+                                </span>
+                              </div>
+                              <div class="detail-file-list">
+                                {#each inspectFiles as file}
+                                  {@const isDiffOpen = inspectDiffFile === file.path}
+                                  <div class="detail-file-entry">
+                                    <button class="detail-file-row" on:click={() => handleInspectFileDiff(inspectCommit?.sha || '', file.path)}>
+                                      <span class="file-status" style="color:{statusColor(file.status)}">{statusLetter(file.status)}</span>
+                                      <span class="detail-file-path">
+                                        <span class="fname-dir">{fileDir(file.path)}</span><span class="fname-name">{fileName(file.path)}</span>
+                                      </span>
+                                      <svg class="expand-icon small" class:expanded={isDiffOpen} width="8" height="8" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    </button>
+                                    {#if isDiffOpen && inspectDiff}
+                                      <div class="inline-diff">
+                                        <div class="inline-diff-header">
+                                          <span class="diff-add">+{inspectDiff.additions}</span>
+                                          <span class="diff-del">-{inspectDiff.deletions}</span>
+                                        </div>
+                                        <div class="inline-diff-body">
+                                          {#if inspectDiff.lines.length === 0}
+                                            <div class="empty-msg" style="padding:4px 8px">No changes</div>
+                                          {:else}
+                                            {#each inspectDiff.lines as line}
+                                              <div class="diff-line" class:diff-line-add={line.type === 'add'} class:diff-line-remove={line.type === 'remove'} class:diff-line-ctx={line.type === 'context'}>
+                                                <span class="diff-ln old">{line.oldLineNum ?? ''}</span>
+                                                <span class="diff-ln new">{line.newLineNum ?? ''}</span>
+                                                <span class="diff-sign">{line.type === 'add' ? '+' : line.type === 'remove' ? '-' : ' '}</span>
+                                                <span class="diff-text">{line.content}</span>
+                                              </div>
+                                            {/each}
+                                          {/if}
+                                        </div>
+                                      </div>
+                                    {/if}
+                                  </div>
+                                {/each}
+                              </div>
+                            {/if}
+                          </div>
+                        {/if}
                       </div>
-                    </div>
-                  {/each}
+                    {/each}
+                  </div>
                 </div>
               </div>
             {/if}
@@ -687,7 +816,7 @@
     background: rgba(0, 0, 0, 0.4);
   }
   .git-panel {
-    width: 400px;
+    width: 440px;
     max-width: 90vw;
     height: 100%;
     background: var(--bg-surface);
@@ -775,21 +904,6 @@
   }
   .init-text { font-size: 13px; color: var(--text-primary); margin: 0; font-weight: 500; }
   .init-hint { font-size: 11.5px; color: var(--text-muted); margin: 0; line-height: 1.5; }
-  .divider {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    color: var(--text-muted);
-    font-size: 10px;
-    width: 100%;
-    margin: 4px 0;
-  }
-  .divider::before, .divider::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--border);
-  }
 
   .section-header {
     display: flex;
@@ -836,8 +950,11 @@
     font-family: var(--font-editor);
     font-size: 11.5px;
     cursor: pointer;
+    display: flex;
   }
   .file-name:hover { text-decoration: underline; }
+  .fname-dir { color: var(--text-muted); }
+  .fname-name { color: var(--text-primary); }
   .file-action {
     width: 18px;
     height: 18px;
@@ -884,6 +1001,219 @@
     border: 1px solid var(--border);
   }
 
+  /* history */
+  .history-scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    margin: -10px -14px;
+  }
+  .history-graph {
+    display: flex;
+  }
+  .graph-canvas {
+    flex-shrink: 0;
+    position: relative;
+  }
+  .graph-svg {
+    display: block;
+  }
+  .commit-list {
+    flex: 1;
+    min-width: 0;
+  }
+  .commit-entry {
+    border-bottom: 1px solid var(--border);
+  }
+  .commit-entry:last-child { border-bottom: none; }
+  .commit-open { background: var(--bg-deep); }
+  .commit-row {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    padding: 0 8px 0 0;
+    box-sizing: border-box;
+  }
+  .commit-row:hover { background: var(--bg-hover); }
+  .commit-row-inner {
+    flex: 1;
+    padding: 4px 6px 4px 3px;
+    min-width: 0;
+  }
+  .commit-top-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .commit-sha {
+    font-family: var(--font-editor);
+    font-size: 10px;
+    color: var(--accent);
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .branch-tag {
+    font-size: 8px;
+    font-weight: 600;
+    padding: 0 4px;
+    font-family: var(--font-editor);
+    border: 1px solid;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    line-height: 14px;
+  }
+  .tag-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .merge-badge {
+    font-size: 8px;
+    color: var(--text-muted);
+    padding: 0 3px;
+    border: 1px solid var(--border);
+    font-family: var(--font-editor);
+    line-height: 14px;
+  }
+  .commit-msg {
+    font-size: 11px;
+    color: var(--text-primary);
+    margin-top: 1px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.3;
+  }
+  .commit-date {
+    font-size: 9px;
+    color: var(--text-muted);
+    margin-left: auto;
+    flex-shrink: 0;
+    font-family: var(--font-editor);
+  }
+  .expand-icon {
+    color: var(--text-muted);
+    flex-shrink: 0;
+    transition: transform 0.15s;
+  }
+  .expand-icon.expanded { transform: rotate(180deg); }
+  .expand-icon.small { margin-left: auto; }
+
+  /* commit detail */
+  .commit-detail {
+    padding: 6px 10px 10px;
+    border-top: 1px solid var(--border);
+  }
+  .detail-meta {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    color: var(--text-muted);
+    font-family: var(--font-editor);
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+  .detail-author { font-weight: 600; color: var(--text-secondary); }
+  .detail-email { opacity: 0.7; }
+  .detail-sha {
+    margin-left: auto;
+    color: var(--accent);
+    font-weight: 500;
+    user-select: all;
+  }
+  .detail-body {
+    font-size: 10.5px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    margin-bottom: 8px;
+    padding: 4px 6px;
+    background: var(--bg-surface);
+    border-left: 2px solid var(--border);
+    white-space: pre-wrap;
+  }
+  .detail-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 3px 0;
+    font-family: var(--font-editor);
+    margin-bottom: 2px;
+  }
+  .detail-stats {
+    display: flex;
+    gap: 6px;
+    font-size: 9px;
+    font-weight: 500;
+  }
+  .detail-loading {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    font-style: italic;
+    padding: 6px 0;
+  }
+  .detail-file-list {
+    display: flex;
+    flex-direction: column;
+  }
+  .detail-file-entry {
+    border-bottom: 1px solid var(--border);
+  }
+  .detail-file-entry:last-child { border-bottom: none; }
+  .detail-file-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 4px;
+    width: 100%;
+    text-align: left;
+    font-family: var(--font-editor);
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .detail-file-row:hover { background: var(--bg-hover); }
+  .detail-file-path {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: flex;
+  }
+
+  /* inline diff inside commit detail */
+  .inline-diff {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    margin: 2px 0 4px 16px;
+  }
+  .inline-diff-header {
+    padding: 3px 8px;
+    border-bottom: 1px solid var(--border);
+    font-size: 10px;
+    font-family: var(--font-editor);
+    display: flex;
+    gap: 6px;
+  }
+  .inline-diff-body {
+    max-height: 300px;
+    overflow-y: auto;
+    font-family: var(--font-editor);
+    font-size: 10.5px;
+    line-height: 1.5;
+  }
+
+  /* branches */
   .branch-list {
     display: flex;
     flex-direction: column;
@@ -960,94 +1290,7 @@
   .tip-author { font-weight: 500; }
   .tip-date { opacity: 0.8; }
 
-  .history-graph {
-    display: flex;
-    overflow-y: auto;
-    overflow-x: hidden;
-  }
-  .graph-canvas {
-    flex-shrink: 0;
-    position: relative;
-  }
-  .graph-svg {
-    display: block;
-  }
-  .commit-details {
-    flex: 1;
-    min-width: 0;
-  }
-  .commit-row {
-    display: flex;
-    align-items: center;
-    box-sizing: border-box;
-    border-bottom: 1px solid var(--border);
-  }
-  .commit-row:last-child { border-bottom: none; }
-  .commit-row:hover { background: var(--bg-hover); }
-  .commit-row-inner {
-    padding: 3px 6px 3px 3px;
-    min-width: 0;
-  }
-  .commit-top-row {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    flex-wrap: wrap;
-  }
-  .commit-sha {
-    font-family: var(--font-editor);
-    font-size: 10px;
-    color: var(--accent);
-    font-weight: 600;
-    flex-shrink: 0;
-  }
-  .branch-tag {
-    font-size: 9px;
-    font-weight: 600;
-    padding: 0 4px;
-    font-family: var(--font-editor);
-    border: 1px solid;
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-  }
-  .tag-dot {
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    display: inline-block;
-  }
-  .merge-badge {
-    font-size: 9px;
-    color: var(--text-muted);
-    padding: 0 3px;
-    border: 1px solid var(--border);
-    font-family: var(--font-editor);
-  }
-  .commit-msg {
-    font-size: 11.5px;
-    color: var(--text-primary);
-    margin-top: 2px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    line-height: 1.3;
-  }
-  .commit-meta {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    margin-top: 1px;
-    font-size: 10px;
-    color: var(--text-muted);
-  }
-  .commit-author-name {
-    font-weight: 500;
-  }
-  .commit-date {
-    opacity: 0.7;
-  }
-
+  /* remote */
   .remote-list {
     display: flex;
     flex-direction: column;
@@ -1075,7 +1318,6 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-
   .push-pull-row {
     display: flex;
     gap: 6px;
@@ -1083,6 +1325,7 @@
   }
   .push-pull-row .btn { flex: 1; display: flex; align-items: center; justify-content: center; }
 
+  /* diff viewer */
   .diff-header {
     display: flex;
     align-items: center;
@@ -1127,13 +1370,14 @@
   .diff-line-remove { background: rgba(224, 108, 117, 0.08); }
   .diff-line-ctx { }
   .diff-ln {
-    width: 30px;
+    width: 28px;
     text-align: right;
     color: var(--text-muted);
-    padding-right: 5px;
+    padding-right: 4px;
     flex-shrink: 0;
     user-select: none;
     opacity: 0.5;
+    font-size: 10px;
   }
   .diff-sign {
     width: 12px;
@@ -1141,13 +1385,16 @@
     flex-shrink: 0;
     color: var(--text-muted);
   }
-  .diff-line-add .diff-sign { color: var(--success); }
-  .diff-line-remove .diff-sign { color: var(--error); }
+  .diff-line-add .diff-sign { color: var(--success); font-weight: 700; }
+  .diff-line-remove .diff-sign { color: var(--error); font-weight: 700; }
   .diff-text {
     flex: 1;
     color: var(--text-primary);
   }
+  .diff-line-add .diff-text { color: var(--success); }
+  .diff-line-remove .diff-text { color: var(--error); opacity: 0.8; }
 
+  /* shared form elements */
   .field {
     display: flex;
     flex-direction: column;

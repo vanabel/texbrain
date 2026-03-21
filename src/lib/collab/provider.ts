@@ -15,6 +15,7 @@ const COLORS = [
   { color: '#eab308', colorLight: '#eab30833' },
 ];
 
+// replace with your own signaling server url if the public ones go down
 const SIGNALING = ['wss://signaling.yjs.dev'];
 const SHARE_CODE_SEP = '#';
 

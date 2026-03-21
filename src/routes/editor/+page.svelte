@@ -886,10 +886,10 @@
         <span>Git</span>
         {#if $gitChangeCount > 0}<span class="git-change-badge">{$gitChangeCount}</span>{/if}
       </button>
-      <button class="action-btn" class:collab-active={$collabActive} on:click={() => collabPanelOpen.update(v => !v)} title="Collaborate">
+      <button class="action-btn collab-soon" disabled title="Collaboration coming soon">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="6" cy="6" r="2.5" stroke="currentColor" stroke-width="1.2"/><path d="M1 13c0-2.2 2.2-4 5-4s5 1.8 5 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="11.5" cy="5" r="2" stroke="currentColor" stroke-width="1.1"/><path d="M14.5 12c0-1.7-1.3-3-3-3" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
-        <span>{$collabActive ? `Live (${$collabPeers.length + 1})` : 'Collaborate'}</span>
-        {#if $collabActive}<span class="collab-live-dot"></span>{/if}
+        <span>Collab</span>
+        <span class="soon-badge">soon</span>
       </button>
       <div class="separator"></div>
       <ThemeToggle />
@@ -1072,7 +1072,6 @@
   <CommandPalette {commands} />
   <SnippetPicker onInsert={handleSnippetInsert} />
   <EntryPointPicker />
-  <CollabPanel onCreateRoom={handleCreateCollabRoom} onJoinRoom={handleJoinCollabRoom} onLeaveRoom={handleLeaveCollab} />
   <GitPanel onBranchSwitch={handleGitBranchSwitch} onInitRepo={handleGitInit} />
 </div>
 
@@ -1221,19 +1220,19 @@
     flex-shrink: 0;
   }
 
-  .action-btn.collab-active { color: var(--success); }
-  .action-btn.collab-active:hover { color: var(--success); }
-  .collab-live-dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: var(--success);
-    animation: pulse 1.5s infinite;
-    flex-shrink: 0;
-  }
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
+  .collab-soon { opacity: 0.5; cursor: default !important; }
+  .collab-soon:hover { background: transparent !important; }
+  .soon-badge {
+    font-size: 8px;
+    font-weight: 600;
+    font-family: var(--font-editor);
+    color: var(--text-muted);
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    padding: 0 3px;
+    line-height: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
   }
 
   :global(.spin) { animation: spin 1s linear infinite; transform-origin: center; }

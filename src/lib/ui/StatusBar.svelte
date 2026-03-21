@@ -1,7 +1,6 @@
 <script lang="ts">
   import { compileStatus } from '$lib/stores/app';
   import { activeFile } from '$lib/project/store';
-  import { collabActive, collabPeers, collabConnected } from '$lib/collab/store';
   import { gitEnabled, gitCurrentBranch } from '$lib/git/store';
 
   export let cursorLine = 1;
@@ -32,13 +31,6 @@
       <span class="status-item">
         <svg width="10" height="10" viewBox="0 0 16 16" fill="none" style="flex-shrink:0"><circle cx="5" cy="4" r="2" stroke="currentColor" stroke-width="1.3"/><circle cx="5" cy="12" r="2" stroke="currentColor" stroke-width="1.3"/><circle cx="12" cy="6" r="2" stroke="currentColor" stroke-width="1.3"/><path d="M5 6v4M7 5l3.5 1" stroke="currentColor" stroke-width="1.3"/></svg>
         {$gitCurrentBranch}
-      </span>
-    {/if}
-    {#if $collabActive}
-      <span class="sep"></span>
-      <span class="status-item live">
-        <span class="dot" style="background: var(--success)"></span>
-        Live ({$collabPeers.length + 1})
       </span>
     {/if}
   </div>
