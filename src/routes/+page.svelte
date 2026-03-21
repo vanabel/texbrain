@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { base } from '$app/paths';
   import ThemeToggle from '$lib/ui/ThemeToggle.svelte';
   import Logo from '$lib/ui/Logo.svelte';
   import { theme } from '$lib/stores/theme';
@@ -20,13 +21,13 @@
 <div class="landing">
   <nav class="nav">
     <div class="nav-inner">
-      <a href="/" class="logo">
+      <a href="{base}/" class="logo">
         <span class="logo-mark"><Logo size={26} /></span>
         <span class="logo-name">TeXbrain</span>
       </a>
       <div class="nav-actions">
         <ThemeToggle />
-        <a href="/editor" class="nav-link">Open Editor</a>
+        <a href="{base}/editor" class="nav-link">Open Editor</a>
       </div>
     </div>
   </nav>
@@ -44,13 +45,13 @@
       compile to PDF — all locally.
     </p>
     <div class="hero-actions">
-      <a href="/editor" class="cta-primary">
+      <a href="{base}/editor" class="cta-primary">
         Start Writing
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
           <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </a>
-      <a href="/editor" class="cta-ghost">Open Editor</a>
+      <a href="{base}/editor" class="cta-ghost">Open Editor</a>
     </div>
   </section>
 

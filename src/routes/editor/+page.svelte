@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { base } from '$app/paths';
   import { browser } from '$app/environment';
   import { get } from 'svelte/store';
   import { theme } from '$lib/stores/theme';
@@ -840,7 +841,7 @@
 <div class="editor-app" on:dragover={handleDragOver} on:drop={handleDrop} role="application">
   <header class="topbar">
     <div class="topbar-left">
-      <a href="/" class="logo">
+      <a href="{base}/" class="logo">
         <span class="logo-icon"><Logo size={24} /></span>
         <span class="logo-text">TeXbrain</span>
       </a>
