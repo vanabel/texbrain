@@ -1,3 +1,5 @@
+import { base } from '$app/paths';
+
 let engine: any = null;
 let loadPromise: Promise<void> | null = null;
 let texliveLoaded = false;
@@ -20,7 +22,7 @@ function looksLikeHtml(first100: string): boolean {
 }
 
 async function loadTextFile(eng: any, name: string): Promise<void> {
-  const resp = await fetch(`/texlive/cache/${name}`);
+  const resp = await fetch(`${base}/texlive/cache/${name}`);
   if (!resp.ok) return;
   const text = await resp.text();
   if (looksLikeHtml(text.slice(0, 100))) return;
@@ -28,7 +30,7 @@ async function loadTextFile(eng: any, name: string): Promise<void> {
 }
 
 async function loadBinaryFile(eng: any, name: string): Promise<void> {
-  const resp = await fetch(`/texlive/cache/${name}`);
+  const resp = await fetch(`${base}/texlive/cache/${name}`);
   if (!resp.ok) return;
   const buf = await resp.arrayBuffer();
   const head = new TextDecoder().decode(new Uint8Array(buf, 0, Math.min(100, buf.byteLength)));
@@ -46,8 +48,8 @@ async function preloadTexliveCache(eng: any): Promise<void> {
   if (texliveLoaded) return;
 
   const [textFiles, binFiles] = await Promise.all([
-    loadManifest('/texlive/cache-manifest-text.txt'),
-    loadManifest('/texlive/cache-manifest-binary.txt')
+    loadManifest(`${base}/texlive/cache-manifest-text.txt`),
+    loadManifest(`${base}/texlive/cache-manifest-binary.txt`)
   ]);
 
   // batch size 50 to avoid ERR_INSUFFICIENT_RESOURCES
@@ -75,11 +77,13 @@ function loadScript(src: string): Promise<void> {
 }
 
 async function initEngine(): Promise<void> {
-  await loadScript('/swiftlatex/PdfTeXEngine.js');
+  await loadScript(`${base}/swiftlatex/PdfTeXEngine.js`);
   const PdfTeXEngine = (globalThis as any).PdfTeXEngine;
   if (!PdfTeXEngine) throw new Error('PdfTeXEngine not found after loading script');
   engine = new PdfTeXEngine();
   await engine.loadEngine();
+  // set texlive url so the wasm worker fetches from the correct base path
+  engine.setTexliveEndpoint(`${base}/texlive/`);
 }
 
 export async function getEngine(): Promise<any> {

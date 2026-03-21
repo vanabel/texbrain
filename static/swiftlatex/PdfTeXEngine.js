@@ -60,7 +60,15 @@ var EngineStatus;
     EngineStatus[EngineStatus["Busy"] = 3] = "Busy";
     EngineStatus[EngineStatus["Error"] = 4] = "Error";
 })(EngineStatus = exports.EngineStatus || (exports.EngineStatus = {}));
-var ENGINE_PATH = '/swiftlatex/swiftlatexpdftex.js';
+var ENGINE_PATH = (function() {
+    var scripts = document.getElementsByTagName('script');
+    for (var i = scripts.length - 1; i >= 0; i--) {
+        if (scripts[i].src && scripts[i].src.indexOf('PdfTeXEngine') !== -1) {
+            return scripts[i].src.replace('PdfTeXEngine.js', 'swiftlatexpdftex.js');
+        }
+    }
+    return '/swiftlatex/swiftlatexpdftex.js';
+})();
 var CompileResult = /** @class */ (function () {
     function CompileResult() {
         this.pdf = undefined;
