@@ -23,6 +23,36 @@
     viewportHeight: number;
   }> = [];
 
+  function makeLinkService(doc: any) {
+    return {
+      externalLinkEnabled: true,
+      get pagesCount() { return doc.numPages; },
+      get page() { return 1; },
+      set page(_: number) {},
+      get rotation() { return 0; },
+      set rotation(_: number) {},
+      get isInPresentationMode() { return false; },
+      async goToDestination(dest: any) {
+        const resolved = typeof dest === 'string' ? await doc.getDestination(dest) : dest;
+        if (!resolved) return;
+        const ref = resolved[0];
+        const idx = await doc.getPageIndex(ref);
+        scrollToPage(idx + 1);
+      },
+      goToPage(val: number) { scrollToPage(val); },
+      addLinkAttributes(link: HTMLAnchorElement, url: string, newWindow?: boolean) {
+        link.href = url;
+        link.rel = 'noopener noreferrer';
+        link.target = newWindow ? '_blank' : '_blank';
+      },
+      getDestinationHash(dest: any) { return '#'; },
+      getAnchorUrl(hash: string) { return '#'; },
+      setHash(_: string) {},
+      executeNamedAction(_: string) {},
+      executeSetOCGState(_: any) {}
+    };
+  }
+
   $: if (pdfData) {
     handleNewPdf(pdfData);
   }
@@ -99,6 +129,19 @@
         viewport
       });
       await tl.render();
+
+      const annotations = await page.getAnnotations();
+      if (annotations.length > 0) {
+        const annotDiv = document.createElement('div');
+        annotDiv.className = 'annotationLayer';
+        pageDiv.appendChild(annotDiv);
+        const al = new pdfjsLib.AnnotationLayer({
+          div: annotDiv,
+          page,
+          viewport
+        });
+        await al.render({ annotations, linkService: makeLinkService(doc) });
+      }
 
       pageTextCache.push({
         text: textContent.items.map((it: any) => it.str || '').join(' '),
