@@ -85,6 +85,10 @@
 </div>
 
 <style>
+  :global(html), :global(body) {
+    overflow: auto;
+  }
+
   .legal {
     min-height: 100vh;
     display: flex;
