@@ -1,4 +1,5 @@
 import { base } from '$app/paths';
+import { patchBiblatexFiles } from './bibliography';
 
 let engine: any = null;
 let loadPromise: Promise<void> | null = null;
@@ -200,23 +201,6 @@ export interface CompileResult {
   log: string;
 }
 
-function patchBiblatexBackend(content: string): string {
-  return content.replace(
-    /\\usepackage(\[[^\]]*\])?\{biblatex\}/g,
-    (match, opts) => {
-      if (!opts) {
-        return '\\usepackage[backend=bibtex]{biblatex}';
-      }
-      const inner = opts.slice(1, -1);
-      if (/backend\s*=/.test(inner)) {
-        const patched = inner.replace(/backend\s*=\s*\w+/, 'backend=bibtex');
-        return `\\usepackage[${patched}]{biblatex}`;
-      }
-      return `\\usepackage[${inner},backend=bibtex]{biblatex}`;
-    }
-  );
-}
-
 export async function compileLaTeX(
   mainFile: string,
   files: Map<string, string>,
@@ -225,7 +209,9 @@ export async function compileLaTeX(
   const eng = await getEngine();
   await preloadTexliveCache(eng);
 
-  const allPaths = [...files.keys(), ...(binaryFiles?.keys() || [])];
+  const patchedFiles = patchBiblatexFiles(files);
+
+  const allPaths = [...patchedFiles.keys(), ...(binaryFiles?.keys() || [])];
   for (const path of allPaths) {
     const parts = path.split('/');
     for (let i = 1; i < parts.length; i++) {
@@ -237,8 +223,8 @@ export async function compileLaTeX(
     }
   }
 
-  for (const [path, content] of files) {
-    eng.writeMemFSFile(path, patchBiblatexBackend(content));
+  for (const [path, content] of patchedFiles) {
+    eng.writeMemFSFile(path, content);
   }
 
   if (binaryFiles) {
