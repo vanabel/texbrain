@@ -4,7 +4,27 @@
 </script>
 
 <svelte:head>
-  <title>TeXbrain | LaTeX in your browser</title>
+  <title>TeXbrain | LaTeX Editor in Your Browser</title>
+  <meta name="description" content="Write and compile LaTeX to PDF entirely in your browser. No sign-up, no installs, no server. Local files, live preview, built-in git, and real-time collaboration." />
+  <link rel="canonical" href="https://tex.swimmingbrain.dev/" />
+  <meta property="og:title" content="TeXbrain | LaTeX Editor in Your Browser" />
+  <meta property="og:description" content="Write and compile LaTeX to PDF entirely in your browser. No sign-up, no installs, no server." />
+  <meta property="og:url" content="https://tex.swimmingbrain.dev/" />
+  <meta name="twitter:title" content="TeXbrain | LaTeX Editor in Your Browser" />
+  <meta name="twitter:description" content="Write and compile LaTeX to PDF entirely in your browser. No sign-up, no installs, no server." />
+  {@html `<script type="application/ld+json">${JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "TeXbrain",
+    "url": "https://tex.swimmingbrain.dev",
+    "applicationCategory": "Productivity",
+    "operatingSystem": "Web",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "description": "Online LaTeX editor that compiles to PDF entirely in your browser. No accounts, no installs, no servers.",
+    "author": { "@type": "Person", "name": "Braian Plaku", "url": "https://swimmingbrain.dev" },
+    "license": "https://opensource.org/licenses/MIT",
+    "featureList": ["Browser-based LaTeX compilation", "Live PDF preview", "Built-in git integration", "Real-time collaboration", "Works offline", "Local file system access"]
+  })}</script>`}
 </svelte:head>
 
 <div class="landing">
@@ -95,6 +115,38 @@
     </div>
   </div>
 
+  <section class="features">
+    <div class="features-inner">
+      <h2 class="features-heading">What you get</h2>
+      <div class="features-grid">
+        <div class="feature">
+          <h3>Compiles in your browser</h3>
+          <p>A full pdfTeX engine compiled to WebAssembly. Your .tex files turn into PDFs right here, no server involved.</p>
+        </div>
+        <div class="feature">
+          <h3>Live PDF preview</h3>
+          <p>The PDF updates while you type. Zoom, scroll, click links. Multiple pages render side by side.</p>
+        </div>
+        <div class="feature">
+          <h3>Git built in</h3>
+          <p>Clone repos, make branches, commit, and push to GitHub without leaving the editor. Version control that just works.</p>
+        </div>
+        <div class="feature">
+          <h3>Your files stay local</h3>
+          <p>Open project folders straight from your file system. Nothing gets uploaded anywhere unless you push it yourself.</p>
+        </div>
+        <div class="feature">
+          <h3>Collaborate live</h3>
+          <p>Send someone a link and write together in the same document. Peer to peer, no account needed on either side.</p>
+        </div>
+        <div class="feature">
+          <h3>Works offline</h3>
+          <p>Once loaded, the whole thing runs locally. You can keep writing on a plane or anywhere else without internet.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <footer class="footer">
     <div class="footer-inner">
       <div class="footer-brand">
@@ -116,11 +168,10 @@
 
 <style>
   .landing {
-    height: 100vh;
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
     background: var(--bg-deep);
-    overflow: hidden;
   }
 
   .nav {
@@ -372,6 +423,43 @@
     border-radius: 2px;
   }
 
+  .features {
+    border-top: 1px solid var(--border);
+    padding: 64px 32px;
+  }
+
+  .features-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .features-heading {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 40px;
+    letter-spacing: -0.02em;
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 32px;
+  }
+
+  .feature h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+  }
+
+  .feature p {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+  }
+
   .footer {
     flex-shrink: 0;
     border-top: 1px solid var(--border);
@@ -481,6 +569,15 @@
 
     .right {
       width: 100%;
+    }
+
+    .features {
+      padding: 48px 20px;
+    }
+
+    .features-grid {
+      grid-template-columns: 1fr;
+      gap: 24px;
     }
 
     .demo-content {
