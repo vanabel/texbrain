@@ -326,7 +326,7 @@ export async function handleSaveFileAs() {
 export function handleDroppedFiles(dataTransfer: DataTransfer) {
   const items = Array.from(dataTransfer.files);
   for (const file of items) {
-    if (file.name.endsWith('.tex') || file.name.endsWith('.bib') || file.name.endsWith('.sty') || file.name.endsWith('.cls') || file.name.endsWith('.txt')) {
+    if (file.name.endsWith('.tex') || file.name.endsWith('.bib') || file.name.endsWith('.sty') || file.name.endsWith('.cls') || file.name.endsWith('.txt') || file.name.endsWith('.drawio')) {
       const reader = new FileReader();
       reader.onload = () => {
         if (typeof reader.result === 'string') {

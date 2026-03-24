@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
 
-  const dispatch = createEventDispatcher<{ resize: { delta: number } }>();
+  const dispatch = createEventDispatcher<{ resize: { delta: number }; resizestart: void; resizeend: void }>();
 
   let dragging = false;
   let startX = 0;
@@ -11,6 +11,7 @@
     startX = e.clientX;
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
+    dispatch('resizestart');
 
     function onMouseMove(e: MouseEvent) {
       const delta = e.clientX - startX;
@@ -24,6 +25,7 @@
       document.body.style.userSelect = '';
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
+      dispatch('resizeend');
     }
 
     window.addEventListener('mousemove', onMouseMove);

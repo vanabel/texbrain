@@ -175,13 +175,13 @@ async function initEngine(): Promise<void> {
   engine = new PdfTeXEngine();
   await engine.loadEngine();
   engine.setTexliveEndpoint(`${base}/texlive/`);
+  createdDirs.clear();
+  texliveLoaded = false;
 }
 
 export async function getEngine(): Promise<any> {
   if (engine?.isReady()) return engine;
-  if (!loadPromise) {
-    loadPromise = initEngine();
-  }
+  loadPromise = initEngine();
   await loadPromise;
   if (!engine?.isReady()) {
     loadPromise = null;

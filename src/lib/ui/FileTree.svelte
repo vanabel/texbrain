@@ -60,6 +60,7 @@
     if (name.endsWith('.tex')) return 'T';
     if (name.endsWith('.bib')) return 'B';
     if (name.endsWith('.sty') || name.endsWith('.cls')) return 'S';
+    if (name.endsWith('.drawio')) return 'D';
     if (name.endsWith('.png') || name.endsWith('.jpg') || name.endsWith('.pdf')) return 'I';
     if (name.endsWith('.log') || name.endsWith('.aux')) return 'L';
     return 'F';
@@ -69,10 +70,11 @@
     if (name.endsWith('.tex')) return 'var(--accent)';
     if (name.endsWith('.bib')) return 'var(--warning)';
     if (name.endsWith('.sty') || name.endsWith('.cls')) return 'var(--success)';
+    if (name.endsWith('.drawio')) return '#f08705';
     return 'var(--text-muted)';
   }
 
-  const TEXT_EXTS = ['.tex', '.bib', '.sty', '.cls', '.txt', '.md', '.log', '.aux', '.bbl', '.blg', '.cfg', '.def', '.dtx', '.ins', '.ltx', '.makefile', '.gitignore'];
+  const TEXT_EXTS = ['.tex', '.bib', '.sty', '.cls', '.txt', '.md', '.log', '.aux', '.bbl', '.blg', '.cfg', '.def', '.dtx', '.ins', '.ltx', '.makefile', '.gitignore', '.drawio'];
   function isTextFile(name: string): boolean {
     const lower = name.toLowerCase();
     return TEXT_EXTS.some(ext => lower.endsWith(ext));

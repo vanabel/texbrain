@@ -1,6 +1,7 @@
 import { writable, derived } from 'svelte/store';
 
 export const sidebarOpen = writable(true);
+export const previewOpen = writable(true);
 export const snippetPickerOpen = writable(false);
 export const commandPaletteOpen = writable(false);
 export const previewTab = writable<'preview' | 'errors' | 'warnings' | 'log'>('preview');

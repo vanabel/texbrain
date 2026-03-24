@@ -3,7 +3,7 @@
   import { base } from '$app/paths';
   import { browser } from '$app/environment';
   import { get } from 'svelte/store';
-  import { sidebarOpen, snippetPickerOpen, commandPaletteOpen, compileStatus, compileLog, compileErrors, previewTab, addToast } from '$lib/stores/app';
+  import { sidebarOpen, previewOpen, snippetPickerOpen, commandPaletteOpen, compileStatus, compileLog, compileErrors, previewTab, addToast } from '$lib/stores/app';
   import { files, activeFile, activeFileId, updateFileContent, projectHandle, entryPoint, openFileTab } from '$lib/project/store';
   import { handleOpenFile, handleSaveFile, handleSaveFileAs, handleDroppedFiles, handleOpenDirectory, handleNewProject, cloneProject } from '$lib/project/manager';
   import { insertAtCursor, createEditor, replaceEditorContent } from '$lib/editor/setup';
@@ -32,6 +32,7 @@
   import PdfViewer from '$lib/ui/PdfViewer.svelte';
   import CollabPanel from '$lib/ui/CollabPanel.svelte';
   import GitPanel from '$lib/ui/GitPanel.svelte';
+  import DrawioEditor from '$lib/ui/DrawioEditor.svelte';
 
   let editorView: EditorView | null = null;
   let pdfData: Uint8Array | undefined = undefined;
@@ -39,6 +40,56 @@
   let compiling = false;
   let compileStuckTimer = 0;
   let pdfPageCount = 1;
+  let drawioEditor: DrawioEditor;
+
+  function isDrawioFile(name: string): boolean {
+    return name.toLowerCase().endsWith('.drawio');
+  }
+
+  $: activeIsDrawio = $activeFile ? isDrawioFile($activeFile.name) : false;
+
+  async function handleDrawioSave(xml: string) {
+    if (!$activeFile) return;
+    updateFileContent($activeFile.id, xml);
+    await handleSaveFile();
+  }
+
+  async function handleDrawioExport(data: string, format: string) {
+    if (!$activeFile) { addToast('Export: no active file', 'error'); return; }
+    const handle = get(projectHandle);
+    if (!handle) { addToast('Export: no project handle', 'error'); return; }
+
+    const baseName = $activeFile.name.replace(/\.drawio$/i, '');
+    const ext = format === 'svg' ? '.svg' : '.png';
+    const exportName = baseName + ext;
+
+    try {
+      const parts = $activeFile.path.split('/');
+      parts.pop();
+      let dirHandle: FileSystemDirectoryHandle = handle;
+      for (const part of parts) {
+        if (part) dirHandle = await dirHandle.getDirectoryHandle(part);
+      }
+
+      const fileHandle = await dirHandle.getFileHandle(exportName, { create: true });
+      const writable = await fileHandle.createWritable();
+
+      if (format === 'png') {
+        const raw = data;
+        const base64 = raw.includes(',') ? raw.split(',')[1] : raw;
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        await writable.write(bytes);
+      } else {
+        await writable.write(data);
+      }
+      await writable.close();
+      addToast(`Exported ${exportName}`, 'success', 1500);
+    } catch (err: any) {
+      addToast(`Export failed: ${err.message}`, 'error');
+    }
+  }
 
   // multi-file document structure for synctex-like scrolling
   let includeOrder: { path: string; lines: number }[] = [];
@@ -128,8 +179,8 @@
     };
   }
 
-  // rebuild editor when active file changes
-  $: if ($activeFile && $activeFile.id !== lastActiveFileId && editorContainer) {
+  // rebuild editor when active file changes (skip drawio files)
+  $: if ($activeFile && $activeFile.id !== lastActiveFileId && editorContainer && !isDrawioFile($activeFile.name)) {
     if (get(collabActive)) {
       buildEditor();
     } else if (editorView) {
@@ -150,9 +201,9 @@
       await readDirRecursive(handle, '', projectFiles, binaryFiles);
     }
 
-    // override with open tab contents (may have unsaved edits)
+    // override with open tab contents (may have unsaved edits), skip non-tex files
     for (const tab of get(files)) {
-      if (tab.content) {
+      if (tab.content && !tab.name.toLowerCase().endsWith('.drawio')) {
         projectFiles.set(tab.path, tab.content);
       }
     }
@@ -317,7 +368,7 @@
 
       const result = await Promise.race([
         compileLaTeX(mainFile, projectFiles, binaryFiles),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('compilation timed out after 60s')), 60_000))
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('compilation timed out after 180s')), 180_000))
       ]);
 
       const { errors: parsedErrors, cleanedLines } = parseLog(result.log || '');
@@ -535,6 +586,11 @@
     if (editorView) insertAtCursor(editorView, snippet.code);
   }
 
+  let resizing = false;
+
+  function handleResizeStart() { resizing = true; }
+  function handleResizeEnd() { resizing = false; }
+
   function handleResizeDelta(delta: number) {
     const cw = windowWidth - ($sidebarOpen ? 260 : 0);
     editorWidth = Math.max(25, Math.min(75, editorWidth + (delta / cw) * 100));
@@ -561,6 +617,7 @@
     { id: 'saveas', label: 'Save As...', shortcut: 'Ctrl+Shift+S', action: handleSaveFileAs, category: 'file' },
     { id: 'compile', label: 'Compile', shortcut: 'Ctrl+Enter', action: compilePreview, category: 'compile' },
     { id: 'sidebar', label: 'Toggle Sidebar', shortcut: 'Ctrl+B', action: () => sidebarOpen.update(v => !v), category: 'view' },
+    { id: 'togglepreview', label: 'Toggle Preview', shortcut: 'Ctrl+P', action: () => previewOpen.update(v => !v), category: 'view' },
     { id: 'snippet', label: 'Insert Snippet', shortcut: 'Ctrl+/', action: () => snippetPickerOpen.set(true), category: 'edit' },
     { id: 'preview', label: 'Show Preview', shortcut: '', action: () => previewTab.set('preview'), category: 'view' },
     { id: 'log', label: 'Show Log', shortcut: '', action: () => previewTab.set('log'), category: 'view' },
@@ -577,6 +634,7 @@
     else if (mod && e.key === 'b') { e.preventDefault(); sidebarOpen.update(v => !v); }
     else if (mod && e.key === '/') { e.preventDefault(); snippetPickerOpen.update(v => !v); }
     else if (mod && e.key === 'g') { e.preventDefault(); if (get(projectHandle)) gitPanelOpen.update(v => !v); }
+    else if (mod && e.key === 'p') { e.preventDefault(); previewOpen.update(v => !v); }
     else if (e.key === 'Escape') { commandPaletteOpen.set(false); snippetPickerOpen.set(false); }
   }
 
@@ -915,6 +973,10 @@
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.2"/><path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
         <kbd style="margin-left:4px">Ctrl+K</kbd>
       </button>
+      <div class="tool-sep"></div>
+      <button class="tool-btn" class:active={$previewOpen} on:click={() => previewOpen.update(v => !v)} title="Toggle Preview (Ctrl+P)">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2.5" width="13" height="11" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M10.5 2.5v11" stroke="currentColor" stroke-width="1.2"/></svg>
+      </button>
     </div>
   </div>
 
@@ -928,15 +990,26 @@
     <div class="workspace">
       <TabBar />
       <div class="editor-area">
-        {#if $activeFile}
+        {#if $activeFile && activeIsDrawio}
+          <div class="editor-pane" style={!isMobile && $previewOpen ? `width:${editorWidth}%` : ''}>
+            <DrawioEditor
+              bind:this={drawioEditor}
+              content={$activeFile.content}
+              fileName={$activeFile.name}
+              fileId={$activeFile.id}
+              onSave={handleDrawioSave}
+              onExported={handleDrawioExport}
+            />
+          </div>
+        {:else if $activeFile}
           <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div class="editor-pane" style={!isMobile ? `width:${editorWidth}%` : ''} on:dblclick={handleEditorDblClick}>
+          <div class="editor-pane" style={!isMobile && $previewOpen ? `width:${editorWidth}%` : ''} on:dblclick={handleEditorDblClick}>
             <div class="cm-wrapper" use:initEditor></div>
           </div>
         {/if}
 
-        {#if $activeFile && !isMobile}
-          <Resizer on:resize={(e) => handleResizeDelta(e.detail.delta)} />
+        {#if $activeFile && $previewOpen && !isMobile}
+          <Resizer on:resize={(e) => handleResizeDelta(e.detail.delta)} on:resizestart={handleResizeStart} on:resizeend={handleResizeEnd} />
           <div class="preview-pane" style="width:{100 - editorWidth}%">
             <div class="preview-header">
               <button class="preview-tab" class:active={$previewTab === 'preview'} on:click={() => previewTab.set('preview')}>Preview</button>
@@ -1008,6 +1081,10 @@
               </div>
             {/if}
           </div>
+        {/if}
+
+        {#if resizing}
+          <div class="resize-overlay"></div>
         {/if}
 
         {#if !$activeFile}
@@ -1111,6 +1188,7 @@
   .workspace { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
   .editor-area { flex: 1; display: flex; overflow: hidden; min-height: 0; position: relative; }
   .editor-pane { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+  .resize-overlay { position: absolute; inset: 0; z-index: 10; cursor: col-resize; }
   .cm-wrapper { flex: 1; overflow: hidden; }
   .cm-wrapper :global(.cm-editor) { height: 100%; }
 
