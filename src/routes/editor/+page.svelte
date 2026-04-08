@@ -403,6 +403,7 @@
 
         pdfData = new Uint8Array(result.pdf);
         bblFile = result.bbl;
+        await persistBblToProjectRoot(result.bbl);
         compileStatus.set('success');
         compileLog.set([`[${ts()}] compilation successful (${pdfPageCount} pages)`, ...cleanedLines]);
 
@@ -542,7 +543,7 @@
     binaryMap?: Map<string, ArrayBuffer>
   ): Promise<void> {
     const textExts = new Set([
-      'tex', 'sty', 'cls', 'bib', 'bst', 'def', 'cfg', 'fd',
+      'tex', 'sty', 'cls', 'bib', 'bbl', 'blg', 'bst', 'def', 'cfg', 'fd',
       'dtx', 'ins', 'ltx', 'txt', 'bbx', 'cbx', 'lbx'
     ]);
     const binaryExts = new Set([
@@ -660,6 +661,29 @@
     }
 
     return undefined;
+  }
+
+  async function persistBblToProjectRoot(bbl?: { path: string; content: string }) {
+    if (!bbl?.content) return;
+    const handle = get(projectHandle);
+    if (!handle) return;
+
+    try {
+      const fileName = bbl.path.replace(/^.*[\\/]/, '') || 'main.bbl';
+      const rootFileHandle = await handle.getFileHandle(fileName, { create: true });
+      const writable = await rootFileHandle.createWritable();
+      await writable.write(bbl.content);
+      await writable.close();
+
+      const existing = get(files).find(f => (f.path || f.name) === fileName);
+      if (existing) {
+        updateFileContent(existing.id, bbl.content);
+      } else {
+        openFileTab(fileName, bbl.content, rootFileHandle, fileName);
+      }
+    } catch (e) {
+      console.warn('failed to persist bbl to project root:', e);
+    }
   }
 
   let commands = [
