@@ -2,6 +2,7 @@ import { base } from '$app/paths';
 
 /** BusyTeX WASM 静态资源根路径（由 `pnpm run download-busytex` 下载到 static/busytex/） */
 export const BUSYTEX_BASE_PATH = `${base}/busytex`;
+export type CompileEngine = 'pdflatex' | 'xelatex';
 
 let runnerPromise: Promise<import('texlyre-busytex').BusyTexRunner> | null = null;
 
@@ -77,7 +78,9 @@ export interface BusyTexCompileOutcome {
 export async function compileWithBusyTexBibtex(
   mainFile: string,
   files: Map<string, string>,
-  binaryFiles?: Map<string, ArrayBuffer>
+  binaryFiles?: Map<string, ArrayBuffer>,
+  engine: CompileEngine = 'pdflatex',
+  bibtex = true
 ): Promise<BusyTexCompileOutcome> {
   const mainContent = files.get(mainFile);
   if (mainContent === undefined) {
@@ -105,7 +108,7 @@ export async function compileWithBusyTexBibtex(
     };
   }
 
-  const { PdfLatex } = await import('texlyre-busytex');
+  const { PdfLatex, XeLatex } = await import('texlyre-busytex');
 
   const additionalFiles: import('texlyre-busytex').FileInput[] = [];
   for (const [path, content] of files) {
@@ -119,12 +122,12 @@ export async function compileWithBusyTexBibtex(
     }
   }
 
-  const pdfLatex = new PdfLatex(runner);
+  const compiler = engine === 'xelatex' ? new XeLatex(runner) : new PdfLatex(runner);
   let result: import('texlyre-busytex').CompileResult;
   try {
-    result = await pdfLatex.compile({
+    result = await compiler.compile({
       input: mainContent,
-      bibtex: true,
+      bibtex,
       additionalFiles,
       verbose: 'silent'
     });

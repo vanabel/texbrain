@@ -37,6 +37,7 @@
 - [安全与隐私](#安全与隐私)
 - [技术栈](#技术栈)
 - [本地运行](#本地运行)
+- [PM2 部署](#pm2-部署)
 - [浏览器支持](#浏览器支持)
 - [许可证](#许可证)
 
@@ -134,6 +135,38 @@ pnpm run download-busytex
 ```
 
 若不执行此步，SwiftLaTeX 仍可编译；经典 BibTeX 引用解析则依赖上述资源。`static/busytex/` 默认已加入 `.gitignore` 以控制仓库体积；若线上站点也需要 BusyTeX，请在本地或 CI 中于构建前执行该命令。
+
+## PM2 部署
+
+使用 PM2 托管静态构建，并支持自动重启：
+
+```bash
+pnpm build
+pnpm pm2:start
+```
+
+`serve` 已经在本仓库的 `devDependencies` 里了，所以部署到 NAS 时**不需要**再执行 `pnpm add -D serve ...`。先执行 `pnpm install` 即可。
+
+默认端口是 `4173`（见 `ecosystem.config.cjs`）。按机器/用户自定义端口：
+
+```bash
+PORT=8080 pnpm pm2:restart
+```
+
+常用命令：
+
+```bash
+pnpm pm2:logs
+pnpm pm2:stop
+pnpm pm2:delete
+```
+
+开机自启：
+
+```bash
+pm2 save
+pm2 startup
+```
 
 ---
 

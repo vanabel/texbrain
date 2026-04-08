@@ -37,6 +37,7 @@ I was tired of paying for basics. I wrote a thesis in LaTeX and fought the toolc
 - [Security & privacy](#security--privacy)
 - [Tech stack](#tech-stack)
 - [Running locally](#running-locally)
+- [PM2 deployment](#pm2-deployment)
 - [Browser support](#browser-support)
 - [License](#license)
 
@@ -134,6 +135,38 @@ pnpm run download-busytex
 ```
 
 Without it, SwiftLaTeX still works; classic BibTeX citation resolution needs this step. `static/busytex/` is gitignored—run locally or in CI before deploy if the hosted site should use BusyTeX.
+
+## PM2 deployment
+
+Use PM2 to host the static build with automatic restarts:
+
+```bash
+pnpm build
+pnpm pm2:start
+```
+
+`serve` is already included in this repo (`devDependencies`), so you **do not** need to run `pnpm add -D serve ...` on deployment machines. Just run `pnpm install` first.
+
+Default port is `4173` (from `ecosystem.config.cjs`). To change it per machine/user:
+
+```bash
+PORT=8080 pnpm pm2:restart
+```
+
+Useful commands:
+
+```bash
+pnpm pm2:logs
+pnpm pm2:stop
+pnpm pm2:delete
+```
+
+Enable startup on boot:
+
+```bash
+pm2 save
+pm2 startup
+```
 
 ---
 

@@ -1,6 +1,7 @@
 import { base } from '$app/paths';
 import {
   busytexAssetsAvailable,
+  type CompileEngine,
   compileWithBusyTexBibtex,
   projectNeedsBibtexEngine
 } from './busytex-bibtex';
@@ -209,13 +210,38 @@ export interface CompileResult {
 export async function compileLaTeX(
   mainFile: string,
   files: Map<string, string>,
-  binaryFiles?: Map<string, ArrayBuffer>
+  binaryFiles?: Map<string, ArrayBuffer>,
+  engine: CompileEngine = 'pdflatex'
 ): Promise<CompileResult> {
   const needsBibtexPipeline = projectNeedsBibtexEngine(files);
   let busyTexFallbackNote = '';
 
+  if (engine === 'xelatex') {
+    if (!(await busytexAssetsAvailable())) {
+      return {
+        pdf: undefined,
+        status: 1,
+        log:
+          '[TeXbrain] XeLaTeX requires BusyTeX assets.\n' +
+          'Run: pnpm run download-busytex'
+      };
+    }
+    const busy = await compileWithBusyTexBibtex(
+      mainFile,
+      files,
+      binaryFiles,
+      'xelatex',
+      needsBibtexPipeline
+    );
+    return {
+      pdf: busy.pdf,
+      status: busy.status,
+      log: busy.log
+    };
+  }
+
   if (needsBibtexPipeline && (await busytexAssetsAvailable())) {
-    const busy = await compileWithBusyTexBibtex(mainFile, files, binaryFiles);
+    const busy = await compileWithBusyTexBibtex(mainFile, files, binaryFiles, 'pdflatex', true);
     if (busy.usedBusyTex) {
       return {
         pdf: busy.pdf,

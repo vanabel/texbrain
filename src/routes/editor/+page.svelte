@@ -10,6 +10,7 @@
   import type { EditorView } from '@codemirror/view';
   import type { Snippet as SnippetDef } from '$lib/snippets/index';
   import { compileLaTeX, warmup } from '$lib/compiler/latex-engine';
+  import type { CompileEngine } from '$lib/compiler/busytex-bibtex';
   import { yCollab } from 'y-codemirror.next';
   import { collabActive, collabPanelOpen, collabPeers, collabConnected } from '$lib/collab/store';
   import { createRoom, joinRoom, leaveRoom, getYTextWithUndo, getAwareness, setCurrentFile, getSharedFileList, getSharedEntryPoint, isHost, requestCompile, setCompileStatus, setCompileResult, observeCompileState, readCompileState, collectFilesFromYjs } from '$lib/collab/provider';
@@ -39,6 +40,7 @@
   let pdfViewer: PdfViewer;
   let compiling = false;
   let compileStuckTimer = 0;
+  let compileEngine: CompileEngine = 'pdflatex';
   let pdfPageCount = 1;
   let drawioEditor: DrawioEditor;
 
@@ -367,7 +369,7 @@
       pdfViewer?.setScrollTarget(computeDocumentFraction(), compileContext);
 
       const result = await Promise.race([
-        compileLaTeX(mainFile, projectFiles, binaryFiles),
+        compileLaTeX(mainFile, projectFiles, binaryFiles, compileEngine),
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error('compilation timed out after 180s')), 180_000))
       ]);
 
@@ -871,6 +873,10 @@
   }
 
   onMount(() => {
+    const savedEngine = localStorage.getItem('texbrain.compile.engine');
+    if (savedEngine === 'pdflatex' || savedEngine === 'xelatex') {
+      compileEngine = savedEngine;
+    }
     warmup().catch(() => {});
 
     function onBeforeUnload(e: BeforeUnloadEvent) {
@@ -884,6 +890,10 @@
       window.removeEventListener('beforeunload', onBeforeUnload);
     };
   });
+
+  $: if (browser) {
+    localStorage.setItem('texbrain.compile.engine', compileEngine);
+  }
 </script>
 
 <svelte:head>
@@ -932,6 +942,13 @@
         {/if}
         <span>{compiling ? 'Compiling...' : 'Compile'}</span>
       </button>
+      <label class="engine-picker" title="Compilation engine">
+        <span>Engine</span>
+        <select bind:value={compileEngine} disabled={compiling}>
+          <option value="pdflatex">pdfLaTeX</option>
+          <option value="xelatex">XeLaTeX</option>
+        </select>
+      </label>
       {#if $entryPoint}
         <span class="entry-point-label" title="Entry point for compilation">{$entryPoint}</span>
       {/if}
@@ -1174,6 +1191,16 @@
   .action-btn span { display: none; }
   @media (min-width: 768px) { .action-btn span { display: inline; } }
   .entry-point-label { font-size: 10px; color: var(--text-muted); font-family: var(--font-editor); padding: 1px 5px; background: var(--bg-hover); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .engine-picker { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text-muted); margin-left: 4px; }
+  .engine-picker select {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    font-size: 11px;
+    padding: 2px 6px;
+    height: 24px;
+  }
+  .engine-picker select:disabled { opacity: 0.6; }
   .separator { width: 1px; height: 16px; background: var(--border); margin: 0 3px; }
 
   .toolbar { height: var(--toolbar-h); background: var(--bg-surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 10px; flex-shrink: 0; gap: 6px; }
