@@ -633,15 +633,33 @@
   }
 
   function saveBbl() {
-    if (!bblFile?.content) return;
-    const blob = new Blob([bblFile.content], { type: 'text/plain;charset=utf-8' });
+    const downloadableBbl = getDownloadableBbl();
+    if (!downloadableBbl?.content) return;
+    const blob = new Blob([downloadableBbl.content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    const fileName = bblFile.path.replace(/^.*[\\/]/, '') || 'main.bbl';
+    const fileName = downloadableBbl.path.replace(/^.*[\\/]/, '') || 'main.bbl';
     a.href = url;
     a.download = fileName;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  function getDownloadableBbl(): { path: string; content: string } | undefined {
+    if (bblFile?.content) return bblFile;
+
+    const openTabs = get(files);
+    const fromTabs = openTabs.find(
+      tab => tab.name.toLowerCase().endsWith('.bbl') && !!tab.content
+    );
+    if (fromTabs) {
+      return {
+        path: fromTabs.path || fromTabs.name,
+        content: fromTabs.content
+      };
+    }
+
+    return undefined;
   }
 
   let commands = [
@@ -1103,7 +1121,7 @@
                   <span style="font-size:11px;margin-left:3px">Save PDF</span>
                 </button>
               {/if}
-              {#if bblFile}
+              {#if getDownloadableBbl()}
                 <button class="preview-tab save-pdf" on:click={saveBbl} title="Download BBL">
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M4 7l4 4 4-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12v2h12v-2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
                   <span style="font-size:11px;margin-left:3px">Download BBL</span>
