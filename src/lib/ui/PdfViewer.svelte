@@ -76,7 +76,9 @@ const standardFontDataUrl = standardFontProbeUrl.replace(/[^/]+$/, '');
         cMapUrl,
         cMapPacked: true,
         standardFontDataUrl,
-        useSystemFonts: true
+        // Avoid environment-dependent system font fallback issues on some deployments (e.g. NAS browsers).
+        useSystemFonts: false,
+        disableFontFace: false
       }).promise;
       pdfDoc = doc;
       pageCount = doc.numPages;
