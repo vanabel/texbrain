@@ -4,8 +4,8 @@
   import { browser } from '$app/environment';
   import { get } from 'svelte/store';
   import { sidebarOpen, previewOpen, snippetPickerOpen, commandPaletteOpen, compileStatus, compileLog, compileErrors, previewTab, addToast } from '$lib/stores/app';
-  import { files, activeFile, activeFileId, updateFileContent, projectHandle, entryPoint, openFileTab } from '$lib/project/store';
-  import { handleOpenFile, handleSaveFile, handleSaveFileAs, handleDroppedFiles, handleOpenDirectory, handleNewProject, cloneProject } from '$lib/project/manager';
+  import { files, activeFile, activeFileId, updateFileContent, projectHandle, projectTree, entryPoint, openFileTab } from '$lib/project/store';
+  import { handleOpenFile, handleSaveFile, handleSaveFileAs, handleDroppedFiles, handleOpenDirectory, handleNewProject, cloneProject, refreshProjectTree } from '$lib/project/manager';
   import { insertAtCursor, createEditor, replaceEditorContent } from '$lib/editor/setup';
   import type { EditorView } from '@codemirror/view';
   import type { Snippet as SnippetDef } from '$lib/snippets/index';
@@ -42,7 +42,7 @@
   let pdfViewer: PdfViewer;
   let compiling = false;
   let compileStuckTimer = 0;
-  let compileEngine: CompileEngine = 'pdflatex';
+  let compileEngine: CompileEngine = 'xelatex';
   let compileMainMode: CompileMainMode = 'active-tab';
   let currentCompileTarget = '';
   let pdfPageCount = 1;
@@ -402,8 +402,8 @@
         }
 
         pdfData = new Uint8Array(result.pdf);
-        bblFile = result.bbl;
-        await persistBblToProjectRoot(result.bbl);
+        bblFile = await resolveBblAfterCompile(result.bbl, mainFile);
+        await persistBblToProjectRoot(bblFile);
         compileStatus.set('success');
         compileLog.set([`[${ts()}] compilation successful (${pdfPageCount} pages)`, ...cleanedLines]);
 
@@ -633,8 +633,8 @@
     URL.revokeObjectURL(url);
   }
 
-  function saveBbl() {
-    const downloadableBbl = getDownloadableBbl();
+  async function saveBbl() {
+    const downloadableBbl = await getDownloadableBbl();
     if (!downloadableBbl?.content) return;
     const blob = new Blob([downloadableBbl.content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -646,7 +646,7 @@
     URL.revokeObjectURL(url);
   }
 
-  function getDownloadableBbl(): { path: string; content: string } | undefined {
+  async function getDownloadableBbl(): Promise<{ path: string; content: string } | undefined> {
     if (bblFile?.content) return bblFile;
 
     const openTabs = get(files);
@@ -660,6 +660,64 @@
       };
     }
 
+    const entry = findBblEntry(get(projectTree));
+    const handle = entry?.handle as FileSystemFileHandle | undefined;
+    if (handle) {
+      try {
+        const file = await handle.getFile();
+        const content = await file.text();
+        if (content) return { path: entry!.path, content };
+      } catch {}
+    }
+
+    return undefined;
+  }
+
+  function hasDownloadableBbl(): boolean {
+    if (bblFile?.content) return true;
+    if (get(files).some(tab => tab.name.toLowerCase().endsWith('.bbl') && !!tab.content)) return true;
+    return !!findBblEntry(get(projectTree));
+  }
+
+  function findBblEntry(entries: any[]): any | null {
+    for (const entry of entries) {
+      if (entry.type === 'file' && String(entry.name).toLowerCase().endsWith('.bbl')) return entry;
+      if (entry.type === 'directory' && entry.children?.length) {
+        const found = findBblEntry(entry.children);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  async function resolveBblAfterCompile(
+    compiledBbl: { path: string; content: string } | undefined,
+    mainFile: string
+  ): Promise<{ path: string; content: string } | undefined> {
+    if (compiledBbl?.content) return compiledBbl;
+    const handle = get(projectHandle);
+    if (!handle) return undefined;
+
+    const mainName = mainFile.replace(/^.*[\\/]/, '').replace(/\.tex$/i, '');
+    const candidates = [`${mainName}.bbl`, 'main.bbl'];
+    for (const name of candidates) {
+      try {
+        const fh = await handle.getFileHandle(name);
+        const f = await fh.getFile();
+        const content = await f.text();
+        if (content) return { path: name, content };
+      } catch {}
+    }
+
+    const entry = findBblEntry(get(projectTree));
+    const treeHandle = entry?.handle as FileSystemFileHandle | undefined;
+    if (treeHandle) {
+      try {
+        const f = await treeHandle.getFile();
+        const content = await f.text();
+        if (content) return { path: entry.path, content };
+      } catch {}
+    }
     return undefined;
   }
 
@@ -681,6 +739,7 @@
       } else {
         openFileTab(fileName, bbl.content, rootFileHandle, fileName);
       }
+      await refreshProjectTree();
     } catch (e) {
       console.warn('failed to persist bbl to project root:', e);
     }
@@ -1025,8 +1084,8 @@
       <label class="engine-picker" title="Compilation engine">
         <span>Engine</span>
         <select bind:value={compileEngine} disabled={compiling}>
-          <option value="pdflatex">pdfLaTeX</option>
           <option value="xelatex">XeLaTeX</option>
+          <option value="pdflatex">pdfLaTeX</option>
         </select>
       </label>
       <label class="engine-picker" title="Main file selection mode">
@@ -1145,7 +1204,7 @@
                   <span style="font-size:11px;margin-left:3px">Save PDF</span>
                 </button>
               {/if}
-              {#if getDownloadableBbl()}
+              {#if hasDownloadableBbl()}
                 <button class="preview-tab save-pdf" on:click={saveBbl} title="Download BBL">
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M4 7l4 4 4-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12v2h12v-2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
                   <span style="font-size:11px;margin-left:3px">Download BBL</span>

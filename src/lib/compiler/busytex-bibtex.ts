@@ -85,6 +85,26 @@ function readTextFromUnknown(value: unknown): string | undefined {
   return undefined;
 }
 
+function collectBusyTexArtifacts(result: any): Array<{ path: string; value: unknown }> {
+  const out: Array<{ path: string; value: unknown }> = [];
+  const direct = [result?.outputs, result?.files, result?.artifacts];
+  for (const col of direct) {
+    if (!col) continue;
+    if (Array.isArray(col)) {
+      for (const item of col) {
+        const p = (item as any)?.path || (item as any)?.name;
+        if (!p) continue;
+        out.push({ path: String(p), value: (item as any)?.content ?? (item as any)?.data ?? item });
+      }
+      continue;
+    }
+    if (typeof col === 'object') {
+      for (const [k, v] of Object.entries(col)) out.push({ path: String(k), value: v });
+    }
+  }
+  return out;
+}
+
 function extractBusyTexBbl(result: any): { path: string; content: string } | undefined {
   const path = 'main.bbl';
   const directCandidates = [result?.bbl, result?.outputs?.[path], result?.files?.[path], result?.artifacts?.[path]];
@@ -92,14 +112,46 @@ function extractBusyTexBbl(result: any): { path: string; content: string } | und
     const text = readTextFromUnknown(c);
     if (text) return { path, content: text };
   }
-  const collections = [result?.outputs, result?.files, result?.artifacts];
-  for (const col of collections) {
-    if (!col || typeof col !== 'object') continue;
-    for (const [k, v] of Object.entries(col)) {
-      if (String(k).toLowerCase().endsWith('.bbl')) {
-        const text = readTextFromUnknown(v);
-        if (text) return { path: String(k), content: text };
-      }
+  const artifacts = collectBusyTexArtifacts(result);
+  for (const item of artifacts) {
+    if (!item.path.toLowerCase().endsWith('.bbl')) continue;
+    const text = readTextFromUnknown(item.value);
+    if (text) return { path: item.path, content: text };
+  }
+  return undefined;
+}
+
+async function tryReadBblFromRunner(runner: any): Promise<{ path: string; content: string } | undefined> {
+  const candidates = ['main.bbl', '/main.bbl', './main.bbl', 'texput.bbl', '/texput.bbl'];
+  const dec = new TextDecoder();
+
+  const toText = (v: any): string | undefined => {
+    if (typeof v === 'string') return v;
+    if (v instanceof Uint8Array) return dec.decode(v);
+    if (v instanceof ArrayBuffer) return dec.decode(new Uint8Array(v));
+    return undefined;
+  };
+
+  const tryValue = async (fn: (() => any) | undefined): Promise<string | undefined> => {
+    if (!fn) return undefined;
+    try {
+      const out = await fn();
+      return toText(out);
+    } catch {
+      return undefined;
+    }
+  };
+
+  for (const p of candidates) {
+    const readers: Array<(() => any) | undefined> = [
+      runner?.readFile ? () => runner.readFile(p) : undefined,
+      runner?.fs?.readFile ? () => runner.fs.readFile(p) : undefined,
+      runner?.FS?.readFile ? () => runner.FS.readFile(p, { encoding: 'utf8' }) : undefined,
+      runner?.Module?.FS?.readFile ? () => runner.Module.FS.readFile(p, { encoding: 'utf8' }) : undefined
+    ];
+    for (const read of readers) {
+      const text = await tryValue(read);
+      if (text) return { path: p.replace(/^\.?\//, ''), content: text };
     }
   }
   return undefined;
@@ -178,18 +230,27 @@ export async function compileWithBusyTexBibtex(
   }
 
   const status = result.exitCode;
+  const artifactList = collectBusyTexArtifacts(result as any).map(a => a.path);
+  const resultKeys = result && typeof result === 'object' ? Object.keys(result as any) : [];
+  const artifactNote = artifactList.length
+    ? '\n\n[TeXbrain] BusyTeX artifacts:\n' + [...new Set(artifactList)].sort().join('\n')
+    : '\n\n[TeXbrain] BusyTeX artifacts: (none reported)';
+  const resultShapeNote = '\n\n[TeXbrain] BusyTeX result keys: ' + (resultKeys.length ? resultKeys.join(', ') : '(none)');
   const log =
     (result.log || '') +
     (result.logs?.length
       ? '\n\n--- steps ---\n' +
         result.logs.map(l => `[${l.cmd}] exit ${l.exit_code}\n${l.log || l.stdout || ''}`).join('\n')
-      : '');
+      : '') +
+    artifactNote +
+    resultShapeNote;
 
+  const bbl = extractBusyTexBbl(result as any) || (await tryReadBblFromRunner(runner));
   return {
     pdf: result.pdf,
     status,
     log,
     usedBusyTex: true,
-    bbl: extractBusyTexBbl(result as any)
+    bbl
   };
 }
