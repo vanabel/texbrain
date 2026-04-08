@@ -38,6 +38,7 @@ I was tired of paying for basics. I wrote a thesis in LaTeX and fought the toolc
 - [Tech stack](#tech-stack)
 - [Running locally](#running-locally)
 - [PM2 deployment](#pm2-deployment)
+- [Future roadmap (draft)](ROADMAP.md)
 - [Browser support](#browser-support)
 - [License](#license)
 
