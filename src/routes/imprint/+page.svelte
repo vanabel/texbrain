@@ -32,7 +32,7 @@
 
     <h2>Contact</h2>
     <p>
-      GitHub: <a href="https://github.com/swimmingbrain/texbrain" target="_blank" rel="noopener">swimmingbrain/texbrain</a>
+      GitHub: <a href="https://github.com/vanabel/texbrain" target="_blank" rel="noopener">vanabel/texbrain</a>
     </p>
 
     <h2>Liability for Content</h2>

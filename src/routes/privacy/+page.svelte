@@ -74,7 +74,7 @@
     <h2>Contact</h2>
     <p>
       For questions about this policy, contact us via
-      <a href="https://github.com/swimmingbrain/texbrain" target="_blank" rel="noopener">GitHub</a>.
+      <a href="https://github.com/vanabel/texbrain" target="_blank" rel="noopener">GitHub</a>.
     </p>
   </div>
 

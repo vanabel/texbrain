@@ -125,7 +125,7 @@ Everything runs in your browser unless **you** push to a remote.
 ## Running locally
 
 ```bash
-git clone https://github.com/swimmingbrain/texbrain.git
+git clone https://github.com/vanabel/texbrain.git
 cd texbrain
 pnpm install
 pnpm dev

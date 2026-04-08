@@ -46,7 +46,7 @@
     <p>
       You retain full ownership of all documents and content you create with TeXbrain.
       The TeXbrain software is open source and available under its respective license on
-      <a href="https://github.com/swimmingbrain/texbrain" target="_blank" rel="noopener">GitHub</a>.
+      <a href="https://github.com/vanabel/texbrain" target="_blank" rel="noopener">GitHub</a>.
     </p>
 
     <h2>Disclaimer of Warranties</h2>
@@ -79,7 +79,7 @@
     <h2>Contact</h2>
     <p>
       For questions about these terms, contact us via
-      <a href="https://github.com/swimmingbrain/texbrain" target="_blank" rel="noopener">GitHub</a>.
+      <a href="https://github.com/vanabel/texbrain" target="_blank" rel="noopener">GitHub</a>.
     </p>
   </div>
 
