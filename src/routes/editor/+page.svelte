@@ -10,6 +10,7 @@
   import type { EditorView } from '@codemirror/view';
   import type { Snippet as SnippetDef } from '$lib/snippets/index';
   import { compileLaTeX, warmup } from '$lib/compiler/latex-engine';
+  import { resolveCompileMainFile, type CompileMainMode } from '$lib/compiler/compile-main';
   import type { CompileEngine } from '$lib/compiler/busytex-bibtex';
   import { yCollab } from 'y-codemirror.next';
   import { collabActive, collabPanelOpen, collabPeers, collabConnected } from '$lib/collab/store';
@@ -41,6 +42,8 @@
   let compiling = false;
   let compileStuckTimer = 0;
   let compileEngine: CompileEngine = 'pdflatex';
+  let compileMainMode: CompileMainMode = 'active-tab';
+  let currentCompileTarget = '';
   let pdfPageCount = 1;
   let drawioEditor: DrawioEditor;
 
@@ -326,7 +329,7 @@
       compiling = true;
       compileStuckTimer = Date.now();
       compileStatus.set('compiling');
-      compileLog.set([`[${ts()}] compiling...`]);
+      compileLog.set([`[${ts()}] collecting project...`]);
 
       if (isCollabMode) {
         setCompileStatus('compiling');
@@ -350,7 +353,21 @@
         binaryFiles = collected.binaryFiles;
       }
 
-      const mainFile = get(entryPoint) || af.path || af.name;
+      // Ensure the active tex tab is always present with latest unsaved content.
+      const activePathKey = (af.path || af.name).trim();
+      if (activePathKey.toLowerCase().endsWith('.tex')) {
+        projectFiles.set(activePathKey, af.content);
+      }
+
+      const mainFile = resolveCompileMainFile(
+        compileMainMode,
+        get(entryPoint),
+        af.path,
+        af.name,
+        projectFiles
+      );
+      currentCompileTarget = mainFile;
+      compileLog.set([`[${ts()}] compiling ${mainFile}...`]);
 
       updateIncludeMap(projectFiles, mainFile);
 
@@ -877,6 +894,10 @@
     if (savedEngine === 'pdflatex' || savedEngine === 'xelatex') {
       compileEngine = savedEngine;
     }
+    const savedMainMode = localStorage.getItem('texbrain.compile.mainMode');
+    if (savedMainMode === 'active-tab' || savedMainMode === 'entry-point') {
+      compileMainMode = savedMainMode;
+    }
     warmup().catch(() => {});
 
     function onBeforeUnload(e: BeforeUnloadEvent) {
@@ -893,6 +914,7 @@
 
   $: if (browser) {
     localStorage.setItem('texbrain.compile.engine', compileEngine);
+    localStorage.setItem('texbrain.compile.mainMode', compileMainMode);
   }
 </script>
 
@@ -949,8 +971,23 @@
           <option value="xelatex">XeLaTeX</option>
         </select>
       </label>
+      <label class="engine-picker" title="Main file selection mode">
+        <span>Compile</span>
+        <select bind:value={compileMainMode} disabled={compiling}>
+          <option value="active-tab">Active Tab</option>
+          <option value="entry-point">Entry Point</option>
+        </select>
+      </label>
       {#if $entryPoint}
-        <span class="entry-point-label" title="Entry point for compilation">{$entryPoint}</span>
+        <span
+          class="entry-point-label"
+          title="Project entry file used by Entry Point mode, and as fallback for Active Tab mode."
+        >Entry: {$entryPoint}</span>
+      {/if}
+      {#if currentCompileTarget}
+        <span class="entry-point-label" title="Last resolved compile target">
+          Target: {currentCompileTarget}
+        </span>
       {/if}
       <div class="separator"></div>
       <button class="action-btn" class:git-active={$gitEnabled} on:click={() => gitPanelOpen.update(v => !v)} title="Git (Ctrl+G)" disabled={!$projectHandle}>

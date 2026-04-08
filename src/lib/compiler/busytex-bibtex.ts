@@ -112,12 +112,14 @@ export async function compileWithBusyTexBibtex(
 
   const additionalFiles: import('texlyre-busytex').FileInput[] = [];
   for (const [path, content] of files) {
-    if (path === mainFile) continue;
+    // BusyTeX compiles the provided `input` as virtual `main.tex`.
+    // Never allow project files to overwrite this reserved entry.
+    if (path === mainFile || path === 'main.tex') continue;
     additionalFiles.push({ path, content });
   }
   if (binaryFiles) {
     for (const [path, buf] of binaryFiles) {
-      if (path === mainFile || files.has(path)) continue;
+      if (path === mainFile || path === 'main.tex' || files.has(path)) continue;
       additionalFiles.push({ path, content: new Uint8Array(buf) });
     }
   }

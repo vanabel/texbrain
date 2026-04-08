@@ -3,8 +3,12 @@
   import * as pdfjsLib from 'pdfjs-dist';
   import 'pdfjs-dist/web/pdf_viewer.css';
   import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import cMapProbeUrl from 'pdfjs-dist/cmaps/Adobe-GB1-UCS2.bcmap?url';
+import standardFontProbeUrl from 'pdfjs-dist/standard_fonts/FoxitSerif.pfb?url';
 
   pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+const cMapUrl = cMapProbeUrl.replace(/[^/]+$/, '');
+const standardFontDataUrl = standardFontProbeUrl.replace(/[^/]+$/, '');
 
   export let pdfData: Uint8Array | undefined = undefined;
 
@@ -67,7 +71,13 @@
       pendingFraction = -1;
       pendingSourceText = '';
 
-      const doc = await pdfjsLib.getDocument({ data: data.slice() }).promise;
+      const doc = await pdfjsLib.getDocument({
+        data: data.slice(),
+        cMapUrl,
+        cMapPacked: true,
+        standardFontDataUrl,
+        useSystemFonts: true
+      }).promise;
       pdfDoc = doc;
       pageCount = doc.numPages;
 

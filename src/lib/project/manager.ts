@@ -98,7 +98,9 @@ export async function cloneProject(url: string, name: string): Promise<void> {
       await handleOpenFileFromTree(entry.handle, entry.path);
     }
   } else if (texPaths.length > 1) {
-    pendingTexFiles.set(texPaths);
+    // Do not block project opening with a modal.
+    // Keep a fallback entry point; actual compile target is resolved from active tab.
+    entryPoint.set(texPaths[0]);
   }
 
   addToast(`Cloned: ${name}`, 'success', 2000);
@@ -145,7 +147,9 @@ export async function handleOpenDirectory() {
           await handleOpenFileFromTree(entry.handle, entry.path);
         }
       } else if (texPaths.length > 1) {
-        pendingTexFiles.set(texPaths);
+        // Do not block project opening with a modal.
+        // Keep a fallback entry point; actual compile target is resolved from active tab.
+        entryPoint.set(texPaths[0]);
       }
     }
   } catch (e: any) {

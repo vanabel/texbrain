@@ -77,6 +77,12 @@ Open a folder, edit, preview PDF, commit, push to GitHub—**from one tab**.
 
 2. **[BusyTeX](https://github.com/TeXlyre/texlyre-busytex)** ([`texlyre-busytex`](https://www.npmjs.com/package/texlyre-busytex)) — when BibTeX is required **and** `static/busytex/` is present. PdfLaTeX + bibtex8 pipeline. NPM ships only the JS API; large WASM assets are downloaded separately (upstream design).
 
+**Compile target mode (top bar `Compile`).**
+
+- `Active Tab`: compile the currently focused `.tex` tab first, then fallback to entry point.
+- `Entry Point`: always compile the project entry file (`Entry: ...`).
+- The last resolved target is shown as `Target: ...` in the top bar.
+
 **Git.** [isomorphic-git](https://isomorphic-git.org/) + [LightningFS](https://github.com/isomorphic-git/lightning-fs) / IndexedDB. Remotes use a CORS proxy (browsers cannot speak git natively).
 
 **PDF.** [pdf.js](https://mozilla.github.io/pdf.js/).
