@@ -128,6 +128,7 @@ Everything runs in your browser unless **you** push to a remote.
 git clone https://github.com/vanabel/texbrain.git
 cd texbrain
 pnpm install
+pnpm exec svelte-kit sync
 pnpm dev
 ```
 
