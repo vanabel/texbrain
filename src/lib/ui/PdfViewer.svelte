@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { tick } from 'svelte';
-  import * as pdfjsLib from 'pdfjs-dist';
+  import { onDestroy, tick } from 'svelte';
+  import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
   import 'pdfjs-dist/web/pdf_viewer.css';
-  import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+  import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.mjs?url';
 import cMapProbeUrl from 'pdfjs-dist/cmaps/Adobe-GB1-UCS2.bcmap?url';
 import standardFontProbeUrl from 'pdfjs-dist/standard_fonts/FoxitSerif.pfb?url';
 
@@ -11,6 +11,10 @@ const cMapUrl = cMapProbeUrl.replace(/[^/]+$/, '');
 const standardFontDataUrl = standardFontProbeUrl.replace(/[^/]+$/, '');
 
   export let pdfData: Uint8Array | undefined = undefined;
+  // In production static hosting (pm2 serve), some environments hit pdf.js font parsing bugs.
+  // Use the browser's native PDF viewer there as a reliable fallback.
+  const useNativeViewer = import.meta.env.PROD;
+  let nativePdfUrl = '';
 
   let container: HTMLDivElement;
   let pageCount = 1;
@@ -57,9 +61,23 @@ const standardFontDataUrl = standardFontProbeUrl.replace(/[^/]+$/, '');
     };
   }
 
-  $: if (pdfData) {
+  $: if (pdfData && !useNativeViewer) {
     handleNewPdf(pdfData);
   }
+
+  $: if (pdfData && useNativeViewer) {
+    if (nativePdfUrl) URL.revokeObjectURL(nativePdfUrl);
+    nativePdfUrl = URL.createObjectURL(new Blob([new Uint8Array(pdfData)], { type: 'application/pdf' }));
+  }
+
+  $: if (!pdfData && nativePdfUrl) {
+    URL.revokeObjectURL(nativePdfUrl);
+    nativePdfUrl = '';
+  }
+
+  onDestroy(() => {
+    if (nativePdfUrl) URL.revokeObjectURL(nativePdfUrl);
+  });
 
   async function handleNewPdf(data: Uint8Array) {
     if (rendering) return;
@@ -76,9 +94,10 @@ const standardFontDataUrl = standardFontProbeUrl.replace(/[^/]+$/, '');
         cMapUrl,
         cMapPacked: true,
         standardFontDataUrl,
-        // Avoid environment-dependent system font fallback issues on some deployments (e.g. NAS browsers).
+        // NAS/browser combos can hit pdf.js font parsing issues in translateFont.
+        // Force the non-FontFace renderer path for better compatibility.
         useSystemFonts: false,
-        disableFontFace: false
+        disableFontFace: true
       }).promise;
       pdfDoc = doc;
       pageCount = doc.numPages;
@@ -295,8 +314,16 @@ const standardFontDataUrl = standardFontProbeUrl.replace(/[^/]+$/, '');
 
 <div class="pdf-wrap">
   {#if pdfData}
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div bind:this={container} class="pdf-container" on:wheel={handleWheel}></div>
+    {#if useNativeViewer}
+      <iframe
+        class="pdf-native"
+        src={nativePdfUrl}
+        title="PDF Preview"
+      ></iframe>
+    {:else}
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div bind:this={container} class="pdf-container" on:wheel={handleWheel}></div>
+    {/if}
   {:else}
     <div class="pdf-empty">
       <p>Press <kbd>Ctrl+Enter</kbd> or click <strong>Compile</strong> to build your document</p>
@@ -321,6 +348,13 @@ const standardFontDataUrl = standardFontProbeUrl.replace(/[^/]+$/, '');
     padding: 12px;
     background: #3a3a3e;
     position: relative;
+  }
+
+  .pdf-native {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #3a3a3e;
   }
 
   .pdf-empty {
