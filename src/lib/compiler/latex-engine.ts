@@ -205,6 +205,26 @@ export interface CompileResult {
   pdf: Uint8Array | undefined;
   status: number;
   log: string;
+  bbl?: { path: string; content: string };
+}
+
+function tryReadMemFSText(eng: any, path: string): string | undefined {
+  const readers = [
+    () => eng.readMemFSFile?.(path),
+    () => eng.readFile?.(path),
+    () => eng.FS?.readFile?.(path, { encoding: 'utf8' }),
+    () => eng.Module?.FS?.readFile?.(path, { encoding: 'utf8' })
+  ];
+  for (const read of readers) {
+    try {
+      const val = read();
+      if (typeof val === 'string') return val;
+      if (val instanceof Uint8Array) return new TextDecoder().decode(val);
+    } catch {
+      // ignore and try next reader
+    }
+  }
+  return undefined;
 }
 
 export async function compileLaTeX(
@@ -236,7 +256,8 @@ export async function compileLaTeX(
     return {
       pdf: busy.pdf,
       status: busy.status,
-      log: busy.log
+      log: busy.log,
+      bbl: busy.bbl
     };
   }
 
@@ -246,7 +267,8 @@ export async function compileLaTeX(
       return {
         pdf: busy.pdf,
         status: busy.status,
-        log: busy.log
+        log: busy.log,
+        bbl: busy.bbl
       };
     }
     busyTexFallbackNote =
@@ -300,9 +322,13 @@ export async function compileLaTeX(
       '[TeXbrain] For full BibTeX support, run: pnpm run download-busytex\n\n' + log;
   }
 
+  const bblPath = mainFile.replace(/\.tex$/i, '.bbl');
+  const bblContent = tryReadMemFSText(eng, bblPath);
+
   return {
     pdf: result.pdf,
     status: result.status,
-    log
+    log,
+    bbl: bblContent ? { path: bblPath, content: bblContent } : undefined
   };
 }

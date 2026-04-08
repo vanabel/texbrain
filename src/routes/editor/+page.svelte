@@ -38,6 +38,7 @@
 
   let editorView: EditorView | null = null;
   let pdfData: Uint8Array | undefined = undefined;
+  let bblFile: { path: string; content: string } | undefined = undefined;
   let pdfViewer: PdfViewer;
   let compiling = false;
   let compileStuckTimer = 0;
@@ -401,6 +402,7 @@
         }
 
         pdfData = new Uint8Array(result.pdf);
+        bblFile = result.bbl;
         compileStatus.set('success');
         compileLog.set([`[${ts()}] compilation successful (${pdfPageCount} pages)`, ...cleanedLines]);
 
@@ -412,6 +414,7 @@
           setCompileResult({ status: 'success', pdf: pdfData, log: cleanedLines, errors: parsedErrors, pageCount: pdfPageCount });
         }
       } else {
+        bblFile = undefined;
         compileStatus.set('error');
         compileLog.set([`[${ts()}] compilation failed (status ${result.status})`, ...cleanedLines]);
         previewTab.set('errors');
@@ -421,6 +424,7 @@
         }
       }
     } catch (err: any) {
+      bblFile = undefined;
       compileStatus.set('error');
       compileLog.update(log => [...log, `[error] ${err.message || String(err)}`]);
 
@@ -624,6 +628,18 @@
     const baseName = ep ? ep.replace(/^.*[\\/]/, '').replace(/\.tex$/, '') : 'document';
     a.href = url;
     a.download = baseName + '.pdf';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function saveBbl() {
+    if (!bblFile?.content) return;
+    const blob = new Blob([bblFile.content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const fileName = bblFile.path.replace(/^.*[\\/]/, '') || 'main.bbl';
+    a.href = url;
+    a.download = fileName;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -1085,6 +1101,12 @@
                 <button class="preview-tab save-pdf" on:click={savePdf} title="Save PDF">
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M4 7l4 4 4-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12v2h12v-2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
                   <span style="font-size:11px;margin-left:3px">Save PDF</span>
+                </button>
+              {/if}
+              {#if bblFile}
+                <button class="preview-tab save-pdf" on:click={saveBbl} title="Download BBL">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M4 7l4 4 4-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12v2h12v-2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  <span style="font-size:11px;margin-left:3px">Download BBL</span>
                 </button>
               {/if}
             </div>

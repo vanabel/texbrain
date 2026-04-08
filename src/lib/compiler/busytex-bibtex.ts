@@ -69,6 +69,40 @@ export interface BusyTexCompileOutcome {
   status: number;
   log: string;
   usedBusyTex: boolean;
+  bbl?: { path: string; content: string };
+}
+
+function readTextFromUnknown(value: unknown): string | undefined {
+  if (typeof value === 'string') return value;
+  if (value instanceof Uint8Array) return new TextDecoder().decode(value);
+  if (value && typeof value === 'object') {
+    const v = value as any;
+    if (typeof v.content === 'string') return v.content;
+    if (v.content instanceof Uint8Array) return new TextDecoder().decode(v.content);
+    if (typeof v.data === 'string') return v.data;
+    if (v.data instanceof Uint8Array) return new TextDecoder().decode(v.data);
+  }
+  return undefined;
+}
+
+function extractBusyTexBbl(result: any): { path: string; content: string } | undefined {
+  const path = 'main.bbl';
+  const directCandidates = [result?.bbl, result?.outputs?.[path], result?.files?.[path], result?.artifacts?.[path]];
+  for (const c of directCandidates) {
+    const text = readTextFromUnknown(c);
+    if (text) return { path, content: text };
+  }
+  const collections = [result?.outputs, result?.files, result?.artifacts];
+  for (const col of collections) {
+    if (!col || typeof col !== 'object') continue;
+    for (const [k, v] of Object.entries(col)) {
+      if (String(k).toLowerCase().endsWith('.bbl')) {
+        const text = readTextFromUnknown(v);
+        if (text) return { path: String(k), content: text };
+      }
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -155,6 +189,7 @@ export async function compileWithBusyTexBibtex(
     pdf: result.pdf,
     status,
     log,
-    usedBusyTex: true
+    usedBusyTex: true,
+    bbl: extractBusyTexBbl(result as any)
   };
 }
