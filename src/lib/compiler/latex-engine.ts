@@ -1,4 +1,9 @@
 import { base } from '$app/paths';
+import {
+  busytexAssetsAvailable,
+  compileWithBusyTexBibtex,
+  projectNeedsBibtexEngine
+} from './busytex-bibtex';
 import { patchBiblatexFiles } from './bibliography';
 
 let engine: any = null;
@@ -206,6 +211,23 @@ export async function compileLaTeX(
   files: Map<string, string>,
   binaryFiles?: Map<string, ArrayBuffer>
 ): Promise<CompileResult> {
+  const needsBibtexPipeline = projectNeedsBibtexEngine(files);
+  let busyTexFallbackNote = '';
+
+  if (needsBibtexPipeline && (await busytexAssetsAvailable())) {
+    const busy = await compileWithBusyTexBibtex(mainFile, files, binaryFiles);
+    if (busy.usedBusyTex) {
+      return {
+        pdf: busy.pdf,
+        status: busy.status,
+        log: busy.log
+      };
+    }
+    busyTexFallbackNote =
+      busy.log +
+      '\n\n[TeXbrain] Falling back to SwiftLaTeX (pdfTeX only; BibTeX not run).\n\n';
+  }
+
   const eng = await getEngine();
   await preloadTexliveCache(eng);
 
@@ -240,15 +262,21 @@ export async function compileLaTeX(
     return {
       pdf: firstPass.pdf,
       status: firstPass.status,
-      log: firstPass.log
+      log: busyTexFallbackNote + firstPass.log
     };
   }
 
   const result = await eng.compileLaTeX();
 
+  let log = busyTexFallbackNote + result.log;
+  if (needsBibtexPipeline && !busyTexFallbackNote) {
+    log =
+      '[TeXbrain] For full BibTeX support, run: pnpm run download-busytex\n\n' + log;
+  }
+
   return {
     pdf: result.pdf,
     status: result.status,
-    log: result.log
+    log
   };
 }

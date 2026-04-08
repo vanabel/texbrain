@@ -7,3 +7,5 @@ build/
 *.local
 *.log
 *.tgz
+# BusyTeX WASM (~175MB); generate with: pnpm run download-busytex
+static/busytex/

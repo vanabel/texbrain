@@ -1,81 +1,118 @@
+<p align="right"><strong>English</strong> · <a href="README.zh-CN.md">中文</a></p>
+
 <p align="center">
-  <img src="static/texbrain-logo-readme.svg" alt="texbrain logo" width="80" />
+  <img src="static/texbrain-logo-readme.svg" alt="TeXbrain" width="88" />
 </p>
 
 <h1 align="center">TeXbrain</h1>
 
 <p align="center">
-  A free, open-source LaTeX editor that runs entirely in your browser.<br/>
-  No accounts. No installs. No servers. Just open a tab and write.
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-5c6bc0?style=flat-square" alt="License" /></a>
+  <a href="https://kit.svelte.dev/"><img src="https://img.shields.io/badge/SvelteKit-5-ff3e00?style=flat-square&logo=svelte&logoColor=white" alt="SvelteKit" /></a>
+  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5-3178c6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" /></a>
 </p>
 
 <p align="center">
-  <a href="https://tex.swimmingbrain.dev"><strong>Try it now &rarr; tex.swimmingbrain.dev</strong></a>
+  <strong>Browser-only LaTeX → PDF.</strong><br />
+  No account. No install. No backend—just a tab.
 </p>
 
-I built this because I was tired of paying for features that should be free. I wrote my thesis last year in LaTeX and spent more time fighting tooling than actually writing. Online solutions lock git sync behind a paywall. Local setups break between machines. I wanted something that just works. Open a browser, write LaTeX, get a PDF.
+<p align="center">
+  <a href="https://tex.swimmingbrain.dev"><strong>Open the app → tex.swimmingbrain.dev</strong></a>
+</p>
 
-So I built it.
+---
+
+### Why it exists
+
+I was tired of paying for basics. I wrote a thesis in LaTeX and fought the toolchain more than the content. Cloud editors paywall git; local setups diverge across machines. I wanted: open browser, write LaTeX, get a PDF. So I built this.
+
+---
+
+## Contents
+
+- [What it does](#what-it-does)
+- [Features](#features)
+- [How it works](#how-it-works)
+- [Security & privacy](#security--privacy)
+- [Tech stack](#tech-stack)
+- [Running locally](#running-locally)
+- [Browser support](#browser-support)
+- [License](#license)
+
+---
 
 ## What it does
 
-texbrain is a full LaTeX editor that compiles your `.tex` files to PDF directly in the browser. There is no backend. No server processing your files. Everything (the editor, the compiler, the git client) runs client-side.
+TeXbrain is a full editor: your `.tex` files compile to **PDF in the browser**. There is no server processing your sources—the editor, compilers, and git client all run **client-side**.
 
-You can open a local project folder, edit your files, see the PDF update, commit your changes, and push to GitHub. All from one tab.
+Open a folder, edit, preview PDF, commit, push to GitHub—**from one tab**.
+
+---
 
 ## Features
 
-- **LaTeX compilation in the browser.** Uses a WebAssembly port of pdfTeX (SwiftLaTeX). Your `.tex` files are compiled to PDF without ever leaving your machine. The first compilation takes up to a minute because the TexLive package cache needs to be loaded. After that, recompilations take 1 to 5 seconds depending on project complexity.
-- **Live PDF preview.** Rendered with pdf.js. Multi-page, zoomable, with text selection.
-- **Full git integration.** Clone repos, create branches, stage files, commit, push, pull, merge. All powered by isomorphic-git running in the browser. No CLI needed.
-- **Local file system access.** Uses the File System Access API to read and write directly to your project folder on disk (Chrome/Edge).
-- **Multi-file projects.** File tree, tabs, drag-and-drop. Supports `.tex`, `.bib`, `.sty`, `.cls` and more.
-- **CodeMirror 6 editor.** Syntax highlighting, autocomplete for 70+ LaTeX commands, bracket matching, code folding, snippets, dark/light theme.
-- **Command palette.** Quick access to actions via keyboard shortcut.
-- **Snippet picker.** Math environments, document structures, Greek letters, common commands. Searchable and categorized.
-- **Works offline.** Once loaded, the app works without an internet connection. Compilation is local, editing is local.
-- **Project templates.** Start from scratch or pick a template (article, thesis, beamer, report, CV, letter, minimal).
+| | |
+| --- | --- |
+| **Compile in-browser** | WebAssembly TeX. Default: [SwiftLaTeX](https://github.com/SwiftLaTeX/SwiftLaTeX) pdfTeX. Optional [BusyTeX](https://github.com/TeXlyre/texlyre-busytex) (`texlyre-busytex`) for real **BibTeX** when your project uses classic `\bibliography` / `\bibliographystyle` or biblatex with `backend=bibtex`. First SwiftLaTeX run can take ~1 min (TexLive cache); later runs are usually seconds. |
+| **PDF preview** | [pdf.js](https://mozilla.github.io/pdf.js/)—multi-page, zoom, text selection. |
+| **Git** | Clone, branch, stage, commit, push, pull, merge via [isomorphic-git](https://isomorphic-git.org/)—no CLI. |
+| **Local files** | [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API) on Chromium—read/write your disk folder. |
+| **Projects** | Tree, tabs, drag-and-drop; `.tex`, `.bib`, `.sty`, `.cls`, and more. |
+| **Editor** | CodeMirror 6—highlighting, 70+ command completions, folding, snippets, themes. |
+| **Palette & snippets** | Command palette; searchable math/env snippets. |
+| **Offline** | After load, editing and compilation work without the network. |
+| **Templates** | Article, thesis, beamer, report, CV, letter, minimal. |
 
-## How it works under the hood
+---
 
-There's no magic and no backend.
+## How it works
 
-**Editor.** Built on [CodeMirror 6](https://codemirror.net/) with a custom LaTeX grammar (Lezer parser), autocomplete provider, and theme system. The editor supports multiple open files via tabs and syncs content with both the local filesystem and the in-memory git working tree.
+**Editor.** [CodeMirror 6](https://codemirror.net/) + custom LaTeX grammar (Lezer), autocomplete, themes. Tabs sync with the local folder and the in-memory git tree.
 
-**Compiler.** LaTeX compilation uses [SwiftLaTeX](https://github.com/SwiftLaTeX/SwiftLaTeX)'s pdfTeX engine compiled to WebAssembly. The engine runs in a memory filesystem (MEMFS), where your project files are written before each compilation. A TexLive package cache is loaded from static assets on first compile. The preprocessor strips unsupported packages and converts certain environments so the WASM engine can handle them.
+**Compiler—two backends, auto-selected:**
 
-**Git.** All git operations use [isomorphic-git](https://isomorphic-git.org/), a pure JavaScript implementation of git. The repository lives in an in-memory filesystem ([LightningFS](https://github.com/isomorphic-git/lightning-fs)) backed by IndexedDB. Your project files are synced between the local filesystem and the git working tree. Remote operations (push/pull/clone) go through a CORS proxy since browsers can't speak the git protocol directly.
+1. **[SwiftLaTeX](https://github.com/SwiftLaTeX/SwiftLaTeX)** pdfTeX (WASM) — default. MEMFS for project files; TexLive cache from static assets on first compile; preprocessor for unsupported bits. Biblatex + **Biber** (typical default) stays here with a small bibliography workaround.
 
-**PDF viewer.** Rendered with [pdf.js](https://mozilla.github.io/pdf.js/), Mozilla's PDF rendering library. Supports multi-page rendering with a text layer for selection and search.
+2. **[BusyTeX](https://github.com/TeXlyre/texlyre-busytex)** ([`texlyre-busytex`](https://www.npmjs.com/package/texlyre-busytex)) — when BibTeX is required **and** `static/busytex/` is present. PdfLaTeX + bibtex8 pipeline. NPM ships only the JS API; large WASM assets are downloaded separately (upstream design).
 
-**File system.** The app uses the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API) to read/write your actual files on disk. This requires a Chromium-based browser (Chrome, Edge, Arc, Brave). For other browsers, there's a fallback using the Origin Private File System (OPFS).
+**Git.** [isomorphic-git](https://isomorphic-git.org/) + [LightningFS](https://github.com/isomorphic-git/lightning-fs) / IndexedDB. Remotes use a CORS proxy (browsers cannot speak git natively).
 
-**Frontend.** [SvelteKit](https://kit.svelte.dev/) with the static adapter. The entire app is pre-built to static HTML/CSS/JS and deployed to GitHub Pages. No SSR, no API routes, no server. [Tailwind CSS](https://tailwindcss.com/) handles styling.
+**PDF.** [pdf.js](https://mozilla.github.io/pdf.js/).
 
-## Security and privacy
+**Filesystem.** File System Access API on Chromium; **OPFS** fallback elsewhere.
 
-Everything runs in your browser. Your files never leave your machine unless you explicitly push to a remote.
+**App shell.** [SvelteKit](https://kit.svelte.dev/) static adapter + [Tailwind CSS 4](https://tailwindcss.com/)—static deploy (e.g. GitHub Pages), no SSR API.
 
-- **No telemetry, no analytics, no tracking.**
-- **No accounts, no cookies, no data collection.**
-- Git authentication tokens are stored in your browser's localStorage. They never touch a server I control.
-- LaTeX compilation happens in a WebAssembly sandbox. There are no shell commands being executed. No `pdflatex`, no `exec()`, no `spawn()`.
-- Git operations use a JavaScript library, not CLI commands. No command injection is possible.
-- The CORS proxy for git remotes is a known trade-off. By default it uses `cors.isomorphic-git.org` (the isomorphic-git project's public proxy). You can point it at your own if you prefer.
-- LaTeX and TeX are free and open-source software. This project uses them. It doesn't redistribute or modify their source.
+---
+
+## Security & privacy
+
+Everything runs in your browser unless **you** push to a remote.
+
+- No telemetry, analytics, or tracking  
+- No accounts or cookies  
+- Git tokens: `localStorage` only—never a server we control  
+- LaTeX in WASM—no shell `pdflatex`, no `exec` / `spawn`  
+- Git is a JS library—no shell injection  
+- Default git CORS proxy: `cors.isomorphic-git.org` (replaceable)  
+- TeX/LaTeX are FOSS; this repo does not redistribute TeX sources  
+
+---
 
 ## Tech stack
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | Svelte 5 + SvelteKit (static adapter) |
-| Editor | CodeMirror 6 + custom LaTeX language support |
-| Compiler | pdfTeX via WebAssembly (SwiftLaTeX) |
+| Layer | Stack |
+| --- | --- |
+| UI | Svelte 5 + SvelteKit (static) |
+| Editor | CodeMirror 6 + LaTeX tooling |
+| Compile | SwiftLaTeX WASM; optional BusyTeX for BibTeX |
 | Git | isomorphic-git + LightningFS |
 | PDF | pdf.js |
-| Styling | Tailwind CSS 4 |
-| Language | TypeScript |
-| Deployment | GitHub Pages |
+| Style | Tailwind CSS 4 |
+| Lang | TypeScript |
+
+---
 
 ## Running locally
 
@@ -86,14 +123,28 @@ pnpm install
 pnpm dev
 ```
 
-Open `http://localhost:5173` in Chrome or Edge.
+Open **http://localhost:5173** in Chrome or Edge.
+
+### Optional: BusyTeX assets (BibTeX)
+
+`pnpm install` adds the **npm package** only. The **~175 MB** WASM / TeX Live bundle is **not** in the tarball—it is downloaded from [texlyre-busytex releases](https://github.com/TeXlyre/texlyre-busytex) into `static/busytex/`:
+
+```bash
+pnpm run download-busytex
+```
+
+Without it, SwiftLaTeX still works; classic BibTeX citation resolution needs this step. `static/busytex/` is gitignored—run locally or in CI before deploy if the hosted site should use BusyTeX.
+
+---
 
 ## Browser support
 
-Full functionality requires the File System Access API, which is available in Chromium-based browsers (Chrome, Edge, Arc, Brave, Opera). Firefox and Safari can still use the editor with the virtual filesystem fallback, but won't be able to read/write directly to local folders.
+Full folder read/write needs the **File System Access API** (Chrome, Edge, Arc, Brave, Opera). Firefox and Safari can use the editor with a virtual FS fallback but not direct folder pickers.
+
+---
 
 ## License
 
-MIT
+[MIT](LICENSE)
 
 Built by [Braian Plaku](https://swimmingbrain.dev)
