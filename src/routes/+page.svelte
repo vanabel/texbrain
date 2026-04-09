@@ -2,17 +2,22 @@
   import { base } from '$app/paths';
   import { siteUrl } from '$lib/site';
   import Logo from '$lib/ui/Logo.svelte';
+  import LanguageSwitch from '$lib/ui/LanguageSwitch.svelte';
+  import { locale } from '$lib/i18n/locale';
+  import { landingCopy } from '$lib/i18n/landing';
+
+  $: L = landingCopy[$locale];
 </script>
 
 <svelte:head>
-  <title>TeXbrain | LaTeX Editor in Your Browser</title>
-  <meta name="description" content="Write and compile LaTeX to PDF entirely in your browser. No sign-up, no installs, no server. Local files, live preview, built-in git, and real-time collaboration." />
+  <title>{L.metaTitle}</title>
+  <meta name="description" content={L.metaDescription} />
   <link rel="canonical" href={siteUrl('/')} />
-  <meta property="og:title" content="TeXbrain | LaTeX Editor in Your Browser" />
-  <meta property="og:description" content="Write and compile LaTeX to PDF entirely in your browser. No sign-up, no installs, no server." />
+  <meta property="og:title" content={L.ogTitle} />
+  <meta property="og:description" content={L.ogDescription} />
   <meta property="og:url" content={siteUrl('/')} />
-  <meta name="twitter:title" content="TeXbrain | LaTeX Editor in Your Browser" />
-  <meta name="twitter:description" content="Write and compile LaTeX to PDF entirely in your browser. No sign-up, no installs, no server." />
+  <meta name="twitter:title" content={L.twitterTitle} />
+  <meta name="twitter:description" content={L.twitterDescription} />
   {@html `<script type="application/ld+json">${JSON.stringify({
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
@@ -20,11 +25,12 @@
     "url": "${siteUrl('/')}",
     "applicationCategory": "Productivity",
     "operatingSystem": "Web",
+    "inLanguage": $locale === 'zh' ? 'zh-CN' : 'en',
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-    "description": "Online LaTeX editor that compiles to PDF entirely in your browser. No accounts, no installs, no servers.",
+    "description": L.jsonLdDescription,
     "author": { "@type": "Person", "name": "Braian Plaku", "url": "https://swimmingbrain.dev" },
     "license": "https://opensource.org/licenses/MIT",
-    "featureList": ["Browser-based LaTeX compilation", "Live PDF preview", "Built-in git integration", "Real-time collaboration", "Works offline", "Local file system access"]
+    "featureList": L.jsonLdFeatureList
   })}</script>`}
 </svelte:head>
 
@@ -36,10 +42,11 @@
         <span class="logo-name">TeXbrain</span>
       </a>
       <div class="nav-actions">
+        <LanguageSwitch />
         <a href="https://github.com/vanabel/texbrain" target="_blank" rel="noopener" class="github-link" title="GitHub">
           <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
         </a>
-        <a href="{base}/editor" class="nav-cta">Open Editor</a>
+        <a href="{base}/editor" class="nav-cta">{L.navOpenEditor}</a>
       </div>
     </div>
   </nav>
@@ -48,25 +55,22 @@
     <div class="split">
       <div class="left">
         <h1 class="hero-title">
-          Write LaTeX<br />
-          <span class="hero-accent">without the baggage.</span>
+          {L.heroLine1}<br />
+          <span class="hero-accent">{L.heroAccent}</span>
         </h1>
         <p class="hero-desc">
-          A LaTeX editor that compiles to PDF entirely in your browser.
-          No accounts, no installs, no servers.
+          {L.heroDesc}
         </p>
         <a href="{base}/editor" class="hero-cta">
-          Open Editor
+          {L.heroCta}
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </a>
         <div class="feature-pills">
-          <span class="pill">local files</span>
-          <span class="pill">live preview</span>
-          <span class="pill">collaboration</span>
-          <span class="pill">built-in git</span>
-          <span class="pill">works offline</span>
+          {#each L.pills as pill}
+            <span class="pill">{pill}</span>
+          {/each}
         </div>
       </div>
 
@@ -78,9 +82,9 @@
               <span class="dot"></span>
               <span class="dot"></span>
             </div>
-            <span class="demo-filename">article.tex</span>
+            <span class="demo-filename">{L.demoFilename}</span>
             <div style="flex:1"></div>
-            <span class="demo-label">preview</span>
+            <span class="demo-label">{L.demoPreviewLabel}</span>
           </div>
           <div class="demo-content">
             <div class="demo-editor">
@@ -91,23 +95,23 @@
               </div>
               <code>
                 <span class="c-cmd">\documentclass</span><span class="c-brace">{'{'}article{'}'}</span>{'\n\n'}
-                <span class="c-cmd">\title</span><span class="c-brace">{'{'}My First Document{'}'}</span>{'\n'}
-                <span class="c-cmd">\author</span><span class="c-brace">{'{'}Braian Plaku{'}'}</span>{'\n'}
+                <span class="c-cmd">\title</span><span class="c-brace">{'{'}{L.demoTexTitle}{'}'}</span>{'\n'}
+                <span class="c-cmd">\author</span><span class="c-brace">{'{'}{L.demoTexAuthor}{'}'}</span>{'\n'}
                 <span class="c-cmd">\date</span><span class="c-brace">{'{'}</span><span class="c-cmd">\today</span><span class="c-brace">{'}'}</span>{'\n\n'}
                 <span class="c-env">\begin</span><span class="c-brace">{'{'}document{'}'}</span>{'\n'}
                 <span class="c-cmd">\maketitle</span>{'\n\n'}
-                <span class="c-cmd">\section</span><span class="c-brace">{'{'}Introduction{'}'}</span>{'\n'}
-                Hello, world! This is <span class="c-math">$E = mc^2$</span>.{'\n\n'}
+                <span class="c-cmd">\section</span><span class="c-brace">{'{'}{L.demoTexSection}{'}'}</span>{'\n'}
+                {L.demoTexHello}<span class="c-math">$E = mc^2$</span>{$locale === 'zh' ? '。' : '.'}{'\n\n'}
                 <span class="c-env">\end</span><span class="c-brace">{'{'}document{'}'}</span>
               </code>
             </div>
             <div class="demo-divider"></div>
             <div class="demo-preview">
               <div class="preview-paper">
-                <h2 style="text-align:center;margin-bottom:3px;font-size:14px;font-weight:600;">My First Document</h2>
-                <p style="text-align:center;color:#666;font-size:9px;margin-bottom:12px;">Braian Plaku</p>
-                <p style="font-weight:600;margin-bottom:4px;font-size:12px;">1 Introduction</p>
-                <p style="font-size:11px;line-height:1.6;">Hello, world! This is <em>E = mc&sup2;</em>.</p>
+                <h2 style="text-align:center;margin-bottom:3px;font-size:14px;font-weight:600;">{L.demoTexTitle}</h2>
+                <p style="text-align:center;color:#666;font-size:9px;margin-bottom:12px;">{L.demoTexAuthor}</p>
+                <p style="font-weight:600;margin-bottom:4px;font-size:12px;">1 {L.demoTexSection}</p>
+                <p style="font-size:11px;line-height:1.6;">{L.demoTexHello}<em>E = mc&sup2;</em>{$locale === 'zh' ? '。' : '.'}</p>
               </div>
             </div>
           </div>
@@ -118,32 +122,14 @@
 
   <section class="features">
     <div class="features-inner">
-      <h2 class="features-heading">What you get</h2>
+      <h2 class="features-heading">{L.featuresHeading}</h2>
       <div class="features-grid">
-        <div class="feature">
-          <h3>Compiles in your browser</h3>
-          <p>A full pdfTeX engine compiled to WebAssembly. Your .tex files turn into PDFs right here, no server involved.</p>
-        </div>
-        <div class="feature">
-          <h3>Live PDF preview</h3>
-          <p>The PDF updates while you type. Zoom, scroll, click links. Multiple pages render side by side.</p>
-        </div>
-        <div class="feature">
-          <h3>Git built in</h3>
-          <p>Clone repos, make branches, commit, and push to GitHub without leaving the editor. Version control that just works.</p>
-        </div>
-        <div class="feature">
-          <h3>Your files stay local</h3>
-          <p>Open project folders straight from your file system. Nothing gets uploaded anywhere unless you push it yourself.</p>
-        </div>
-        <div class="feature">
-          <h3>Collaborate live</h3>
-          <p>Send someone a link and write together in the same document. Peer to peer, no account needed on either side.</p>
-        </div>
-        <div class="feature">
-          <h3>Works offline</h3>
-          <p>Once loaded, the whole thing runs locally. You can keep writing on a plane or anywhere else without internet.</p>
-        </div>
+        {#each L.features as feat}
+          <div class="feature">
+            <h3>{feat.title}</h3>
+            <p>{feat.body}</p>
+          </div>
+        {/each}
       </div>
     </div>
   </section>
@@ -155,13 +141,18 @@
         <span class="footer-name">TeXbrain</span>
       </div>
       <div class="footer-links">
-        <a href="{base}/privacy">Privacy</a>
-        <a href="{base}/terms">Terms</a>
-        <a href="{base}/imprint">Imprint</a>
+        <a href="{base}/privacy">{L.footerPrivacy}</a>
+        <a href="{base}/terms">{L.footerTerms}</a>
+        <a href="{base}/imprint">{L.footerImprint}</a>
       </div>
       <p class="footer-credit">
-        made with <span class="heart">&hearts;</span> by
-        <a href="https://swimmingbrain.dev" target="_blank" rel="noopener">Braian Plaku</a>
+        {#if $locale === 'en'}
+          made with <span class="heart">&hearts;</span> by
+          <a href="https://swimmingbrain.dev" target="_blank" rel="noopener">Braian Plaku</a>
+        {:else}
+          <a href="https://swimmingbrain.dev" target="_blank" rel="noopener">Braian Plaku</a>
+          用 <span class="heart">&hearts;</span> 制作
+        {/if}
       </p>
     </div>
   </footer>
@@ -215,6 +206,8 @@
     display: flex;
     align-items: center;
     gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 
   .nav-cta {

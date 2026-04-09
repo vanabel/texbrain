@@ -2,6 +2,10 @@
   import { collabActive, collabRoom, collabPeers, collabConnected, collabPanelOpen, collabUserName } from '$lib/collab/store';
   import { updateUserName, leaveRoom, parseShareCode } from '$lib/collab/provider';
   import { addToast } from '$lib/stores/app';
+  import { locale } from '$lib/i18n/locale';
+  import { editorUi, expandEditorTemplate } from '$lib/i18n/editor-ui';
+
+  $: E = editorUi[$locale];
 
   export let onCreateRoom: (password: string | null) => Promise<void> = async () => {};
   export let onJoinRoom: (shareCode: string, password: string | null) => Promise<void> = async () => {};
@@ -18,7 +22,7 @@
 
   async function handleCreate() {
     if (!nameInput.trim()) {
-      addToast('Please enter your name first', 'warning');
+      addToast(E.toastNameFirst, 'warning');
       return;
     }
     updateUserName(nameInput.trim());
@@ -27,7 +31,10 @@
       await onCreateRoom(createPassword || null);
     } catch (err: any) {
       console.error('Create room failed:', err);
-      addToast('Failed to create room: ' + (err?.message || 'Unknown error'), 'error');
+      addToast(
+        expandEditorTemplate(E.toastCreateFailed, { msg: err?.message || E.unknownError }),
+        'error'
+      );
     } finally {
       creating = false;
       createPassword = '';
@@ -37,15 +44,15 @@
   async function handleJoin() {
     const code = shareCodeInput.trim();
     if (!code) {
-      addToast('Please paste a share code', 'warning');
+      addToast(E.toastPasteCode, 'warning');
       return;
     }
     if (!parseShareCode(code)) {
-      addToast('Invalid share code format', 'error');
+      addToast(E.toastInvalidCode, 'error');
       return;
     }
     if (!nameInput.trim()) {
-      addToast('Please enter your name first', 'warning');
+      addToast(E.toastNameFirst, 'warning');
       return;
     }
     updateUserName(nameInput.trim());
@@ -54,7 +61,10 @@
       await onJoinRoom(code, joinPassword || null);
     } catch (err: any) {
       console.error('Join room failed:', err);
-      addToast('Failed to join room: ' + (err?.message || 'Unknown error'), 'error');
+      addToast(
+        expandEditorTemplate(E.toastJoinFailed, { msg: err?.message || E.unknownError }),
+        'error'
+      );
     } finally {
       joining = false;
       shareCodeInput = '';
@@ -65,13 +75,13 @@
   function handleLeave() {
     leaveRoom();
     onLeaveRoom();
-    addToast('Left collaboration session', 'info');
+    addToast(E.toastLeftSession, 'info');
   }
 
   function copyShareCode() {
     if ($collabRoom) {
       navigator.clipboard.writeText($collabRoom.shareCode);
-      addToast('Share code copied!', 'success');
+      addToast(E.toastCodeCopied, 'success');
     }
   }
 
@@ -99,51 +109,51 @@
   <div class="collab-overlay" on:click={handleOverlayClick} on:keydown={handleKeydown}>
     <div class="collab-panel">
       <div class="panel-header">
-        <h3>Collaboration</h3>
-        <button class="close-btn" on:click={close}>
+        <h3>{E.collabPanelTitle}</h3>
+        <button type="button" class="close-btn" on:click={close} title={E.collabClose} aria-label={E.collabClose}>
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
         </button>
       </div>
 
       <div class="panel-body">
         <div class="field">
-          <label for="collab-name">Your Name</label>
-          <input id="collab-name" type="text" bind:value={nameInput} on:blur={handleNameBlur} placeholder="Enter your name" maxlength="30" />
+          <label for="collab-name">{E.yourName}</label>
+          <input id="collab-name" type="text" bind:value={nameInput} on:blur={handleNameBlur} placeholder={E.namePlaceholder} maxlength="30" />
         </div>
 
         {#if $collabActive}
           <div class="status-row">
             <span class="status-dot" class:connected={$collabConnected}></span>
-            <span>{$collabConnected ? 'Connected' : 'Connecting...'}</span>
+            <span>{$collabConnected ? E.connected : E.connecting}</span>
           </div>
 
           <div class="field">
-            <label>Share Code</label>
+            <label for="share-code-display">{E.shareCode}</label>
             <div class="copy-row">
-              <code class="room-code">{$collabRoom?.shareCode ?? ''}</code>
-              <button class="copy-btn" on:click={copyShareCode} title="Copy share code">
+              <code id="share-code-display" class="room-code">{$collabRoom?.shareCode ?? ''}</code>
+              <button type="button" class="copy-btn" on:click={copyShareCode} title={E.copyShareCode} aria-label={E.copyShareCode}>
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M11 5V3a1 1 0 00-1-1H3a1 1 0 00-1 1v7a1 1 0 001 1h2" stroke="currentColor" stroke-width="1.2"/></svg>
               </button>
             </div>
             <p class="security-hint">
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;margin-top:1px"><path d="M8 1a4 4 0 00-4 4v2H3a1 1 0 00-1 1v6a1 1 0 001 1h10a1 1 0 001-1V8a1 1 0 00-1-1h-1V5a4 4 0 00-4-4zm-2 4a2 2 0 114 0v2H6V5z" fill="currentColor"/></svg>
-              End-to-end encrypted. This code contains the encryption key, only share it with people you trust.
+              {E.shareHintEncrypt}
             </p>
           </div>
 
           {#if $collabRoom?.password}
             <div class="field">
-              <label>Password</label>
-              <code class="room-code">{$collabRoom.password}</code>
+              <label for="room-pw-display">{E.password}</label>
+              <code id="room-pw-display" class="room-code">{$collabRoom.password}</code>
               <p class="security-hint">
-                Collaborators also need this password. Share it separately from the code for extra security.
+                {E.passwordShareHint}
               </p>
             </div>
           {/if}
 
           {#if $collabPeers.length > 0}
             <div class="field">
-              <label>Collaborators ({$collabPeers.length})</label>
+              <span class="collab-section-label">{E.collaborators} ({$collabPeers.length})</span>
               <div class="peer-list">
                 {#each $collabPeers as peer}
                   <div class="peer-item">
@@ -157,40 +167,40 @@
               </div>
             </div>
           {:else}
-            <p class="hint">Waiting for collaborators to join...</p>
+            <p class="hint">{E.waitingPeers}</p>
           {/if}
 
-          <button class="btn danger" on:click={handleLeave}>Leave Session</button>
+          <button type="button" class="btn danger" on:click={handleLeave}>{E.leaveSession}</button>
         {:else}
           <div class="section">
-            <div class="section-label">Start a Session</div>
+            <div class="section-label">{E.startSession}</div>
             <div class="field">
-              <label for="create-pw">Password <span class="opt">(optional, extra security)</span></label>
-              <input id="create-pw" type="text" bind:value={createPassword} placeholder="Require a password to join" />
+              <label for="create-pw">{E.createPasswordLabel} <span class="opt">{E.createPasswordOpt}</span></label>
+              <input id="create-pw" type="text" bind:value={createPassword} placeholder={E.createPwPlaceholder} />
             </div>
-            <button class="btn primary" on:click={handleCreate} disabled={creating}>
-              {creating ? 'Starting...' : 'Start Collaboration'}
+            <button type="button" class="btn primary" on:click={handleCreate} disabled={creating}>
+              {creating ? E.starting : E.startCollab}
             </button>
             <p class="security-hint">
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;margin-top:1px"><path d="M8 1a4 4 0 00-4 4v2H3a1 1 0 00-1 1v6a1 1 0 001 1h10a1 1 0 001-1V8a1 1 0 00-1-1h-1V5a4 4 0 00-4-4zm-2 4a2 2 0 114 0v2H6V5z" fill="currentColor"/></svg>
-              All sessions are end-to-end encrypted. Setting a password adds a second factor. Collaborators will need both the share code and the password.
+              {E.startHintEncrypt}
             </p>
           </div>
 
-          <div class="divider"><span>or</span></div>
+          <div class="divider"><span>{E.or}</span></div>
 
           <div class="section">
-            <div class="section-label">Join a Session</div>
+            <div class="section-label">{E.joinSession}</div>
             <div class="field">
-              <label for="join-code">Share Code</label>
-              <input id="join-code" type="text" bind:value={shareCodeInput} placeholder="Paste the share code" />
+              <label for="join-code">{E.labelShareCode}</label>
+              <input id="join-code" type="text" bind:value={shareCodeInput} placeholder={E.pasteCodePlaceholder} />
             </div>
             <div class="field">
-              <label for="join-pw">Password <span class="opt">(if required)</span></label>
-              <input id="join-pw" type="text" bind:value={joinPassword} placeholder="Room password" />
+              <label for="join-pw">{E.joinPasswordLabel} <span class="opt">{E.joinPasswordOpt}</span></label>
+              <input id="join-pw" type="text" bind:value={joinPassword} placeholder={E.roomPwPlaceholder} />
             </div>
-            <button class="btn primary" on:click={handleJoin} disabled={joining || !shareCodeInput.trim()}>
-              {joining ? 'Joining...' : 'Join Session'}
+            <button type="button" class="btn primary" on:click={handleJoin} disabled={joining || !shareCodeInput.trim()}>
+              {joining ? E.joining : E.joinBtn}
             </button>
           </div>
         {/if}
@@ -255,7 +265,8 @@
     flex-direction: column;
     gap: 3px;
   }
-  .field label {
+  .field label,
+  .collab-section-label {
     font-size: 10px;
     font-weight: 600;
     color: var(--text-muted);

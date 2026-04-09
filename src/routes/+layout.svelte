@@ -1,5 +1,6 @@
 <script lang="ts">
   import '../app.css';
+  import '$lib/i18n/locale';
   import Toast from '$lib/ui/Toast.svelte';
   import { siteUrl } from '$lib/site';
   import { onMount } from 'svelte';

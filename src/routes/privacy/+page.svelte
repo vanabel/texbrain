@@ -2,6 +2,7 @@
   import { base } from '$app/paths';
   import { siteUrl } from '$lib/site';
   import Logo from '$lib/ui/Logo.svelte';
+  import LanguageSwitch from '$lib/ui/LanguageSwitch.svelte';
 </script>
 
 <svelte:head>
@@ -19,6 +20,9 @@
         <span class="logo-mark"><Logo size={24} /></span>
         <span class="logo-name">TeXbrain</span>
       </a>
+      <div class="nav-actions">
+        <LanguageSwitch />
+      </div>
     </div>
   </nav>
 
@@ -108,6 +112,15 @@
     height: 48px;
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
   }
 
   .logo {

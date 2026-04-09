@@ -1,6 +1,8 @@
 <script lang="ts">
   import { commandPaletteOpen } from '$lib/stores/app';
   import { onMount } from 'svelte';
+  import { locale } from '$lib/i18n/locale';
+  import { editorUi } from '$lib/i18n/editor-ui';
 
   interface Command {
     id: string;
@@ -11,6 +13,8 @@
   }
 
   export let commands: Command[] = [];
+
+  $: E = editorUi[$locale];
 
   let query = '';
   let selectedIndex = 0;
@@ -79,7 +83,7 @@
         <input
           bind:this={inputEl}
           bind:value={query}
-          placeholder="Type a command..."
+          placeholder={E.palettePlaceholder}
           class="search-input"
           on:keydown={handleKeydown}
         />
@@ -87,7 +91,7 @@
 
       <div class="results">
         {#if filtered.length === 0}
-          <div class="no-results">No matching commands</div>
+          <div class="no-results">{E.paletteNoResults}</div>
         {:else}
           {#each filtered as cmd, i (cmd.id)}
             <!-- svelte-ignore a11y_click_events_have_key_events -->

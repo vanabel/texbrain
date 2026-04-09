@@ -24,6 +24,9 @@
   } from '$lib/git/engine';
 
   import Logo from '$lib/ui/Logo.svelte';
+  import LanguageSwitch from '$lib/ui/LanguageSwitch.svelte';
+  import { locale } from '$lib/i18n/locale';
+  import { editorUi, expandEditorTemplate } from '$lib/i18n/editor-ui';
   import TabBar from '$lib/ui/TabBar.svelte';
   import FileTree from '$lib/ui/FileTree.svelte';
   import StatusBar from '$lib/ui/StatusBar.svelte';
@@ -44,6 +47,12 @@
   let pdfViewer: PdfViewer;
   let compiling = false;
   let compileStuckTimer = 0;
+  $: E = editorUi[$locale];
+
+  function uiMsg() {
+    return editorUi[get(locale)];
+  }
+
   let compileEngine: CompileEngine = 'xelatex';
   let compileMainMode: CompileMainMode = 'active-tab';
   let currentCompileTarget = '';
@@ -63,9 +72,9 @@
   }
 
   async function handleDrawioExport(data: string, format: string) {
-    if (!$activeFile) { addToast('Export: no active file', 'error'); return; }
+    if (!$activeFile) { addToast(uiMsg().toastExportNoFile, 'error'); return; }
     const handle = get(projectHandle);
-    if (!handle) { addToast('Export: no project handle', 'error'); return; }
+    if (!handle) { addToast(uiMsg().toastExportNoProject, 'error'); return; }
 
     const baseName = $activeFile.name.replace(/\.drawio$/i, '');
     const ext = format === 'svg' ? '.svg' : '.png';
@@ -93,9 +102,9 @@
         await writable.write(data);
       }
       await writable.close();
-      addToast(`Exported ${exportName}`, 'success', 1500);
+      addToast(expandEditorTemplate(uiMsg().toastExported, { name: exportName }), 'success', 1500);
     } catch (err: any) {
-      addToast(`Export failed: ${err.message}`, 'error');
+      addToast(expandEditorTemplate(uiMsg().toastExportFailed, { msg: err.message }), 'error');
     }
   }
 
@@ -757,19 +766,20 @@
     }
   }
 
-  let commands = [
-    { id: 'newproject', label: 'New Project', shortcut: '', action: handleNewProject, category: 'file' },
-    { id: 'opendir', label: 'Open Folder', shortcut: '', action: handleOpenDirectory, category: 'file' },
-    { id: 'open', label: 'Open File', shortcut: 'Ctrl+O', action: handleOpenFile, category: 'file' },
-    { id: 'save', label: 'Save + Compile', shortcut: 'Ctrl+S', action: saveAndCompile, category: 'file' },
-    { id: 'saveas', label: 'Save As...', shortcut: 'Ctrl+Shift+S', action: handleSaveFileAs, category: 'file' },
-    { id: 'compile', label: 'Compile', shortcut: 'Ctrl+Enter', action: compilePreview, category: 'compile' },
-    { id: 'sidebar', label: 'Toggle Sidebar', shortcut: 'Ctrl+B', action: () => sidebarOpen.update(v => !v), category: 'view' },
-    { id: 'togglepreview', label: 'Toggle Preview', shortcut: 'Ctrl+P', action: () => previewOpen.update(v => !v), category: 'view' },
-    { id: 'snippet', label: 'Insert Snippet', shortcut: 'Ctrl+/', action: () => snippetPickerOpen.set(true), category: 'edit' },
-    { id: 'preview', label: 'Show Preview', shortcut: '', action: () => previewTab.set('preview'), category: 'view' },
-    { id: 'log', label: 'Show Log', shortcut: '', action: () => previewTab.set('log'), category: 'view' },
-    { id: 'git', label: 'Toggle Git Panel', shortcut: 'Ctrl+G', action: () => gitPanelOpen.update(v => !v), category: 'view' },
+  $: commands = [
+    { id: 'newproject', label: E.cmdNewProject, shortcut: '', action: handleNewProject, category: 'file' },
+    { id: 'opendir', label: E.cmdOpenFolder, shortcut: '', action: handleOpenDirectory, category: 'file' },
+    { id: 'open', label: E.cmdOpenFile, shortcut: 'Ctrl+O', action: handleOpenFile, category: 'file' },
+    { id: 'save', label: E.cmdSaveCompile, shortcut: 'Ctrl+S', action: saveAndCompile, category: 'file' },
+    { id: 'saveas', label: E.cmdSaveAs, shortcut: 'Ctrl+Shift+S', action: handleSaveFileAs, category: 'file' },
+    { id: 'compile', label: E.cmdCompile, shortcut: 'Ctrl+Enter', action: compilePreview, category: 'compile' },
+    { id: 'sidebar', label: E.cmdToggleSidebar, shortcut: 'Ctrl+B', action: () => sidebarOpen.update(v => !v), category: 'view' },
+    { id: 'togglepreview', label: E.cmdTogglePreview, shortcut: 'Ctrl+P', action: () => previewOpen.update(v => !v), category: 'view' },
+    { id: 'snippet', label: E.cmdInsertSnippet, shortcut: 'Ctrl+/', action: () => snippetPickerOpen.set(true), category: 'edit' },
+    { id: 'preview', label: E.cmdShowPreview, shortcut: '', action: () => previewTab.set('preview'), category: 'view' },
+    { id: 'log', label: E.cmdShowLog, shortcut: '', action: () => previewTab.set('log'), category: 'view' },
+    { id: 'git', label: E.cmdToggleGit, shortcut: 'Ctrl+G', action: () => gitPanelOpen.update(v => !v), category: 'view' },
+    { id: 'collab', label: E.cmdToggleCollab, shortcut: '', action: () => collabPanelOpen.update(v => !v), category: 'view' },
   ];
 
   function handleGlobalKeydown(e: KeyboardEvent) {
@@ -803,7 +813,7 @@
 
     const ep = get(entryPoint);
     createRoom(password, projectFiles, ep);
-    addToast('collaboration session started!', 'success');
+    addToast(uiMsg().toastCollabStarted, 'success');
     buildEditor();
   }
 
@@ -826,7 +836,7 @@
       entryPoint.set(ep);
     }
 
-    addToast('joined collaboration session!', 'success');
+    addToast(uiMsg().toastCollabJoined, 'success');
     buildEditor();
   }
 
@@ -901,7 +911,7 @@
   }
 
   async function handleLoadBundledBibtexExample() {
-    const name = prompt('Project folder name:', 'bibtex-english-chinese');
+    const name = prompt(uiMsg().promptFolderName, 'bibtex-english-chinese');
     if (!name?.trim()) return;
     loadingBundledExample = true;
     try {
@@ -934,13 +944,9 @@
       if (err.name !== 'AbortError') {
         const msg = err?.message || String(err);
         if (msg.includes('CORS') || msg.includes('Failed to fetch')) {
-          addToast(
-            'Network/CORS blocked. On localhost use pnpm dev or pnpm preview (zip uses a built-in proxy). On a static host, set Git → Remote CORS proxy to https://cors.isomorphic-git.org or use full git clone.',
-            'error',
-            9000
-          );
+          addToast(uiMsg().toastCloneCors, 'error', 9000);
         } else {
-          addToast('clone failed: ' + msg, 'error');
+          addToast(expandEditorTemplate(uiMsg().toastCloneFailed, { msg }), 'error');
         }
       }
     } finally {
@@ -1097,72 +1103,66 @@
         <div class="file-info">
           <span class="filename">{$activeFile.name}</span>
           {#if $activeFile.dirty}
-            <span class="save-dot unsaved" title="Unsaved changes"></span>
+            <span class="save-dot unsaved" title={E.unsavedTooltip}></span>
           {:else}
-            <span class="save-dot saved" title="Saved"></span>
+            <span class="save-dot saved" title={E.savedTooltip}></span>
           {/if}
         </div>
       {/if}
     </div>
     <div class="topbar-actions">
-      <button class="action-btn" on:click={handleOpenDirectory} title="Open Folder">
+      <button class="action-btn" on:click={handleOpenDirectory} title={E.openFolder}>
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 13V3a1 1 0 011-1h4l2 2h4a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1z" stroke="currentColor" stroke-width="1.3"/></svg>
-        <span>Open Folder</span>
+        <span>{E.openFolder}</span>
       </button>
-      <button class="action-btn" on:click={handleOpenFile} title="Open File (Ctrl+O)">
+      <button class="action-btn" on:click={handleOpenFile} title={E.ttOpenFileShortcut}>
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 1h5l4 4v9a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1z" stroke="currentColor" stroke-width="1.3"/><path d="M9 1v4h4" stroke="currentColor" stroke-width="1.3"/></svg>
-        <span>Open File</span>
+        <span>{E.openFile}</span>
       </button>
-      <button class="action-btn" on:click={handleSaveFile} title="Save (Ctrl+S)" disabled={!$activeFile}>
+      <button class="action-btn" on:click={handleSaveFile} title={E.ttSaveShortcut} disabled={!$activeFile}>
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M12.5 14H3.5a1 1 0 01-1-1V3a1 1 0 011-1h7l3 3v8a1 1 0 01-1 1z" stroke="currentColor" stroke-width="1.3"/><path d="M11.5 14v-4h-7v4" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 2v3h4" stroke="currentColor" stroke-width="1.3"/></svg>
-        <span>Save</span>
+        <span>{E.save}</span>
       </button>
-      <button class="action-btn accent" on:click={compilePreview} title="Compile (Ctrl+Enter)" disabled={!$activeFile || compiling}>
+      <button class="action-btn accent" on:click={compilePreview} title={E.ttCompileShortcut} disabled={!$activeFile || compiling}>
         {#if compiling}
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3" stroke-dasharray="8 4" class="spin"/></svg>
         {:else}
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M5 3l8 5-8 5V3z" fill="currentColor"/></svg>
         {/if}
-        <span>{compiling ? 'Compiling...' : 'Compile'}</span>
+        <span>{compiling ? E.compiling : E.compile}</span>
       </button>
-      <label class="engine-picker" title="Compilation engine">
-        <span>Engine</span>
+      <label class="engine-picker" title={E.ttEngine}>
+        <span>{E.engine}</span>
         <select bind:value={compileEngine} disabled={compiling}>
           <option value="xelatex">XeLaTeX</option>
           <option value="pdflatex">pdfLaTeX</option>
         </select>
       </label>
-      <label class="engine-picker" title="Main file selection mode">
-        <span>Compile</span>
+      <label class="engine-picker" title={E.ttCompileMode}>
+        <span>{E.compileMode}</span>
         <select bind:value={compileMainMode} disabled={compiling}>
-          <option value="active-tab">Active Tab</option>
-          <option value="entry-point">Entry Point</option>
+          <option value="active-tab">{E.optActiveTab}</option>
+          <option value="entry-point">{E.optEntryPoint}</option>
         </select>
       </label>
-      {#if $entryPoint}
-        <span
-          class="entry-point-label"
-          title="Project entry file used by Entry Point mode, and as fallback for Active Tab mode."
-        >Entry: {$entryPoint}</span>
-      {/if}
-      {#if currentCompileTarget}
-        <span class="entry-point-label" title="Last resolved compile target">
-          Target: {currentCompileTarget}
-        </span>
-      {/if}
       <div class="separator"></div>
-      <button class="action-btn" class:git-active={$gitEnabled} on:click={() => gitPanelOpen.update(v => !v)} title="Git (Ctrl+G)" disabled={!$projectHandle}>
+      <button class="action-btn" class:git-active={$gitEnabled} on:click={() => gitPanelOpen.update(v => !v)} title={E.ttGitShortcut} disabled={!$projectHandle}>
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M15 5.5a3.5 3.5 0 01-5.55 2.83L6.83 11H5v1.5H3.5V14H1v-2.5l5.17-5.17A3.5 3.5 0 1115 5.5zm-2 0a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" fill="currentColor"/></svg>
-        <span>Git</span>
+        <span>{E.git}</span>
         {#if $gitChangeCount > 0}<span class="git-change-badge">{$gitChangeCount}</span>{/if}
       </button>
-      <button class="action-btn collab-soon" disabled title="Collaboration coming soon">
+      <button
+        class="action-btn"
+        class:collab-active={$collabPanelOpen || $collabActive}
+        on:click={() => collabPanelOpen.update((v) => !v)}
+        title={E.collabTooltip}
+      >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="6" cy="6" r="2.5" stroke="currentColor" stroke-width="1.2"/><path d="M1 13c0-2.2 2.2-4 5-4s5 1.8 5 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="11.5" cy="5" r="2" stroke="currentColor" stroke-width="1.1"/><path d="M14.5 12c0-1.7-1.3-3-3-3" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
-        <span>Collab</span>
-        <span class="soon-badge">soon</span>
+        <span>{E.collab}</span>
       </button>
+      <LanguageSwitch />
       <div class="separator"></div>
-      <a href="https://github.com/vanabel/texbrain" target="_blank" rel="noopener" class="action-btn" title="GitHub">
+      <a href="https://github.com/vanabel/texbrain" target="_blank" rel="noopener" class="action-btn" title={E.github}>
         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
       </a>
     </div>
@@ -1170,26 +1170,26 @@
 
   <div class="toolbar">
     <div class="toolbar-group">
-      <button class="tool-btn" class:active={$sidebarOpen} on:click={() => sidebarOpen.update(v => !v)} title="Toggle Sidebar (Ctrl+B)">
+      <button class="tool-btn" class:active={$sidebarOpen} on:click={() => sidebarOpen.update(v => !v)} title={E.ttSidebar}>
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2.5" width="13" height="11" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M5.5 2.5v11" stroke="currentColor" stroke-width="1.2"/></svg>
       </button>
       <div class="tool-sep"></div>
-      <button class="tool-btn" on:click={() => { if (editorView) insertAtCursor(editorView, '\\textbf{|}') }} title="Bold"><strong style="font-size:13px">B</strong></button>
-      <button class="tool-btn" on:click={() => { if (editorView) insertAtCursor(editorView, '\\textit{|}') }} title="Italic"><em style="font-size:13px">I</em></button>
-      <button class="tool-btn" on:click={() => { if (editorView) insertAtCursor(editorView, '\\underline{|}') }} title="Underline"><span style="font-size:13px;text-decoration:underline">U</span></button>
+      <button class="tool-btn" on:click={() => { if (editorView) insertAtCursor(editorView, '\\textbf{|}') }} title={E.ttBold}><strong style="font-size:13px">B</strong></button>
+      <button class="tool-btn" on:click={() => { if (editorView) insertAtCursor(editorView, '\\textit{|}') }} title={E.ttItalic}><em style="font-size:13px">I</em></button>
+      <button class="tool-btn" on:click={() => { if (editorView) insertAtCursor(editorView, '\\underline{|}') }} title={E.ttUnderline}><span style="font-size:13px;text-decoration:underline">U</span></button>
       <div class="tool-sep"></div>
-      <button class="tool-btn" on:click={() => snippetPickerOpen.set(true)} title="Insert Snippet (Ctrl+/)">
+      <button class="tool-btn" on:click={() => snippetPickerOpen.set(true)} title={E.ttSnippets}>
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M5.5 4L2 8l3.5 4M10.5 4L14 8l-3.5 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span style="font-size:11px;margin-left:2px">Snippets</span>
+        <span style="font-size:11px;margin-left:2px">{E.snippetsLabel}</span>
       </button>
     </div>
     <div class="toolbar-group">
-      <button class="tool-btn" on:click={() => commandPaletteOpen.set(true)} title="Command Palette (Ctrl+K)">
+      <button class="tool-btn" on:click={() => commandPaletteOpen.set(true)} title={E.ttCommandPalette}>
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.2"/><path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
         <kbd style="margin-left:4px">Ctrl+K</kbd>
       </button>
       <div class="tool-sep"></div>
-      <button class="tool-btn" class:active={$previewOpen} on:click={() => previewOpen.update(v => !v)} title="Toggle Preview (Ctrl+P)">
+      <button class="tool-btn" class:active={$previewOpen} on:click={() => previewOpen.update(v => !v)} title={E.ttPreview}>
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2.5" width="13" height="11" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M10.5 2.5v11" stroke="currentColor" stroke-width="1.2"/></svg>
       </button>
     </div>
@@ -1227,31 +1227,31 @@
           <Resizer on:resize={(e) => handleResizeDelta(e.detail.delta)} on:resizestart={handleResizeStart} on:resizeend={handleResizeEnd} />
           <div class="preview-pane" style="width:{100 - editorWidth}%">
             <div class="preview-header">
-              <button class="preview-tab" class:active={$previewTab === 'preview'} on:click={() => previewTab.set('preview')}>Preview</button>
+              <button class="preview-tab" class:active={$previewTab === 'preview'} on:click={() => previewTab.set('preview')}>{E.tabPreview}</button>
               <button class="preview-tab" class:active={$previewTab === 'errors'} on:click={() => previewTab.set('errors')}>
-                Errors
+                {E.tabErrors}
                 {#if $compileErrors.filter(e => e.type === 'error').length > 0}
                   <span class="error-badge has-errors">{$compileErrors.filter(e => e.type === 'error').length}</span>
                 {/if}
               </button>
               <button class="preview-tab" class:active={$previewTab === 'warnings'} on:click={() => previewTab.set('warnings')}>
-                Warnings
+                {E.tabWarnings}
                 {#if $compileErrors.filter(e => e.type === 'warning').length > 0}
                   <span class="error-badge">{$compileErrors.filter(e => e.type === 'warning').length}</span>
                 {/if}
               </button>
-              <button class="preview-tab" class:active={$previewTab === 'log'} on:click={() => previewTab.set('log')}>Log</button>
+              <button class="preview-tab" class:active={$previewTab === 'log'} on:click={() => previewTab.set('log')}>{E.tabLog}</button>
               <div style="flex:1"></div>
               {#if pdfData}
-                <button class="preview-tab save-pdf" on:click={savePdf} title="Save PDF">
+                <button class="preview-tab save-pdf" on:click={savePdf} title={E.ttSavePdf}>
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M4 7l4 4 4-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12v2h12v-2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                  <span style="font-size:11px;margin-left:3px">Save PDF</span>
+                  <span style="font-size:11px;margin-left:3px">{E.savePdf}</span>
                 </button>
               {/if}
               {#if hasDownloadableBbl()}
-                <button class="preview-tab save-pdf" on:click={saveBbl} title="Download BBL">
+                <button class="preview-tab save-pdf" on:click={saveBbl} title={E.ttDownloadBbl}>
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M4 7l4 4 4-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12v2h12v-2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                  <span style="font-size:11px;margin-left:3px">Download BBL</span>
+                  <span style="font-size:11px;margin-left:3px">{E.downloadBbl}</span>
                 </button>
               {/if}
             </div>
@@ -1262,14 +1262,14 @@
             {:else if $previewTab === 'errors'}
               <div class="errors-content">
                 {#if $compileErrors.filter(e => e.type === 'error').length === 0}
-                  <div class="preview-empty"><p>No errors</p></div>
+                  <div class="preview-empty"><p>{E.noErrors}</p></div>
                 {:else}
                   {#each $compileErrors.filter(e => e.type === 'error') as err}
                     <div class="error-item is-error">
                       <span class="error-type-badge err-badge">E</span>
                       <span class="error-msg">{err.message}</span>
                       {#if err.line}
-                        <span class="error-line">line {err.line}</span>
+                        <span class="error-line">{E.linePrefix} {err.line}</span>
                       {/if}
                     </div>
                   {/each}
@@ -1278,14 +1278,14 @@
             {:else if $previewTab === 'warnings'}
               <div class="errors-content">
                 {#if $compileErrors.filter(e => e.type === 'warning').length === 0}
-                  <div class="preview-empty"><p>No warnings</p></div>
+                  <div class="preview-empty"><p>{E.noWarnings}</p></div>
                 {:else}
                   {#each $compileErrors.filter(e => e.type === 'warning') as warn}
                     <div class="error-item is-warning">
                       <span class="error-type-badge warn-badge">W</span>
                       <span class="error-msg">{warn.message}</span>
                       {#if warn.line}
-                        <span class="error-line">line {warn.line}</span>
+                        <span class="error-line">{E.linePrefix} {warn.line}</span>
                       {/if}
                     </div>
                   {/each}
@@ -1297,7 +1297,7 @@
                   <div class="log-entry" class:error={entry.includes('[Error]') || entry.includes('!')} class:success={entry.includes('successful')}>{entry}</div>
                 {/each}
                 {#if $compileLog.length === 0}
-                  <div class="preview-empty"><p>No compilation log yet</p></div>
+                  <div class="preview-empty"><p>{E.noLogYet}</p></div>
                 {/if}
               </div>
             {/if}
@@ -1313,60 +1313,60 @@
             <div class="welcome-content">
               {#if showCloneForm}
                 <div class="welcome-icon"><Logo size={44} /></div>
-                <h2 class="welcome-title">Clone Repository</h2>
-                <p class="welcome-desc">Clone a Git repository and open it as a project</p>
+                <h2 class="welcome-title">{E.cloneTitle}</h2>
+                <p class="welcome-desc">{E.cloneDesc}</p>
                 <div class="clone-form">
                   <div class="clone-field">
-                    <label for="clone-url">Repository URL</label>
+                    <label for="clone-url">{E.labelRepoUrl}</label>
                     <input id="clone-url" type="text" bind:value={cloneUrl} on:input={onCloneUrlInput} placeholder="https://github.com/user/repo" class="clone-input" />
-                    <button type="button" class="clone-preset-btn" on:click={fillTexbrainCloneForExamples}>Use official TeXbrain repo (BibTeX EN/ZH example)</button>
+                    <button type="button" class="clone-preset-btn" on:click={fillTexbrainCloneForExamples}>{E.clonePresetExamples}</button>
                   </div>
                   <div class="clone-field">
-                    <label for="clone-name">Project Name</label>
+                    <label for="clone-name">{E.labelProjectName}</label>
                     <input id="clone-name" type="text" bind:value={cloneName} placeholder="my-project" class="clone-input" />
                   </div>
                   <label class="clone-checkbox-row">
                     <input type="checkbox" bind:checked={cloneExamplesOnly} />
-                    <span>Only download <code>examples/</code> (GitHub zip, smaller — no git history)</span>
+                    <span>{E.cloneExamplesOnly}</span>
                   </label>
                   <div class="clone-actions">
                     <button class="welcome-btn primary" on:click={handleClone} disabled={cloning || !cloneUrl.trim() || !cloneName.trim()}>
                       {#if cloning}
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3" stroke-dasharray="8 4" class="spin"/></svg>
-                        Cloning...
+                        {E.cloning}
                       {:else}
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 12V3M4 7l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        Choose Location & Clone
+                        {E.chooseLocationClone}
                       {/if}
                     </button>
-                    <button class="welcome-btn secondary" on:click={handleCancelClone} disabled={cloning}>Back</button>
+                    <button class="welcome-btn secondary" on:click={handleCancelClone} disabled={cloning}>{E.back}</button>
                   </div>
-                  <p class="clone-hint">You'll pick a folder where the project will be saved. Full git clone uses the CORS proxy in Git &gt; Remote. <code>examples/</code>-only uses the same proxy to download GitHub's zip archive.</p>
+                  <p class="clone-hint">{E.cloneHint}</p>
                 </div>
               {:else}
                 <div class="welcome-icon"><Logo size={44} /></div>
-                <h2 class="welcome-title">Welcome to TeXbrain</h2>
-                <p class="welcome-desc">Open a project folder or create a new one to get started</p>
+                <h2 class="welcome-title">{E.welcomeTitle}</h2>
+                <p class="welcome-desc">{E.welcomeDesc}</p>
                 <div class="welcome-actions">
                   <button class="welcome-btn primary" on:click={handleNewProject}>
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                    New Project
+                    {E.newProject}
                   </button>
                   <button class="welcome-btn secondary" on:click={handleOpenDirectory}>
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 13V3a1 1 0 011-1h4l2 2h4a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1z" stroke="currentColor" stroke-width="1.3"/></svg>
-                    Open Folder
+                    {E.welcomeOpenFolder}
                   </button>
                   <button class="welcome-btn secondary" on:click={handleShowCloneForm}>
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M15 5.5a3.5 3.5 0 01-5.55 2.83L6.83 11H5v1.5H3.5V14H1v-2.5l5.17-5.17A3.5 3.5 0 1115 5.5zm-2 0a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" fill="currentColor"/></svg>
-                    Clone Repository
+                    {E.cloneRepository}
                   </button>
-                  <button class="welcome-btn secondary" on:click={handleLoadBundledBibtexExample} disabled={loadingBundledExample} title="Same-origin zip bundled at build time — works on any static host without GitHub or CORS">
+                  <button class="welcome-btn secondary" on:click={handleLoadBundledBibtexExample} disabled={loadingBundledExample} title={E.ttBuiltInBibtex}>
                     {#if loadingBundledExample}
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3" stroke-dasharray="8 4" class="spin"/></svg>
                     {:else}
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 14V3a1 1 0 011-1h5l2 2h3a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1z" stroke="currentColor" stroke-width="1.2"/><path d="M5 6h6M5 9h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
                     {/if}
-                    Built-in BibTeX example
+                    {E.builtInBibtex}
                   </button>
                 </div>
               {/if}
@@ -1377,12 +1377,24 @@
     </div>
   </div>
 
-  <StatusBar {cursorLine} {cursorCol} {charCount} {wordCount} />
+  <StatusBar
+    {cursorLine}
+    {cursorCol}
+    {charCount}
+    {wordCount}
+    entryPath={$entryPoint ?? ''}
+    compileTarget={currentCompileTarget}
+  />
 
   <CommandPalette {commands} />
   <SnippetPicker onInsert={handleSnippetInsert} />
   <EntryPointPicker />
   <GitPanel onBranchSwitch={handleGitBranchSwitch} onInitRepo={handleGitInit} />
+  <CollabPanel
+    onCreateRoom={handleCreateCollabRoom}
+    onJoinRoom={handleJoinCollabRoom}
+    onLeaveRoom={handleLeaveCollab}
+  />
 </div>
 
 <style>
@@ -1407,7 +1419,6 @@
   .action-btn.accent:hover:not(:disabled) { background: var(--accent-hover); color: #111; }
   .action-btn span { display: none; }
   @media (min-width: 768px) { .action-btn span { display: inline; } }
-  .entry-point-label { font-size: 10px; color: var(--text-muted); font-family: var(--font-editor); padding: 1px 5px; background: var(--bg-hover); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .engine-picker { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text-muted); margin-left: 4px; }
   .engine-picker select {
     background: var(--bg-hover);
@@ -1566,20 +1577,8 @@
     flex-shrink: 0;
   }
 
-  .collab-soon { opacity: 0.5; cursor: default !important; }
-  .collab-soon:hover { background: transparent !important; }
-  .soon-badge {
-    font-size: 8px;
-    font-weight: 600;
-    font-family: var(--font-editor);
-    color: var(--text-muted);
-    background: var(--bg-deep);
-    border: 1px solid var(--border);
-    padding: 0 3px;
-    line-height: 13px;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-  }
+  .action-btn.collab-active { color: var(--accent); }
+  .action-btn.collab-active:hover { color: var(--accent); }
 
   :global(.spin) { animation: spin 1s linear infinite; transform-origin: center; }
   @keyframes spin { to { transform: rotate(360deg); } }
