@@ -27,7 +27,8 @@
     "svelte-check": "^4.1.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.0",
-    "vite": "^6.0.0"
+    "vite": "^6.0.0",
+    "vite-plugin-node-polyfills": "^0.26.0"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.18.0",
@@ -42,14 +43,12 @@
     "@lezer/highlight": "^1.2.0",
     "@lezer/lr": "^1.4.0",
     "buffer": "^6.0.3",
-    "crypto-browserify": "^3.12.1",
     "idb-keyval": "^6.2.1",
     "isomorphic-git": "^1.27.1",
     "latex.js": "^0.12.6",
     "pdfjs-dist": "^4.9.155",
-    "stream-browserify": "^3.0.0",
+    "process": "^0.11.10",
     "texlyre-busytex": "0.1.4-alpha",
-    "util": "^0.12.5",
     "y-codemirror.next": "^0.3.5",
     "y-webrtc": "^10.3.0",
     "yjs": "^13.6.30"

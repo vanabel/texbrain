@@ -1,20 +1,30 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import { texlivePlugin } from './vite-texlive-plugin';
 
 export default defineConfig({
-  plugins: [tailwindcss(), texlivePlugin(), sveltekit()],
+  plugins: [
+    // Must run before SvelteKit: provides global process / Buffer for crypto-browserify → readable-stream
+    nodePolyfills({
+      globals: {
+        Buffer: true,
+        global: true,
+        process: true
+      },
+      protocolImports: true
+    }),
+    tailwindcss(),
+    texlivePlugin(),
+    sveltekit()
+  ],
   define: {
-    'global': 'globalThis'
+    global: 'globalThis'
   },
   resolve: {
     alias: {
-      buffer: 'buffer/',
-      // isomorphic-git / sha.js expect Node's crypto.createHash in the browser bundle
-      crypto: 'crypto-browserify',
-      stream: 'stream-browserify',
-      util: 'util'
+      buffer: 'buffer/'
     }
   },
   worker: {
@@ -32,7 +42,7 @@ export default defineConfig({
     }
   },
   optimizeDeps: {
-    include: ['isomorphic-git', 'crypto-browserify', 'buffer', 'stream-browserify', 'util'],
+    include: ['isomorphic-git', 'buffer', 'process'],
     esbuildOptions: {
       loader: {
         '.keep': 'text'
