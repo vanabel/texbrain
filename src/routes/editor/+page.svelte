@@ -36,6 +36,7 @@
   import GitPanel from '$lib/ui/GitPanel.svelte';
   import DrawioEditor from '$lib/ui/DrawioEditor.svelte';
   import { TEXBRAIN_GITHUB_CLONE_URL } from '$lib/constants/texbrain-repo';
+  import { readTextAtProjectPath, writeTextAtProjectPath } from '$lib/fs/project-path';
 
   let editorView: EditorView | null = null;
   let pdfData: Uint8Array | undefined = undefined;
@@ -404,7 +405,7 @@
 
         pdfData = new Uint8Array(result.pdf);
         bblFile = await resolveBblAfterCompile(result.bbl, mainFile);
-        await persistBblToProjectRoot(bblFile);
+        await persistBblToProject(bblFile);
         compileStatus.set('success');
         compileLog.set([`[${ts()}] compilation successful (${pdfPageCount} pages)`, ...cleanedLines]);
 
@@ -699,8 +700,17 @@
     const handle = get(projectHandle);
     if (!handle) return undefined;
 
-    const mainName = mainFile.replace(/^.*[\\/]/, '').replace(/\.tex$/i, '');
-    const candidates = [`${mainName}.bbl`, 'main.bbl'];
+    const norm = (p: string) => p.replace(/\\/g, '/');
+    const mainNorm = norm(mainFile);
+    const slash = mainNorm.lastIndexOf('/');
+    const mainDir = slash >= 0 ? mainNorm.slice(0, slash) : '';
+    const mainStem = mainNorm.slice(slash + 1).replace(/\.tex$/i, '');
+    const relBbl = mainDir ? `${mainDir}/${mainStem}.bbl` : `${mainStem}.bbl`;
+
+    const nested = await readTextAtProjectPath(handle, relBbl);
+    if (nested) return { path: relBbl, content: nested };
+
+    const candidates = [`${mainStem}.bbl`, 'main.bbl'];
     for (const name of candidates) {
       try {
         const fh = await handle.getFileHandle(name);
@@ -722,27 +732,25 @@
     return undefined;
   }
 
-  async function persistBblToProjectRoot(bbl?: { path: string; content: string }) {
+  async function persistBblToProject(bbl?: { path: string; content: string }) {
     if (!bbl?.content) return;
     const handle = get(projectHandle);
     if (!handle) return;
 
     try {
-      const fileName = bbl.path.replace(/^.*[\\/]/, '') || 'main.bbl';
-      const rootFileHandle = await handle.getFileHandle(fileName, { create: true });
-      const writable = await rootFileHandle.createWritable();
-      await writable.write(bbl.content);
-      await writable.close();
+      const relPath = bbl.path.replace(/\\/g, '/');
+      const fileHandle = await writeTextAtProjectPath(handle, relPath, bbl.content);
+      const baseName = relPath.split('/').pop() || 'main.bbl';
 
-      const existing = get(files).find(f => (f.path || f.name) === fileName);
+      const existing = get(files).find(f => (f.path || f.name) === relPath);
       if (existing) {
         updateFileContent(existing.id, bbl.content);
       } else {
-        openFileTab(fileName, bbl.content, rootFileHandle, fileName);
+        openFileTab(baseName, bbl.content, fileHandle, relPath);
       }
       await refreshProjectTree();
     } catch (e) {
-      console.warn('failed to persist bbl to project root:', e);
+      console.warn('failed to persist bbl:', e);
     }
   }
 

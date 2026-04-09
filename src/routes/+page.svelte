@@ -1,22 +1,23 @@
 <script lang="ts">
   import { base } from '$app/paths';
+  import { siteUrl } from '$lib/site';
   import Logo from '$lib/ui/Logo.svelte';
 </script>
 
 <svelte:head>
   <title>TeXbrain | LaTeX Editor in Your Browser</title>
   <meta name="description" content="Write and compile LaTeX to PDF entirely in your browser. No sign-up, no installs, no server. Local files, live preview, built-in git, and real-time collaboration." />
-  <link rel="canonical" href="https://tex.swimmingbrain.dev/" />
+  <link rel="canonical" href={siteUrl('/')} />
   <meta property="og:title" content="TeXbrain | LaTeX Editor in Your Browser" />
   <meta property="og:description" content="Write and compile LaTeX to PDF entirely in your browser. No sign-up, no installs, no server." />
-  <meta property="og:url" content="https://tex.swimmingbrain.dev/" />
+  <meta property="og:url" content={siteUrl('/')} />
   <meta name="twitter:title" content="TeXbrain | LaTeX Editor in Your Browser" />
   <meta name="twitter:description" content="Write and compile LaTeX to PDF entirely in your browser. No sign-up, no installs, no server." />
   {@html `<script type="application/ld+json">${JSON.stringify({
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "TeXbrain",
-    "url": "https://tex.swimmingbrain.dev",
+    "url": "${siteUrl('/')}",
     "applicationCategory": "Productivity",
     "operatingSystem": "Web",
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },

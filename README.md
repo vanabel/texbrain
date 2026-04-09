@@ -37,6 +37,7 @@ I was tired of paying for basics. I wrote a thesis in LaTeX and fought the toolc
 - [Security & privacy](#security--privacy)
 - [Tech stack](#tech-stack)
 - [BibTeX example (English / Chinese)](#bibtex-example-english--chinese)
+- [Deploying to GitHub Pages](#deploying-to-github-pages)
 - [Running locally](#running-locally)
 - [PM2 deployment](#pm2-deployment)
 - [Future roadmap (draft)](ROADMAP.md)
@@ -72,6 +73,22 @@ Open a folder, edit, preview PDF, commit, push to GitHub—**from one tab**.
 ## BibTeX example (English / Chinese)
 
 This repo includes a small **bilingual BibTeX** layout under [`examples/bibtex-english-chinese/`](examples/bibtex-english-chinese/README.md) (e.g. `gbt7714` vs `amsrefs` / `amsrn.bst`). **In the web app:** welcome screen → **Clone Repository** → **Use official TeXbrain repo (BibTeX EN/ZH example)** — or paste `https://github.com/vanabel/texbrain.git`. After clone, open the `.tex` you want under `examples/bibtex-english-chinese/English-bibtex/` or `.../Chinese-bibtex/` and compile (**Active tab** or set **Entry** to that file). Classic BibTeX needs **BusyTeX** on the deployment (`pnpm run download-busytex`). Details: [examples/bibtex-english-chinese/README.md](examples/bibtex-english-chinese/README.md).
+
+---
+
+## Deploying to GitHub Pages
+
+The included workflow (`.github/workflows/deploy.yml`) builds and publishes the `build/` folder. To point canonical URLs, Open Graph, and asset paths at **your** fork instead of the default origin:
+
+1. **GitHub repository → Settings → Secrets and variables → Actions → Variables** (or **Repository variables**):
+   - **`PUBLIC_SITE_ORIGIN`** — Scheme + host only, **no trailing slash**, e.g. `https://yourname.github.io` for GitHub-hosted sites, or `https://tex.example.com` for a custom domain at the site root.
+   - **`BASE_PATH`** — If the app is served under a subpath (typical GitHub **project** Pages: `https://yourname.github.io/repo-name/`), set `BASE_PATH` to `/repo-name` (leading slash). For a **user/org** site at the domain root or a custom domain with no subpath, leave **`BASE_PATH` unset** or empty.
+
+2. **Pages**: Settings → Pages → Build and deployment → Source: **GitHub Actions**.
+
+3. Optional: edit `static/sitemap.xml` and `static/robots.txt` so `Sitemap:` and `<loc>` match your public URL.
+
+4. **BusyTeX** (BibTeX in the browser): add a step before `pnpm build` to run `pnpm run download-busytex`, or attach the downloaded `static/busytex/` artifact—same as local optional setup.
 
 ---
 

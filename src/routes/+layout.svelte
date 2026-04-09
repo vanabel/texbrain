@@ -1,6 +1,7 @@
 <script lang="ts">
   import '../app.css';
   import Toast from '$lib/ui/Toast.svelte';
+  import { siteUrl } from '$lib/site';
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
   import type { Snippet } from 'svelte';
@@ -30,6 +31,11 @@
     }
   });
 </script>
+
+<svelte:head>
+  <meta property="og:image" content={siteUrl('/og-image.png')} />
+  <meta name="twitter:image" content={siteUrl('/og-image.png')} />
+</svelte:head>
 
 {@render children()}
 <Toast />

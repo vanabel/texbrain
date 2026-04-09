@@ -1,14 +1,15 @@
 <script lang="ts">
   import { base } from '$app/paths';
+  import { siteUrl } from '$lib/site';
   import Logo from '$lib/ui/Logo.svelte';
 </script>
 
 <svelte:head>
   <title>Privacy Policy | TeXbrain</title>
   <meta name="description" content="TeXbrain privacy policy. Your files stay on your machine, nothing is uploaded to any server." />
-  <link rel="canonical" href="https://tex.swimmingbrain.dev/privacy" />
+  <link rel="canonical" href={siteUrl('/privacy')} />
   <meta property="og:title" content="Privacy Policy | TeXbrain" />
-  <meta property="og:url" content="https://tex.swimmingbrain.dev/privacy" />
+  <meta property="og:url" content={siteUrl('/privacy')} />
 </svelte:head>
 
 <div class="legal">

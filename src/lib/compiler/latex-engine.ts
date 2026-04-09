@@ -6,6 +6,7 @@ import {
   projectNeedsBibtexEngine
 } from './busytex-bibtex';
 import { patchBiblatexFiles } from './bibliography';
+import { remapBblToProjectPath, sliceProjectToCompileRoot } from './compile-root';
 
 let engine: any = null;
 let loadPromise: Promise<void> | null = null;
@@ -228,12 +229,23 @@ function tryReadMemFSText(eng: any, path: string): string | undefined {
 }
 
 export async function compileLaTeX(
-  mainFile: string,
+  projectMainFile: string,
   files: Map<string, string>,
   binaryFiles?: Map<string, ArrayBuffer>,
   engine: CompileEngine = 'pdflatex'
 ): Promise<CompileResult> {
-  const needsBibtexPipeline = projectNeedsBibtexEngine(files);
+  const sliced = sliceProjectToCompileRoot(projectMainFile, files, binaryFiles);
+  let mainFile = sliced.mainFile;
+  let workFiles = sliced.files;
+  let workBinary = sliced.binaryFiles;
+  const { compileRootDir } = sliced;
+
+  const rootNote =
+    compileRootDir !== ''
+      ? `[TeXbrain] Compile root: ${compileRootDir}/ (paths relative to main .tex directory)\n`
+      : '';
+
+  const needsBibtexPipeline = projectNeedsBibtexEngine(workFiles);
   let busyTexFallbackNote = '';
 
   if (engine === 'xelatex') {
@@ -248,27 +260,27 @@ export async function compileLaTeX(
     }
     const busy = await compileWithBusyTexBibtex(
       mainFile,
-      files,
-      binaryFiles,
+      workFiles,
+      workBinary,
       'xelatex',
       needsBibtexPipeline
     );
     return {
       pdf: busy.pdf,
       status: busy.status,
-      log: busy.log,
-      bbl: busy.bbl
+      log: rootNote + busy.log,
+      bbl: remapBblToProjectPath(compileRootDir, projectMainFile, busy.bbl)
     };
   }
 
   if (needsBibtexPipeline && (await busytexAssetsAvailable())) {
-    const busy = await compileWithBusyTexBibtex(mainFile, files, binaryFiles, 'pdflatex', true);
+    const busy = await compileWithBusyTexBibtex(mainFile, workFiles, workBinary, 'pdflatex', true);
     if (busy.usedBusyTex) {
       return {
         pdf: busy.pdf,
         status: busy.status,
-        log: busy.log,
-        bbl: busy.bbl
+        log: rootNote + busy.log,
+        bbl: remapBblToProjectPath(compileRootDir, projectMainFile, busy.bbl)
       };
     }
     busyTexFallbackNote =
@@ -279,9 +291,9 @@ export async function compileLaTeX(
   const eng = await getEngine();
   await preloadTexliveCache(eng);
 
-  const patchedFiles = patchBiblatexFiles(files);
+  const patchedFiles = patchBiblatexFiles(workFiles);
 
-  const allPaths = [...patchedFiles.keys(), ...(binaryFiles?.keys() || [])];
+  const allPaths = [...patchedFiles.keys(), ...(workBinary?.keys() || [])];
   for (const path of allPaths) {
     const parts = path.split('/');
     for (let i = 1; i < parts.length; i++) {
@@ -297,8 +309,8 @@ export async function compileLaTeX(
     eng.writeMemFSFile(path, content);
   }
 
-  if (binaryFiles) {
-    for (const [path, data] of binaryFiles) {
+  if (workBinary) {
+    for (const [path, data] of workBinary) {
       eng.writeBinaryMemFSFile(path, data);
     }
   }
@@ -310,13 +322,13 @@ export async function compileLaTeX(
     return {
       pdf: firstPass.pdf,
       status: firstPass.status,
-      log: busyTexFallbackNote + firstPass.log
+      log: rootNote + busyTexFallbackNote + firstPass.log
     };
   }
 
   const result = await eng.compileLaTeX();
 
-  let log = busyTexFallbackNote + result.log;
+  let log = rootNote + busyTexFallbackNote + result.log;
   if (needsBibtexPipeline && !busyTexFallbackNote) {
     log =
       '[TeXbrain] For full BibTeX support, run: pnpm run download-busytex\n\n' + log;
@@ -329,6 +341,10 @@ export async function compileLaTeX(
     pdf: result.pdf,
     status: result.status,
     log,
-    bbl: bblContent ? { path: bblPath, content: bblContent } : undefined
+    bbl: remapBblToProjectPath(
+      compileRootDir,
+      projectMainFile,
+      bblContent ? { path: bblPath, content: bblContent } : undefined
+    )
   };
 }

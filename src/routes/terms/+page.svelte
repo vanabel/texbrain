@@ -1,14 +1,15 @@
 <script lang="ts">
   import { base } from '$app/paths';
+  import { siteUrl } from '$lib/site';
   import Logo from '$lib/ui/Logo.svelte';
 </script>
 
 <svelte:head>
   <title>Terms of Service | TeXbrain</title>
   <meta name="description" content="TeXbrain terms of service. What you can expect from us and what we ask of you." />
-  <link rel="canonical" href="https://tex.swimmingbrain.dev/terms" />
+  <link rel="canonical" href={siteUrl('/terms')} />
   <meta property="og:title" content="Terms of Service | TeXbrain" />
-  <meta property="og:url" content="https://tex.swimmingbrain.dev/terms" />
+  <meta property="og:url" content={siteUrl('/terms')} />
 </svelte:head>
 
 <div class="legal">

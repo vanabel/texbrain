@@ -1,14 +1,15 @@
 <script lang="ts">
   import { base } from '$app/paths';
+  import { siteUrl } from '$lib/site';
   import Logo from '$lib/ui/Logo.svelte';
 </script>
 
 <svelte:head>
   <title>Imprint | TeXbrain</title>
   <meta name="description" content="Legal notice and contact information for TeXbrain, a free browser-based LaTeX editor by Braian Plaku." />
-  <link rel="canonical" href="https://tex.swimmingbrain.dev/imprint" />
+  <link rel="canonical" href={siteUrl('/imprint')} />
   <meta property="og:title" content="Imprint | TeXbrain" />
-  <meta property="og:url" content="https://tex.swimmingbrain.dev/imprint" />
+  <meta property="og:url" content={siteUrl('/imprint')} />
 </svelte:head>
 
 <div class="legal">

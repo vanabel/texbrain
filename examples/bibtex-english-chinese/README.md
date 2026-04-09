@@ -12,7 +12,7 @@
 4. 克隆完成后，在侧栏打开并编辑：
    - 英文：`examples/bibtex-english-chinese/English-bibtex/test-arxiv.tex`
    - 中文：`examples/bibtex-english-chinese/Chinese-bibtex/Chinese-bibtex.tex`
-5. 将 **Compile** 设为 **Active Tab**（或把 **Entry** 设为上述路径之一），再编译。托管站点需已部署 **BusyTeX** 资源（`pnpm run download-busytex`），经典 BibTeX 才会跑通。
+5. 将 **Compile** 设为 **Active Tab**（或把 **Entry** 设为上述路径之一），再编译。编译器会**只使用主 `.tex` 所在子目录作为根目录**（与在该文件夹内单独跑 `pdflatex`/`bibtex` 一致），不要把父目录 `examples/bibtex-english-chinese/` 当作编译根。托管站点需已部署 **BusyTeX**（`pnpm run download-busytex`），经典 BibTeX 才会跑通。
 
 ## 在本地用 Git 获取
 
