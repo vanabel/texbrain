@@ -10,7 +10,11 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      'buffer': 'buffer/'
+      buffer: 'buffer/',
+      // isomorphic-git / sha.js expect Node's crypto.createHash in the browser bundle
+      crypto: 'crypto-browserify',
+      stream: 'stream-browserify',
+      util: 'util'
     }
   },
   worker: {
@@ -28,6 +32,7 @@ export default defineConfig({
     }
   },
   optimizeDeps: {
+    include: ['isomorphic-git', 'crypto-browserify', 'buffer', 'stream-browserify', 'util'],
     esbuildOptions: {
       loader: {
         '.keep': 'text'
