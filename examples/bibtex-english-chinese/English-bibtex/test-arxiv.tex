@@ -1,0 +1,22 @@
+\documentclass[a4paper]{amsart}
+\usepackage[backref=page]{hyperref}
+%default is numeric style
+%note that y2k must be used with alphabetic option
+\usepackage[abbrev,msc-links,backrefs]{amsrefs} %alphabetic,shortalphabetic,citation-order, y2k
+
+\BibSpec{misc}{%
+  +{} {\PrintAuthors} {author}
+  +{,} { \textit} {title}
+  +{,} { } {date}
+  +{,} { } {eprint}
+  +{,} { } {note}
+  +{.} {} {transition}
+}
+
+\begin{document}
+
+\cites{Parker2022Concentrating,GaltMa2025Dimension,HeWentworthZhang2024harmonic,Taubes2020Compactness,WalpuskiZhang2021DMJ}
+
+\bibliography{test-arxiv}
+\end{document}
+  

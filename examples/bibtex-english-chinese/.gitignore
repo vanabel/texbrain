@@ -1,0 +1,18 @@
+# LaTeX
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc
+*.xdv
+*.run.xml
+*-blx.bib
+*.bcf
+.DS_Store
+
+# Optional: local symlink (recreated by switch.sh)
+/active

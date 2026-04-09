@@ -1,0 +1,92 @@
+\documentclass[12pt,a4paper,fontset=fandol]{ctexart}
+
+% 页面设置
+\usepackage{geometry}
+\geometry{left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
+
+% 数学支持
+\usepackage{amsmath,amssymb}
+
+% 超链接
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=red,
+    urlcolor=blue
+}
+
+% ============================================
+% GB/T 7714-2015 参考文献设置（顺序编码制）
+% ============================================
+\usepackage[sort&compress]{gbt7714}
+\bibliographystyle{gbt7714-numerical}
+
+% 如需切换为正文引用模式（非上标）:
+% \citestyle{numbers}
+
+% 标题信息
+\title{\textbf{GB/T 7714-2015 标准参考文献示例}\\
+\large （顺序编码制）}
+\author{作者姓名}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+本文档演示如何在 LaTeX 中使用 \texttt{gbt7714} 宏包生成符合 GB/T 7714-2015 国家标准的中英文参考文献。
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{引言}
+
+在学术写作中，参考文献的著录必须符合国家标准 GB/T 7714-2015\cite{gbt7714}。LaTeX 配合 \texttt{gbt7714} 宏包可以自动生成符合国标的参考文献列表\cite{knuth1984texbook}。
+
+\section{理论基础}
+
+\subsection{排版系统}
+
+\TeX 是由 Knuth 开发的排版系统\cite{knuth1984texbook}，而 \LaTeX 是 Lamport 在其基础上开发的文档准备系统\cite{lamport1994latex}。现代 \LaTeX 发行版提供了完善的中文支持\cite{ctex2018}。
+
+\subsection{中文支持}
+
+中文排版需要特殊处理。CTeX 宏集提供了全面的中文支持\cite{ctex2018}，包括中文字体配置和版式调整等功能。
+
+\section{研究方法}
+
+本研究采用文献综述法，参考了多篇中英文文献\cite{goossens1994companion, 张三2020人工智能, 李四2018机器学习}。实验结果表明，深度学习方法在图像识别领域具有显著优势\cite{王五2019深度学习, 陈七2021自然语言}。
+
+\section{实验结果}
+
+如表 \ref{tab:compare} 所示，不同排版系统在处理中文文献时表现各异\cite{吴九2022知识图谱, johnson2019attention}。
+
+\begin{table}[htbp]
+\centering
+\caption{排版系统对比}
+\label{tab:compare}
+\begin{tabular}{lcc}
+\hline
+\textbf{特性} & \textbf{Word} & \textbf{LaTeX} \\
+\hline
+公式排版 & 一般 & 优秀 \\
+参考文献 & 手动 & 自动 \\
+版本控制 & 困难 & 容易 \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{结论}
+
+LaTeX 配合 \texttt{gbt7714} 宏包是处理中文学术文献的理想工具\cite{刘十一2019博士论文, 孙十二2020硕士论文}。对于需要符合国标的学位论文和期刊投稿，建议使用 XeLaTeX 编译引擎\cite{钱十三2021技术报告}。
+
+% 引用所有参考文献（即使未在正文中引用）
+\nocite{*}
+
+% 生成参考文献
+\bibliography{references}
+
+\end{document}

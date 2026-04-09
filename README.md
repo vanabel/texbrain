@@ -36,6 +36,7 @@ I was tired of paying for basics. I wrote a thesis in LaTeX and fought the toolc
 - [How it works](#how-it-works)
 - [Security & privacy](#security--privacy)
 - [Tech stack](#tech-stack)
+- [BibTeX example (English / Chinese)](#bibtex-example-english--chinese)
 - [Running locally](#running-locally)
 - [PM2 deployment](#pm2-deployment)
 - [Future roadmap (draft)](ROADMAP.md)
@@ -65,6 +66,12 @@ Open a folder, edit, preview PDF, commit, push to GitHub—**from one tab**.
 | **Palette & snippets** | Command palette; searchable math/env snippets. |
 | **Offline** | After load, editing and compilation work without the network. |
 | **Templates** | Article, thesis, beamer, report, CV, letter, minimal. |
+
+---
+
+## BibTeX example (English / Chinese)
+
+This repo includes a small **bilingual BibTeX** layout under [`examples/bibtex-english-chinese/`](examples/bibtex-english-chinese/README.md) (e.g. `gbt7714` vs `amsrefs` / `amsrn.bst`). **In the web app:** welcome screen → **Clone Repository** → **Use official TeXbrain repo (BibTeX EN/ZH example)** — or paste `https://github.com/vanabel/texbrain.git`. After clone, open the `.tex` you want under `examples/bibtex-english-chinese/English-bibtex/` or `.../Chinese-bibtex/` and compile (**Active tab** or set **Entry** to that file). Classic BibTeX needs **BusyTeX** on the deployment (`pnpm run download-busytex`). Details: [examples/bibtex-english-chinese/README.md](examples/bibtex-english-chinese/README.md).
 
 ---
 

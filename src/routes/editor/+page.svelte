@@ -35,6 +35,7 @@
   import CollabPanel from '$lib/ui/CollabPanel.svelte';
   import GitPanel from '$lib/ui/GitPanel.svelte';
   import DrawioEditor from '$lib/ui/DrawioEditor.svelte';
+  import { TEXBRAIN_GITHUB_CLONE_URL } from '$lib/constants/texbrain-repo';
 
   let editorView: EditorView | null = null;
   let pdfData: Uint8Array | undefined = undefined;
@@ -879,6 +880,12 @@
     cloneName = derived;
   }
 
+  /** Prefill clone form with the official TeXbrain repo (includes examples/bibtex-english-chinese). */
+  function fillTexbrainCloneForExamples() {
+    cloneUrl = TEXBRAIN_GITHUB_CLONE_URL;
+    cloneName = 'texbrain';
+  }
+
   async function handleClone() {
     const url = cloneUrl.trim();
     const name = cloneName.trim();
@@ -1275,6 +1282,7 @@
                   <div class="clone-field">
                     <label for="clone-url">Repository URL</label>
                     <input id="clone-url" type="text" bind:value={cloneUrl} on:input={onCloneUrlInput} placeholder="https://github.com/user/repo" class="clone-input" />
+                    <button type="button" class="clone-preset-btn" on:click={fillTexbrainCloneForExamples}>Use official TeXbrain repo (BibTeX EN/ZH example)</button>
                   </div>
                   <div class="clone-field">
                     <label for="clone-name">Project Name</label>
@@ -1408,6 +1416,19 @@
   .clone-field label { font-size: 11px; font-weight: 500; color: var(--text-secondary); font-family: var(--font-editor); }
   .clone-input { width: 100%; padding: 7px 10px; font-size: 12.5px; font-family: var(--font-editor); background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--border); outline: none; }
   .clone-input:focus { border-color: var(--accent); }
+  .clone-preset-btn {
+    align-self: flex-start;
+    margin-top: 2px;
+    padding: 0;
+    font-size: 11px;
+    color: var(--accent);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-decoration: underline;
+    font-family: inherit;
+  }
+  .clone-preset-btn:hover { color: var(--accent-hover); }
   .clone-actions { display: flex; gap: 6px; margin-top: 4px; }
   .clone-actions .welcome-btn { flex: 1; justify-content: center; }
   .clone-hint { font-size: 10.5px; color: var(--text-muted); line-height: 1.5; text-align: center; margin-top: 4px; }
