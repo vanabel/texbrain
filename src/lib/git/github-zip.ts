@@ -18,6 +18,13 @@ function zipUrlForBranch(owner: string, repo: string, branch: string): string {
 
 const DEFAULT_PUBLIC_CORS = 'https://cors.isomorphic-git.org';
 
+/** True when the app is served from this machine (pnpm dev / pnpm preview), so Vite can proxy codeload. */
+function canUseLocalViteCodeloadProxy(): boolean {
+  if (typeof location === 'undefined' || !location.hostname) return false;
+  const h = location.hostname;
+  return h === 'localhost' || h === '127.0.0.1' || h === '[::1]';
+}
+
 function isZipMagic(buf: ArrayBuffer): boolean {
   if (buf.byteLength < 4) return false;
   const u = new Uint8Array(buf, 0, 4);
@@ -35,7 +42,7 @@ export function corsProxify(corsProxy: string, url: string): string {
 }
 
 /**
- * Fetch GitHub zip bytes: Vite dev proxy (same-origin) → path-style CORS proxies → allorigins → direct.
+ * Fetch GitHub zip bytes: Vite dev/preview proxy (same-origin on localhost) → public CORS proxies → allorigins → direct.
  */
 async function fetchArrayBuffer(url: string, corsProxy: string): Promise<ArrayBuffer> {
   const attempts: string[] = [];
@@ -47,10 +54,10 @@ async function fetchArrayBuffer(url: string, corsProxy: string): Promise<ArrayBu
     }
   };
 
-  // `pnpm dev`: bypass browser CORS via vite.config.ts server.proxy
-  if (import.meta.env.DEV && url.startsWith('https://codeload.github.com/')) {
+  // `pnpm dev` / `pnpm preview`: bypass CORS via vite.config server.preview proxy (not available on static hosts).
+  if (url.startsWith('https://codeload.github.com/') && canUseLocalViteCodeloadProxy()) {
     const path = url.slice('https://codeload.github.com'.length);
-    if (typeof location !== 'undefined' && location.origin) {
+    if (location.origin) {
       add(`${location.origin}/__texbrain_codeload${path}`);
     }
   }
@@ -85,6 +92,36 @@ async function fetchArrayBuffer(url: string, corsProxy: string): Promise<ArrayBu
 }
 
 /**
+ * Keep only zip entries under `subfolder` (e.g. `examples`).
+ * Supports GitHub-style paths (`repo-main/examples/...`) and archives whose keys start with `examples/...`.
+ */
+export function extractSubfolderFromUnzipped(
+  unzipped: Record<string, Uint8Array>,
+  subfolder: string
+): Map<string, string> {
+  const prefix = subfolder.replace(/^\/+|\/+$/g, '');
+  const needle = `${prefix}/`;
+  const marker = `/${prefix}/`;
+  const textFiles = new Map<string, string>();
+
+  for (const [path, data] of Object.entries(unzipped)) {
+    if (path.endsWith('/')) continue;
+    let rel: string | undefined;
+    if (path.startsWith(needle)) {
+      rel = path;
+    } else {
+      const i = path.indexOf(marker);
+      if (i === -1) continue;
+      rel = path.slice(i + 1);
+    }
+    if (!rel.startsWith(needle)) continue;
+    textFiles.set(rel, utf8Decoder.decode(data));
+  }
+
+  return textFiles;
+}
+
+/**
  * Download GitHub repo archive zip and keep only paths under `subfolder` (e.g. `examples`).
  * Returned map keys are relative to project root: `examples/bibtex-english-chinese/...`.
  */
@@ -94,7 +131,6 @@ export async function downloadGithubSubfolderAsMaps(
   corsProxy: string
 ): Promise<{ textFiles: Map<string, string> }> {
   const prefix = subfolder.replace(/^\/+|\/+$/g, '');
-  const marker = `/${prefix}/`;
 
   const branches = ['main', 'master'];
   let zipBuf: ArrayBuffer | null = null;
@@ -114,17 +150,7 @@ export async function downloadGithubSubfolderAsMaps(
   }
 
   const unzipped = unzipSync(new Uint8Array(zipBuf));
-  const textFiles = new Map<string, string>();
-
-  for (const [path, data] of Object.entries(unzipped)) {
-    if (path.endsWith('/')) continue;
-    const i = path.indexOf(marker);
-    if (i === -1) continue;
-    const rel = path.slice(i + 1);
-    if (!rel.startsWith(prefix + '/')) continue;
-    // GitHub archives are UTF-8; strFromU8(..., true) is Latin-1 and mangles CJK comments.
-    textFiles.set(rel, utf8Decoder.decode(data));
-  }
+  const textFiles = extractSubfolderFromUnzipped(unzipped, prefix);
 
   if (textFiles.size === 0) {
     throw new Error(

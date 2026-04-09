@@ -1,10 +1,12 @@
 import { get } from 'svelte/store';
+import { base } from '$app/paths';
+import { unzipSync } from 'fflate';
 import { openFileTab, activeFile, markFileSaved, projectTree, projectName, projectHandle, entryPoint, pendingTexFiles, files, closeFileTab } from './store';
 import { openLocalFile, saveLocalFile, saveLocalFileAs, openDirectory, readFileFromHandle } from '../fs/local-fs';
 import { openFileFallback, saveFileFallback } from '../fs/fallback-fs';
 import { addToast } from '../stores/app';
 import { initFs as gitInitFs, cloneRepo, readAllFilesFromGit, checkAndLoadGit, syncFilesToGit } from '../git/engine';
-import { downloadGithubSubfolderAsMaps, parseGithubRepoUrl } from '../git/github-zip';
+import { downloadGithubSubfolderAsMaps, extractSubfolderFromUnzipped, parseGithubRepoUrl } from '../git/github-zip';
 import { gitCorsProxy } from '../git/store';
 import type { TreeEntry } from './types';
 
@@ -62,6 +64,46 @@ export type CloneProjectOptions = {
   onlySubpath?: string;
 };
 
+async function finalizeProjectFromGitImport(
+  projectDir: FileSystemDirectoryHandle,
+  name: string,
+  successMessage: string
+): Promise<void> {
+  const gitFiles = await readAllFilesFromGit();
+  for (const [path, content] of gitFiles) {
+    const parts = path.split('/');
+    const fileName = parts.pop()!;
+    let currentDir = projectDir;
+    for (const part of parts) {
+      currentDir = await currentDir.getDirectoryHandle(part, { create: true });
+    }
+    const fileHandle = await currentDir.getFileHandle(fileName, { create: true });
+    const writable = await fileHandle.createWritable();
+    await writable.write(content);
+    await writable.close();
+  }
+
+  const tree = await readTreeFromHandle(projectDir);
+  projectTree.set(tree);
+  projectName.set(name);
+  projectHandle.set(projectDir);
+
+  await checkAndLoadGit();
+
+  const texPaths = collectTexPaths(tree);
+  if (texPaths.length === 1) {
+    entryPoint.set(texPaths[0]);
+    const entry = findFileInTree(tree, texPaths[0].split('/').pop()!);
+    if (entry?.handle) {
+      await handleOpenFileFromTree(entry.handle, entry.path);
+    }
+  } else if (texPaths.length > 1) {
+    entryPoint.set(texPaths[0]);
+  }
+
+  addToast(successMessage, 'success', 2500);
+}
+
 export async function cloneProject(url: string, name: string, options?: CloneProjectOptions): Promise<void> {
   if (!supportsFileSystemAccess()) {
     throw new Error('This feature requires Chrome or Edge (File System Access API).');
@@ -92,42 +134,45 @@ export async function cloneProject(url: string, name: string, options?: ClonePro
     await cloneRepo(url);
   }
 
-  // write cloned files to real filesystem
-  const gitFiles = await readAllFilesFromGit();
-  for (const [path, content] of gitFiles) {
-    const parts = path.split('/');
-    const fileName = parts.pop()!;
-    let currentDir = projectDir;
-    for (const part of parts) {
-      currentDir = await currentDir.getDirectoryHandle(part, { create: true });
-    }
-    const fileHandle = await currentDir.getFileHandle(fileName, { create: true });
-    const writable = await fileHandle.createWritable();
-    await writable.write(content);
-    await writable.close();
+  await finalizeProjectFromGitImport(
+    projectDir,
+    name,
+    onlySubpath ? `Downloaded ${onlySubpath}/ into ${name}` : `Cloned: ${name}`
+  );
+}
+
+/**
+ * Load `examples/bibtex-english-chinese` from the same-origin static zip (built at compile time).
+ * Works on public static hosts without GitHub or CORS proxies.
+ */
+export async function loadBundledBibtexExample(name: string): Promise<void> {
+  if (!supportsFileSystemAccess()) {
+    throw new Error('This feature requires Chrome or Edge (File System Access API).');
   }
 
-  const tree = await readTreeFromHandle(projectDir);
-  projectTree.set(tree);
-  projectName.set(name);
-  projectHandle.set(projectDir);
+  const dirHandle = await (window as any).showDirectoryPicker({ mode: 'readwrite' });
+  const projectDir = await dirHandle.getDirectoryHandle(name, { create: true });
 
-  await checkAndLoadGit();
+  addToast('Loading built-in BibTeX example…', 'info', 3000);
+  gitInitFs(name);
 
-  const texPaths = collectTexPaths(tree);
-  if (texPaths.length === 1) {
-    entryPoint.set(texPaths[0]);
-    const entry = findFileInTree(tree, texPaths[0].split('/').pop()!);
-    if (entry?.handle) {
-      await handleOpenFileFromTree(entry.handle, entry.path);
-    }
-  } else if (texPaths.length > 1) {
-    // Do not block project opening with a modal.
-    // Keep a fallback entry point; actual compile target is resolved from active tab.
-    entryPoint.set(texPaths[0]);
+  const zipPath = `${base}/bundled-bibtex-example.zip`.replace(/\/+/g, '/');
+  const zipUrl = zipPath.startsWith('http') ? zipPath : new URL(zipPath, location.origin).href;
+  const res = await fetch(zipUrl);
+  if (!res.ok) {
+    throw new Error(
+      `Bundled example not found (${res.status}). Run a production build so static/bundled-bibtex-example.zip is generated.`
+    );
   }
+  const buf = await res.arrayBuffer();
+  const unzipped = unzipSync(new Uint8Array(buf));
+  const textFiles = extractSubfolderFromUnzipped(unzipped, 'examples');
+  if (textFiles.size === 0) {
+    throw new Error('Bundled archive contained no files under examples/.');
+  }
+  await syncFilesToGit(textFiles);
 
-  addToast(onlySubpath ? `Downloaded ${onlySubpath}/ into ${name}` : `Cloned: ${name}`, 'success', 2500);
+  await finalizeProjectFromGitImport(projectDir, name, `Loaded built-in example into ${name}`);
 }
 
 export async function handleOpenFile() {

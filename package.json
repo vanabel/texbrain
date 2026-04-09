@@ -4,8 +4,8 @@
   "author": "Braian Plaku",
   "private": true,
   "scripts": {
-    "dev": "vite dev",
-    "build": "vite build",
+    "dev": "node scripts/bundle-bibtex-example-zip.mjs && vite dev",
+    "build": "node scripts/bundle-bibtex-example-zip.mjs && vite build",
     "preview": "vite preview",
     "download-busytex": "texlyre-busytex download-assets ./static",
     "serve:prod": "serve -s build -l ${PORT:-4173}",

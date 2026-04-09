@@ -5,7 +5,7 @@
   import { get } from 'svelte/store';
   import { sidebarOpen, previewOpen, snippetPickerOpen, commandPaletteOpen, compileStatus, compileLog, compileErrors, previewTab, addToast } from '$lib/stores/app';
   import { files, activeFile, activeFileId, updateFileContent, projectHandle, projectTree, entryPoint, openFileTab } from '$lib/project/store';
-  import { handleOpenFile, handleSaveFile, handleSaveFileAs, handleDroppedFiles, handleOpenDirectory, handleNewProject, cloneProject, refreshProjectTree } from '$lib/project/manager';
+  import { handleOpenFile, handleSaveFile, handleSaveFileAs, handleDroppedFiles, handleOpenDirectory, handleNewProject, cloneProject, loadBundledBibtexExample, refreshProjectTree } from '$lib/project/manager';
   import { insertAtCursor, createEditor, replaceEditorContent } from '$lib/editor/setup';
   import type { EditorView } from '@codemirror/view';
   import type { Snippet as SnippetDef } from '$lib/snippets/index';
@@ -119,6 +119,7 @@
   let cloning = false;
   /** When true, GitHub URLs fetch only `examples/` via zip (not a full git clone). */
   let cloneExamplesOnly = false;
+  let loadingBundledExample = false;
 
   $: isMobile = windowWidth < 900;
 
@@ -899,6 +900,22 @@
     cloneExamplesOnly = true;
   }
 
+  async function handleLoadBundledBibtexExample() {
+    const name = prompt('Project folder name:', 'bibtex-english-chinese');
+    if (!name?.trim()) return;
+    loadingBundledExample = true;
+    try {
+      await loadBundledBibtexExample(name.trim());
+      buildEditor();
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        addToast(err?.message || String(err), 'error');
+      }
+    } finally {
+      loadingBundledExample = false;
+    }
+  }
+
   async function handleClone() {
     const url = cloneUrl.trim();
     const name = cloneName.trim();
@@ -918,7 +935,7 @@
         const msg = err?.message || String(err);
         if (msg.includes('CORS') || msg.includes('Failed to fetch')) {
           addToast(
-            'Network/CORS blocked. For local dev use pnpm dev (zip uses a built-in proxy). On the live site, open Git → Remote and set CORS proxy to https://cors.isomorphic-git.org or try again later.',
+            'Network/CORS blocked. On localhost use pnpm dev or pnpm preview (zip uses a built-in proxy). On a static host, set Git → Remote CORS proxy to https://cors.isomorphic-git.org or use full git clone.',
             'error',
             9000
           );
@@ -1342,6 +1359,14 @@
                   <button class="welcome-btn secondary" on:click={handleShowCloneForm}>
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M15 5.5a3.5 3.5 0 01-5.55 2.83L6.83 11H5v1.5H3.5V14H1v-2.5l5.17-5.17A3.5 3.5 0 1115 5.5zm-2 0a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" fill="currentColor"/></svg>
                     Clone Repository
+                  </button>
+                  <button class="welcome-btn secondary" on:click={handleLoadBundledBibtexExample} disabled={loadingBundledExample} title="Same-origin zip bundled at build time — works on any static host without GitHub or CORS">
+                    {#if loadingBundledExample}
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3" stroke-dasharray="8 4" class="spin"/></svg>
+                    {:else}
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 14V3a1 1 0 011-1h5l2 2h3a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1z" stroke="currentColor" stroke-width="1.2"/><path d="M5 6h6M5 9h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+                    {/if}
+                    Built-in BibTeX example
                   </button>
                 </div>
               {/if}

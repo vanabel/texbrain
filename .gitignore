@@ -10,3 +10,4 @@ build/
 *.tgz
 # BusyTeX WASM (~175MB); generate with: pnpm run download-busytex
 static/busytex/
+static/bundled-bibtex-example.zip

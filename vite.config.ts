@@ -4,6 +4,16 @@ import { defineConfig } from 'vite';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import { texlivePlugin } from './vite-texlive-plugin';
 
+/** Same-origin proxy for GitHub zip (examples clone); used in dev and `pnpm preview`. */
+const texbrainCodeloadProxy = {
+  '/__texbrain_codeload': {
+    target: 'https://codeload.github.com',
+    changeOrigin: true,
+    secure: true,
+    rewrite: (p: string) => p.replace(/^\/__texbrain_codeload/, '')
+  }
+} as const;
+
 export default defineConfig({
   plugins: [
     // Must run before SvelteKit: provides global process / Buffer for crypto-browserify → readable-stream
@@ -31,15 +41,7 @@ export default defineConfig({
     format: 'es'
   },
   server: {
-    // Dev-only: same-origin proxy so GitHub zip download works without public CORS proxies
-    proxy: {
-      '/__texbrain_codeload': {
-        target: 'https://codeload.github.com',
-        changeOrigin: true,
-        secure: true,
-        rewrite: (p) => p.replace(/^\/__texbrain_codeload/, '')
-      }
-    },
+    proxy: { ...texbrainCodeloadProxy },
     watch: {
       // ignore latex artifacts and texlive cache to prevent hot reload on file save
       ignored: [
@@ -49,6 +51,9 @@ export default defineConfig({
         '**/static/texlive/cache/**'
       ]
     }
+  },
+  preview: {
+    proxy: { ...texbrainCodeloadProxy }
   },
   optimizeDeps: {
     include: ['isomorphic-git', 'buffer', 'process'],
