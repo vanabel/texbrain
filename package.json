@@ -43,6 +43,7 @@
     "@lezer/highlight": "^1.2.0",
     "@lezer/lr": "^1.4.0",
     "buffer": "^6.0.3",
+    "fflate": "^0.8.2",
     "idb-keyval": "^6.2.1",
     "isomorphic-git": "^1.27.1",
     "latex.js": "^0.12.6",

@@ -3,7 +3,9 @@ import { openFileTab, activeFile, markFileSaved, projectTree, projectName, proje
 import { openLocalFile, saveLocalFile, saveLocalFileAs, openDirectory, readFileFromHandle } from '../fs/local-fs';
 import { openFileFallback, saveFileFallback } from '../fs/fallback-fs';
 import { addToast } from '../stores/app';
-import { initFs as gitInitFs, cloneRepo, readAllFilesFromGit, checkAndLoadGit } from '../git/engine';
+import { initFs as gitInitFs, cloneRepo, readAllFilesFromGit, checkAndLoadGit, syncFilesToGit } from '../git/engine';
+import { downloadGithubSubfolderAsMaps, parseGithubRepoUrl } from '../git/github-zip';
+import { gitCorsProxy } from '../git/store';
 import type { TreeEntry } from './types';
 
 function supportsFileSystemAccess(): boolean {
@@ -55,18 +57,40 @@ export async function handleNewProject() {
   }
 }
 
-export async function cloneProject(url: string, name: string): Promise<void> {
+export type CloneProjectOptions = {
+  /** If set (e.g. `examples`), only that top-level folder is fetched via GitHub zip (no full git clone). */
+  onlySubpath?: string;
+};
+
+export async function cloneProject(url: string, name: string, options?: CloneProjectOptions): Promise<void> {
   if (!supportsFileSystemAccess()) {
     throw new Error('This feature requires Chrome or Edge (File System Access API).');
+  }
+
+  const onlySubpath = options?.onlySubpath?.replace(/^\/+|\/+$/g, '');
+  if (onlySubpath && !parseGithubRepoUrl(url)) {
+    addToast('Folder-only download works for github.com repository URLs.', 'error');
+    return;
   }
 
   const dirHandle = await (window as any).showDirectoryPicker({ mode: 'readwrite' });
   const projectDir = await dirHandle.getDirectoryHandle(name, { create: true });
 
-  addToast('Cloning repository...', 'info', 3000);
+  if (onlySubpath) {
+    addToast(`Downloading ${onlySubpath}/ from GitHub…`, 'info', 4000);
+  } else {
+    addToast('Cloning repository...', 'info', 3000);
+  }
 
   gitInitFs(name);
-  await cloneRepo(url);
+
+  if (onlySubpath) {
+    const gh = parseGithubRepoUrl(url)!;
+    const { textFiles } = await downloadGithubSubfolderAsMaps(gh, onlySubpath, get(gitCorsProxy));
+    await syncFilesToGit(textFiles);
+  } else {
+    await cloneRepo(url);
+  }
 
   // write cloned files to real filesystem
   const gitFiles = await readAllFilesFromGit();
@@ -103,7 +127,7 @@ export async function cloneProject(url: string, name: string): Promise<void> {
     entryPoint.set(texPaths[0]);
   }
 
-  addToast(`Cloned: ${name}`, 'success', 2000);
+  addToast(onlySubpath ? `Downloaded ${onlySubpath}/ into ${name}` : `Cloned: ${name}`, 'success', 2500);
 }
 
 export async function handleOpenFile() {

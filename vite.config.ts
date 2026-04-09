@@ -31,6 +31,15 @@ export default defineConfig({
     format: 'es'
   },
   server: {
+    // Dev-only: same-origin proxy so GitHub zip download works without public CORS proxies
+    proxy: {
+      '/__texbrain_codeload': {
+        target: 'https://codeload.github.com',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (p) => p.replace(/^\/__texbrain_codeload/, '')
+      }
+    },
     watch: {
       // ignore latex artifacts and texlive cache to prevent hot reload on file save
       ignored: [

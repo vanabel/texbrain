@@ -418,9 +418,24 @@ function getAuth(): GitAuth {
   return { username: '', password: '' };
 }
 
-function getCorsProxy(): string | undefined {
-  const proxy = get(gitCorsProxy);
-  return proxy || undefined;
+const DEFAULT_CORS_PROXY = 'https://cors.isomorphic-git.org';
+
+/** CORS proxy for git HTTP (browser). Empty setting falls back to the public isomorphic-git proxy. */
+function getCorsProxy(): string {
+  return get(gitCorsProxy).trim() || DEFAULT_CORS_PROXY;
+}
+
+async function wipeProjectDirForRetry() {
+  const pfs = getFs().promises;
+  let entries: string[] = [];
+  try {
+    entries = await pfs.readdir(DIR);
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    await removeRecursive(DIR + '/' + entry);
+  }
 }
 
 export async function push(remoteName: string = 'origin', branch?: string): Promise<void> {
@@ -461,15 +476,28 @@ export async function cloneRepo(url: string): Promise<void> {
   await ensureBuffer();
   await ensureDir(DIR);
   const auth = getAuth();
-  await git.clone({
-    fs: getFs(),
-    http,
-    dir: DIR,
-    url,
-    corsProxy: getCorsProxy(),
-    onAuth: () => auth,
-    singleBranch: false
-  });
+  const userProxy = get(gitCorsProxy).trim();
+  const candidates = [...new Set([userProxy || DEFAULT_CORS_PROXY, DEFAULT_CORS_PROXY])];
+
+  let lastErr: unknown;
+  for (let i = 0; i < candidates.length; i++) {
+    if (i > 0) await wipeProjectDirForRetry();
+    try {
+      await git.clone({
+        fs: getFs(),
+        http,
+        dir: DIR,
+        url,
+        corsProxy: candidates[i],
+        onAuth: () => auth,
+        singleBranch: false
+      });
+      return;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
 }
 
 export async function getFileDiff(filepath: string): Promise<GitFileDiff> {

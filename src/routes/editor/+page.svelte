@@ -117,6 +117,8 @@
   let cloneUrl = '';
   let cloneName = '';
   let cloning = false;
+  /** When true, GitHub URLs fetch only `examples/` via zip (not a full git clone). */
+  let cloneExamplesOnly = false;
 
   $: isMobile = windowWidth < 900;
 
@@ -873,12 +875,14 @@
     showCloneForm = true;
     cloneUrl = '';
     cloneName = '';
+    cloneExamplesOnly = false;
   }
 
   function handleCancelClone() {
     showCloneForm = false;
     cloneUrl = '';
     cloneName = '';
+    cloneExamplesOnly = false;
   }
 
   function onCloneUrlInput() {
@@ -891,7 +895,8 @@
   /** Prefill clone form with the official TeXbrain repo (includes examples/bibtex-english-chinese). */
   function fillTexbrainCloneForExamples() {
     cloneUrl = TEXBRAIN_GITHUB_CLONE_URL;
-    cloneName = 'texbrain';
+    cloneName = 'texbrain-examples';
+    cloneExamplesOnly = true;
   }
 
   async function handleClone() {
@@ -900,16 +905,23 @@
     if (!url || !name) return;
     cloning = true;
     try {
-      await cloneProject(url, name);
+      await cloneProject(url, name, {
+        onlySubpath: cloneExamplesOnly ? 'examples' : undefined
+      });
       showCloneForm = false;
       cloneUrl = '';
       cloneName = '';
+      cloneExamplesOnly = false;
       buildEditor();
     } catch (err: any) {
       if (err.name !== 'AbortError') {
         const msg = err?.message || String(err);
         if (msg.includes('CORS') || msg.includes('Failed to fetch')) {
-          addToast('clone failed: CORS error - check proxy in git > remote after cloning', 'error');
+          addToast(
+            'Network/CORS blocked. For local dev use pnpm dev (zip uses a built-in proxy). On the live site, open Git → Remote and set CORS proxy to https://cors.isomorphic-git.org or try again later.',
+            'error',
+            9000
+          );
         } else {
           addToast('clone failed: ' + msg, 'error');
         }
@@ -1296,6 +1308,10 @@
                     <label for="clone-name">Project Name</label>
                     <input id="clone-name" type="text" bind:value={cloneName} placeholder="my-project" class="clone-input" />
                   </div>
+                  <label class="clone-checkbox-row">
+                    <input type="checkbox" bind:checked={cloneExamplesOnly} />
+                    <span>Only download <code>examples/</code> (GitHub zip, smaller — no git history)</span>
+                  </label>
                   <div class="clone-actions">
                     <button class="welcome-btn primary" on:click={handleClone} disabled={cloning || !cloneUrl.trim() || !cloneName.trim()}>
                       {#if cloning}
@@ -1308,7 +1324,7 @@
                     </button>
                     <button class="welcome-btn secondary" on:click={handleCancelClone} disabled={cloning}>Back</button>
                   </div>
-                  <p class="clone-hint">You'll pick a folder where the project will be saved. Auth and CORS proxy can be configured in Git > Remote after cloning.</p>
+                  <p class="clone-hint">You'll pick a folder where the project will be saved. Full git clone uses the CORS proxy in Git &gt; Remote. <code>examples/</code>-only uses the same proxy to download GitHub's zip archive.</p>
                 </div>
               {:else}
                 <div class="welcome-icon"><Logo size={44} /></div>
@@ -1437,6 +1453,18 @@
     font-family: inherit;
   }
   .clone-preset-btn:hover { color: var(--accent-hover); }
+  .clone-checkbox-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    line-height: 1.45;
+    cursor: pointer;
+    user-select: none;
+  }
+  .clone-checkbox-row input { margin-top: 2px; flex-shrink: 0; }
+  .clone-checkbox-row code { font-size: 10.5px; background: var(--bg-elevated); padding: 0 4px; border-radius: 3px; }
   .clone-actions { display: flex; gap: 6px; margin-top: 4px; }
   .clone-actions .welcome-btn { flex: 1; justify-content: center; }
   .clone-hint { font-size: 10.5px; color: var(--text-muted); line-height: 1.5; text-align: center; margin-top: 4px; }

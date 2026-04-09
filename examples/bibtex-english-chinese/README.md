@@ -6,9 +6,9 @@
 
 1. 打开 [TeXbrain](https://tex.swimmingbrain.dev)（或你自托管的实例）。
 2. 欢迎页选择 **Clone Repository**。
-3. 点击 **Use official TeXbrain repo (BibTeX EN/ZH example)**，或手动填写：
+3. 点击 **Use official TeXbrain repo (BibTeX EN/ZH example)**（会勾选「仅下载 `examples/`」），或手动填写 GitHub 地址并勾选 **Only download `examples/`**：只拉取 `examples/` 目录（zip，体积小、无完整 git 历史）；不勾选则为完整 `git clone`。
    - Repository URL：`https://github.com/vanabel/texbrain.git`
-   - Project name：例如 `texbrain`
+   - Project name：例如 `texbrain-examples`
 4. 克隆完成后，在侧栏打开并编辑：
    - 英文：`examples/bibtex-english-chinese/English-bibtex/test-arxiv.tex`
    - 中文：`examples/bibtex-english-chinese/Chinese-bibtex/Chinese-bibtex.tex`
