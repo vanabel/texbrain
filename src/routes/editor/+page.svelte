@@ -404,13 +404,15 @@
       const result = await Promise.race([
         compileLaTeX(mainFile, projectFiles, binaryFiles, compileEngine, {
           busytex: {
-            onStepLog: step => {
-              busytexEventLines.push(`[${ts()}] [busytex] ${step.cmd} (exit ${step.exitCode})`);
-              const isBibtexOk =
-                step.exitCode === 0 &&
-                /\bbibtex(?:8)?\b/i.test(step.cmd);
-              if (isBibtexOk && !busytexEventLines.some(line => line.includes('[busytex] bbl expected:'))) {
-                busytexEventLines.push(`[${ts()}] [busytex] bbl expected: main.bbl`);
+            onCompileEvent: ev => {
+              if (ev.type === 'step' && ev.state === 'end') {
+                busytexEventLines.push(
+                  `[${ts()}] [busytex] ${ev.phase} ${ev.cmd} (exit ${ev.exitCode})`
+                );
+                const isBibtexOk = ev.exitCode === 0 && ev.phase === 'bibtex';
+                if (isBibtexOk && !busytexEventLines.some(line => line.includes('[busytex] bbl expected:'))) {
+                  busytexEventLines.push(`[${ts()}] [busytex] bbl expected: main.bbl`);
+                }
               }
             },
             onBblReady: bbl => {

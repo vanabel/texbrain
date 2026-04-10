@@ -72,14 +72,80 @@ export interface BusyTexCompileOutcome {
   bbl?: { path: string; content: string };
 }
 
-export interface BusyTexStepLog {
-  cmd: string;
-  exitCode: number;
-  log: string;
+/** BusyTeX 子命令归一化后的阶段，用于进度条 / 文案 */
+export type BusyTexPhase =
+  | 'pdflatex'
+  | 'xelatex'
+  | 'lualatex'
+  | 'bibtex'
+  | 'biber'
+  | 'makeindex'
+  | 'dvipdfmx'
+  | 'other';
+
+export function inferBusyTexPhase(cmd: string): BusyTexPhase {
+  const c = cmd.toLowerCase();
+  if (/xelatex/.test(c)) return 'xelatex';
+  if (/lualatex/.test(c)) return 'lualatex';
+  if (/pdflatex|pdftex/.test(c)) return 'pdflatex';
+  if (/bibtex8?/.test(c)) return 'bibtex';
+  if (/biber/.test(c)) return 'biber';
+  if (/makeindex/.test(c)) return 'makeindex';
+  if (/dvipdfmx/.test(c)) return 'dvipdfmx';
+  return 'other';
 }
 
+/**
+ * BusyTeX 编译生命周期与步骤的结构化事件，便于做进度 UI。
+ * - `compile`：整次 `compiler.compile` 的起止与总耗时。
+ * - `step`：每一轮子命令结束（BusyTeX 当前为批处理返回；多步时单步的 start/duration 可能缺失，见字段说明）。
+ */
+export type BusyTexCompileEvent =
+  | {
+      type: 'compile';
+      state: 'start';
+      /** performance.now()，编译请求发出时 */
+      at: number;
+    }
+  | {
+      type: 'compile';
+      state: 'end';
+      at: number;
+      durationMs: number;
+      exitCode: number;
+    }
+  | {
+      type: 'step';
+      state: 'start';
+      phase: BusyTexPhase;
+      index: number;
+      total: number;
+      cmd: string;
+      at: number;
+      compileStartedAt: number;
+    }
+  | {
+      type: 'step';
+      state: 'end';
+      phase: BusyTexPhase;
+      index: number;
+      total: number;
+      cmd: string;
+      exitCode: number;
+      log: string;
+      /** 本事件发出时刻（performance.now()） */
+      at: number;
+      compileStartedAt: number;
+      compileEndedAt: number;
+      /** 单步子过程的起止（ms）。仅当 total===1 或将来 BusyTeX 流式上报时可填；多步批处理时常为 undefined */
+      start?: number;
+      end?: number;
+      /** 与 start/end 一致；单步时等于 compile 总时长 */
+      durationMs?: number;
+    };
+
 export interface BusyTexCompileCallbacks {
-  onStepLog?: (step: BusyTexStepLog) => void;
+  onCompileEvent?: (event: BusyTexCompileEvent) => void;
   onBblReady?: (bbl: { path: string; content: string }) => void;
 }
 
@@ -271,6 +337,8 @@ export async function compileWithBusyTexBibtex(
 
   const compiler = engine === 'xelatex' ? new XeLatex(runner) : new PdfLatex(runner);
   let result: import('texlyre-busytex').CompileResult;
+  const compileStartedAt = performance.now();
+  callbacks?.onCompileEvent?.({ type: 'compile', state: 'start', at: compileStartedAt });
   try {
     result = await compiler.compile({
       input: mainContent,
@@ -279,6 +347,14 @@ export async function compileWithBusyTexBibtex(
       verbose: 'silent'
     });
   } catch (e) {
+    const compileEndedAt = performance.now();
+    callbacks?.onCompileEvent?.({
+      type: 'compile',
+      state: 'end',
+      at: compileEndedAt,
+      durationMs: compileEndedAt - compileStartedAt,
+      exitCode: 1
+    });
     const msg = e instanceof Error ? e.message : String(e);
     return {
       pdf: undefined,
@@ -288,7 +364,15 @@ export async function compileWithBusyTexBibtex(
     };
   }
 
-  const status = result.exitCode;
+  const compileEndedAt = performance.now();
+  const status = result.exitCode ?? 1;
+  callbacks?.onCompileEvent?.({
+    type: 'compile',
+    state: 'end',
+    at: compileEndedAt,
+    durationMs: compileEndedAt - compileStartedAt,
+    exitCode: status
+  });
   const artifactList = collectBusyTexArtifacts(result as any).map(a => a.path);
   const resultKeys = result && typeof result === 'object' ? Object.keys(result as any) : [];
   const artifactNote = artifactList.length
@@ -305,11 +389,45 @@ export async function compileWithBusyTexBibtex(
     resultShapeNote;
 
   if (result.logs?.length) {
-    for (const item of result.logs) {
-      callbacks?.onStepLog?.({
-        cmd: item.cmd || 'unknown',
-        exitCode: item.exit_code ?? -1,
-        log: item.log || item.stdout || ''
+    const total = result.logs.length;
+    const singleStep = total === 1;
+    const stepStartWall = singleStep ? compileStartedAt : undefined;
+    const stepEndWall = singleStep ? compileEndedAt : undefined;
+    const stepDurationMs = singleStep ? compileEndedAt - compileStartedAt : undefined;
+
+    for (let index = 0; index < total; index++) {
+      const item = result.logs[index]!;
+      const cmd = item.cmd || 'unknown';
+      const phase = inferBusyTexPhase(cmd);
+      const exitCode = item.exit_code ?? -1;
+      const logText = item.log || item.stdout || '';
+      const now = performance.now();
+
+      callbacks?.onCompileEvent?.({
+        type: 'step',
+        state: 'start',
+        phase,
+        index,
+        total,
+        cmd,
+        at: now,
+        compileStartedAt
+      });
+      callbacks?.onCompileEvent?.({
+        type: 'step',
+        state: 'end',
+        phase,
+        index,
+        total,
+        cmd,
+        exitCode,
+        log: logText,
+        at: now,
+        compileStartedAt,
+        compileEndedAt,
+        start: stepStartWall,
+        end: stepEndWall,
+        durationMs: stepDurationMs
       });
     }
   }
