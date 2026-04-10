@@ -383,6 +383,7 @@
       );
       currentCompileTarget = mainFile;
       compileLog.set([`[${ts()}] compiling ${mainFile}...`]);
+      const busytexEventLines: string[] = [];
 
       updateIncludeMap(projectFiles, mainFile);
 
@@ -401,7 +402,22 @@
       pdfViewer?.setScrollTarget(computeDocumentFraction(), compileContext);
 
       const result = await Promise.race([
-        compileLaTeX(mainFile, projectFiles, binaryFiles, compileEngine),
+        compileLaTeX(mainFile, projectFiles, binaryFiles, compileEngine, {
+          busytex: {
+            onStepLog: step => {
+              busytexEventLines.push(`[${ts()}] [busytex] ${step.cmd} (exit ${step.exitCode})`);
+              const isBibtexOk =
+                step.exitCode === 0 &&
+                /\bbibtex(?:8)?\b/i.test(step.cmd);
+              if (isBibtexOk && !busytexEventLines.some(line => line.includes('[busytex] bbl expected:'))) {
+                busytexEventLines.push(`[${ts()}] [busytex] bbl expected: main.bbl`);
+              }
+            },
+            onBblReady: bbl => {
+              busytexEventLines.push(`[${ts()}] [busytex] bbl expected: ${bbl.path}`);
+            }
+          }
+        }),
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error('compilation timed out after 180s')), 180_000))
       ]);
 
@@ -417,9 +433,28 @@
 
         pdfData = new Uint8Array(result.pdf);
         bblFile = await resolveBblAfterCompile(result.bbl, mainFile);
+        if (
+          bblFile?.content &&
+          busytexEventLines.length > 0 &&
+          !busytexEventLines.some(line => line.includes('[busytex] bbl expected:'))
+        ) {
+          busytexEventLines.push(`[${ts()}] [busytex] bbl expected: ${bblFile.path}`);
+        }
+        if (
+          busytexEventLines.length > 0 &&
+          !bblFile?.content &&
+          !busytexEventLines.some(line => line.includes('[busytex] no bbl found'))
+        ) {
+          busytexEventLines.push(`[${ts()}] [busytex] no bbl found in compile result or virtual FS`);
+        }
         await persistBblToProject(bblFile);
         compileStatus.set('success');
-        compileLog.set([`[${ts()}] compilation successful (${pdfPageCount} pages)`, ...cleanedLines]);
+        const busytexLogLines = busytexEventLines.length ? busytexEventLines : [];
+        compileLog.set([
+          `[${ts()}] compilation successful (${pdfPageCount} pages)`,
+          ...busytexLogLines,
+          ...cleanedLines
+        ]);
 
         if (parsedErrors.some(e => e.type === 'error')) {
           previewTab.set('errors');
@@ -431,7 +466,12 @@
       } else {
         bblFile = undefined;
         compileStatus.set('error');
-        compileLog.set([`[${ts()}] compilation failed (status ${result.status})`, ...cleanedLines]);
+        const busytexLogLines = busytexEventLines.length ? busytexEventLines : [];
+        compileLog.set([
+          `[${ts()}] compilation failed (status ${result.status})`,
+          ...busytexLogLines,
+          ...cleanedLines
+        ]);
         previewTab.set('errors');
 
         if (isCollabMode) {

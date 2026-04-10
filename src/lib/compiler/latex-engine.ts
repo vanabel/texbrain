@@ -2,6 +2,7 @@ import { base } from '$app/paths';
 import {
   busytexAssetsAvailable,
   type CompileEngine,
+  type BusyTexCompileCallbacks,
   compileWithBusyTexBibtex,
   projectNeedsBibtexEngine
 } from './busytex-bibtex';
@@ -209,6 +210,10 @@ export interface CompileResult {
   bbl?: { path: string; content: string };
 }
 
+export interface CompileCallbacks {
+  busytex?: BusyTexCompileCallbacks;
+}
+
 function tryReadMemFSText(eng: any, path: string): string | undefined {
   const readers = [
     () => eng.readMemFSFile?.(path),
@@ -232,7 +237,8 @@ export async function compileLaTeX(
   projectMainFile: string,
   files: Map<string, string>,
   binaryFiles?: Map<string, ArrayBuffer>,
-  engine: CompileEngine = 'pdflatex'
+  engine: CompileEngine = 'pdflatex',
+  callbacks?: CompileCallbacks
 ): Promise<CompileResult> {
   const sliced = sliceProjectToCompileRoot(projectMainFile, files, binaryFiles);
   let mainFile = sliced.mainFile;
@@ -263,7 +269,8 @@ export async function compileLaTeX(
       workFiles,
       workBinary,
       'xelatex',
-      needsBibtexPipeline
+      needsBibtexPipeline,
+      callbacks?.busytex
     );
     return {
       pdf: busy.pdf,
@@ -274,7 +281,14 @@ export async function compileLaTeX(
   }
 
   if (needsBibtexPipeline && (await busytexAssetsAvailable())) {
-    const busy = await compileWithBusyTexBibtex(mainFile, workFiles, workBinary, 'pdflatex', true);
+    const busy = await compileWithBusyTexBibtex(
+      mainFile,
+      workFiles,
+      workBinary,
+      'pdflatex',
+      true,
+      callbacks?.busytex
+    );
     if (busy.usedBusyTex) {
       return {
         pdf: busy.pdf,

@@ -72,6 +72,17 @@ export interface BusyTexCompileOutcome {
   bbl?: { path: string; content: string };
 }
 
+export interface BusyTexStepLog {
+  cmd: string;
+  exitCode: number;
+  log: string;
+}
+
+export interface BusyTexCompileCallbacks {
+  onStepLog?: (step: BusyTexStepLog) => void;
+  onBblReady?: (bbl: { path: string; content: string }) => void;
+}
+
 function readTextFromUnknown(value: unknown): string | undefined {
   if (typeof value === 'string') return value;
   if (value instanceof Uint8Array) return new TextDecoder().decode(value);
@@ -154,6 +165,53 @@ async function tryReadBblFromRunner(runner: any): Promise<{ path: string; conten
       if (text) return { path: p.replace(/^\.?\//, ''), content: text };
     }
   }
+
+  const fsLike = runner?.FS || runner?.Module?.FS || runner?.fs;
+  const readdir = fsLike?.readdir?.bind(fsLike);
+  const readFile = fsLike?.readFile?.bind(fsLike);
+  if (!readdir || !readFile) return undefined;
+
+  const seen = new Set<string>();
+  const stack = ['/', '.'];
+  const maxDirs = 200;
+  let visitedDirs = 0;
+
+  while (stack.length && visitedDirs < maxDirs) {
+    const dir = stack.pop()!;
+    if (seen.has(dir)) continue;
+    seen.add(dir);
+    visitedDirs++;
+
+    let entries: string[];
+    try {
+      const out = readdir(dir);
+      entries = Array.isArray(out) ? out.map((x: any) => String(x)) : [];
+    } catch {
+      continue;
+    }
+
+    for (const name of entries) {
+      if (name === '.' || name === '..') continue;
+      const full = dir === '/' ? `/${name}` : `${dir.replace(/\/+$/, '')}/${name}`;
+      const lower = full.toLowerCase();
+
+      if (lower.endsWith('.bbl')) {
+        try {
+          const content = toText(readFile(full));
+          if (content) return { path: full.replace(/^\.?\//, ''), content };
+        } catch {
+          // ignore file read failure and continue scanning
+        }
+      }
+
+      try {
+        const childEntries = readdir(full);
+        if (Array.isArray(childEntries)) stack.push(full);
+      } catch {
+        // not a directory
+      }
+    }
+  }
   return undefined;
 }
 
@@ -166,7 +224,8 @@ export async function compileWithBusyTexBibtex(
   files: Map<string, string>,
   binaryFiles?: Map<string, ArrayBuffer>,
   engine: CompileEngine = 'pdflatex',
-  bibtex = true
+  bibtex = true,
+  callbacks?: BusyTexCompileCallbacks
 ): Promise<BusyTexCompileOutcome> {
   const mainContent = files.get(mainFile);
   if (mainContent === undefined) {
@@ -245,7 +304,20 @@ export async function compileWithBusyTexBibtex(
     artifactNote +
     resultShapeNote;
 
+  if (result.logs?.length) {
+    for (const item of result.logs) {
+      callbacks?.onStepLog?.({
+        cmd: item.cmd || 'unknown',
+        exitCode: item.exit_code ?? -1,
+        log: item.log || item.stdout || ''
+      });
+    }
+  }
+
   const bbl = extractBusyTexBbl(result as any) || (await tryReadBblFromRunner(runner));
+  if (bbl?.content) {
+    callbacks?.onBblReady?.(bbl);
+  }
   return {
     pdf: result.pdf,
     status,
