@@ -123,7 +123,7 @@ export function extractSubfolderFromUnzipped(
 
 /**
  * Download GitHub repo archive zip and keep only paths under `subfolder` (e.g. `examples`).
- * Returned map keys are relative to project root: `examples/bibtex-english-chinese/...`.
+ * Returned map keys are relative to project root: `examples/bibtex-metapost-english-chinese/...`.
  */
 export async function downloadGithubSubfolderAsMaps(
   ref: GithubRepoRef,

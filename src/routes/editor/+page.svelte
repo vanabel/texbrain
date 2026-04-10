@@ -624,7 +624,7 @@
       'dtx', 'ins', 'ltx', 'txt', 'bbx', 'cbx', 'lbx'
     ]);
     const binaryExts = new Set([
-      'png', 'jpg', 'jpeg', 'pdf', 'eps', 'svg', 'gif', 'bmp',
+      'png', 'jpg', 'jpeg', 'pdf', 'eps', 'mps', 'svg', 'gif', 'bmp',
       'tfm', 'pfb', 'vf', 'map', 'enc', 'otf', 'ttf'
     ]);
     for await (const entry of (dirHandle as any).values()) {
@@ -966,7 +966,7 @@
     cloneName = derived;
   }
 
-  /** Prefill clone form with the official TeXbrain repo (includes examples/bibtex-english-chinese). */
+  /** Prefill clone form with the official TeXbrain repo (includes examples/bibtex-metapost-english-chinese). */
   function fillTexbrainCloneForExamples() {
     cloneUrl = TEXBRAIN_GITHUB_CLONE_URL;
     cloneName = 'texbrain-examples';
@@ -974,7 +974,7 @@
   }
 
   async function handleLoadBundledBibtexExample() {
-    const name = prompt(uiMsg().promptFolderName, 'bibtex-english-chinese');
+    const name = prompt(uiMsg().promptFolderName, 'bibtex-metapost-english-chinese');
     if (!name?.trim()) return;
     loadingBundledExample = true;
     try {

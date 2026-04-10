@@ -1,0 +1,72 @@
+% MetaPost + mpostinl: two ways to compile this same file
+%
+% 1) TeXbrain / no shell escape: uses pre-generated images/metapost-mpostinl-1.mps
+%    and \includegraphics (same as before).
+% 2) Local TeX Live with pdflatex -shell-escape: loads mpostinl and runs MetaPost
+%    from \begin{mpostfig} ... \end{mpostfig}.
+%
+% Default is auto-detect: shell escape off (0) → pre-generated; on (1 or 2) → mpostinl.
+% If restricted shell still blocks mpost on your system, force online mode below.
+%
+% ---------------------------------------------------------------------------
+% 可选：二选一取消注释以强制模式（否则按上面的自动检测）：
+% \MPostForceOnlinetrue   % 强制走 TeXbrain 路径（仅 \includegraphics）
+% \MPostForceLocaltrue    % 强制走 mpostinl（须本地 -shell-escape）
+% ---------------------------------------------------------------------------
+\documentclass{ctexart}
+
+\newif\ifMPostForceOnline
+\newif\ifMPostForceLocal
+% \MPostForceOnlinetrue
+% \MPostForceLocaltrue
+
+\usepackage{pdftexcmds}
+\newif\ifMPostInlAvailable
+\ifMPostForceOnline
+  \MPostInlAvailablefalse
+\else
+  \ifMPostForceLocal
+    \MPostInlAvailabletrue
+  \else
+    \expandafter\ifx\csname pdf@shellescape\endcsname\relax
+      \MPostInlAvailablefalse
+    \else
+      \ifnum\csname pdf@shellescape\endcsname>0\relax
+        \MPostInlAvailabletrue
+      \else
+        \MPostInlAvailablefalse
+      \fi
+    \fi
+  \fi
+\fi
+
+\usepackage{graphicx}
+\ifMPostInlAvailable
+  \usepackage[checksum,lineno]{mpostinl}
+  \mpostsetup{template=images/\mpostfilename-#1.mps}
+  \mpostsetup{command={mpost -tex=latex -numbersystem=double}}
+  \begin{mpostdef}
+    u:=10pt;
+  \end{mpostdef}
+  \begin{mposttex}
+    \usepackage{amssymb,bm,xcolor}
+    \usepackage{CJKutf8}
+    \AtBeginDocument{\begin{CJK*}{UTF8}{gkai}}
+    \AtEndDocument{\end{CJK*}}
+  \end{mposttex}
+\fi
+
+\begin{document}
+\begin{figure}[htbp]
+\centering
+\ifMPostInlAvailable
+  \begin{mpostfig}
+    draw fullcircle scaled 10u;
+    dotlabel.top(btex 圆心 etex, origin);
+  \end{mpostfig}
+\else
+  \includegraphics[width=\textwidth]{images/metapost-mpostinl-1.mps}
+\fi
+\caption{测试}
+\end{figure}
+\end{document}

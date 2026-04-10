@@ -72,7 +72,7 @@ Open a folder, edit, preview PDF, commit, push to GitHub—**from one tab**.
 
 ## BibTeX example (English / Chinese)
 
-This repo includes a small **bilingual BibTeX** layout under [`examples/bibtex-english-chinese/`](examples/bibtex-english-chinese/README.md) (e.g. `gbt7714` vs `amsrefs` / `amsrn.bst`). **In the web app:** welcome screen → **Clone Repository** → **Use official TeXbrain repo (BibTeX EN/ZH example)** — or paste `https://github.com/vanabel/texbrain.git`. After clone, open the `.tex` you want under `examples/bibtex-english-chinese/English-bibtex/` or `.../Chinese-bibtex/` and compile (**Active tab** or set **Entry** to that file). Classic BibTeX needs **BusyTeX** on the deployment (`pnpm run download-busytex`). Details: [examples/bibtex-english-chinese/README.md](examples/bibtex-english-chinese/README.md).
+This repo includes a small **bilingual BibTeX + MetaPost** layout under [`examples/bibtex-metapost-english-chinese/`](examples/bibtex-metapost-english-chinese/README.md) (e.g. `gbt7714` vs `amsrefs` / `amsrn.bst`, plus a MetaPost sample). **In the web app:** welcome screen → **Clone Repository** → **Use official TeXbrain repo (BibTeX EN/ZH example)** — or paste `https://github.com/vanabel/texbrain.git`. After clone, open the `.tex` you want under `examples/bibtex-metapost-english-chinese/English-bibtex/` or `.../Chinese-bibtex/` and compile (**Active tab** or set **Entry** to that file). Classic BibTeX needs **BusyTeX** on the deployment (`pnpm run download-busytex`). Details: [examples/bibtex-metapost-english-chinese/README.md](examples/bibtex-metapost-english-chinese/README.md).
 
 ---
 

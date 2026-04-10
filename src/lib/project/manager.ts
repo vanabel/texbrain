@@ -142,7 +142,7 @@ export async function cloneProject(url: string, name: string, options?: ClonePro
 }
 
 /**
- * Load `examples/bibtex-english-chinese` from the same-origin static zip (built at compile time).
+ * Load `examples/bibtex-metapost-english-chinese` from the same-origin static zip (built at compile time).
  * Works on public static hosts without GitHub or CORS proxies.
  */
 export async function loadBundledBibtexExample(name: string): Promise<void> {
