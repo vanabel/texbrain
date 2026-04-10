@@ -456,12 +456,53 @@
 
   function ts() { return new Date().toLocaleTimeString(); }
 
+  /** BusyTeX appends `--- steps ---` with per-command logs; warnings from earlier passes are stale after bibtex / reruns. */
+  function selectLastLatexEngineLogForWarnings(rawLog: string): string {
+    const delimMatch = rawLog.match(/\n--- steps ---\n/);
+    if (!delimMatch || delimMatch.index === undefined) {
+      return rawLog;
+    }
+    const stepsSection = rawLog.slice(delimMatch.index + delimMatch[0].length);
+    const chunks = stepsSection.split(/\n(?=\[[^\]]+\] exit \d+\n)/);
+    const latexCmdRe = /^\[(xelatex|pdflatex|lualatex|latex|uplatex|tectonic)\b/i;
+    for (let i = chunks.length - 1; i >= 0; i--) {
+      const chunk = chunks[i].replace(/^\uFEFF/, '').trimStart();
+      const header = chunk.match(/^\[([^\]]+)\] exit \d+\n/);
+      if (!header) continue;
+      if (latexCmdRe.test(`[${header[1]}]`)) {
+        return chunk.slice(header[0].length);
+      }
+    }
+    return rawLog;
+  }
+
+  function dedupeDiagnostics(
+    items: Array<{ type: 'error' | 'warning'; message: string; line?: number; file?: string; context?: string }>
+  ) {
+    const seen = new Set<string>();
+    const out: typeof items = [];
+    for (const item of items) {
+      const key = [
+        item.type,
+        item.message.replace(/\s+/g, ' ').trim(),
+        String(item.line ?? ''),
+        item.context ?? '',
+        item.file ?? ''
+      ].join('\u0001');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(item);
+    }
+    return out;
+  }
+
   // parse latex log into structured errors/warnings
   function parseLog(rawLog: string): {
-    errors: Array<{ type: 'error' | 'warning'; message: string; line?: number; file?: string }>;
+    errors: Array<{ type: 'error' | 'warning'; message: string; line?: number; file?: string; context?: string }>;
     cleanedLines: string[];
   } {
-    const errors: Array<{ type: 'error' | 'warning'; message: string; line?: number; file?: string }> = [];
+    const errors: Array<{ type: 'error' | 'warning'; message: string; line?: number; file?: string; context?: string }> =
+      [];
     const lines = rawLog.split('\n');
     const cleanedLines: string[] = [];
 
@@ -492,23 +533,7 @@
       return suppressedWarningPatterns.some(p => p.test(msg));
     }
 
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const trimmed = line.trim();
-
-      if (trimmed.startsWith('! ')) {
-        const msg = trimmed.slice(2);
-        let lineNum: number | undefined;
-        let file: string | undefined;
-        for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
-          const m = lines[j].match(/^l\.(\d+)/);
-          if (m) { lineNum = parseInt(m[1], 10); break; }
-        }
-        errors.push({ type: 'error', message: msg, line: lineNum, file });
-        cleanedLines.push(line);
-        continue;
-      }
-
+    function pushWarningsFromLine(trimmed: string) {
       if (/LaTeX Warning:/i.test(trimmed) || /Package \w+ Warning:/i.test(trimmed)) {
         const warnMatch = trimmed.match(/Warning:\s*(.+)/i);
         const msg = warnMatch ? warnMatch[1] : trimmed;
@@ -518,14 +543,46 @@
           if (lm) lineNum = parseInt(lm[1], 10);
           errors.push({ type: 'warning', message: msg.replace(/\s+$/, ''), line: lineNum });
         }
+        return;
+      }
+      if (/pdfTeX warning:/i.test(trimmed) && !/fontmap entry/.test(trimmed)) {
+        if (!isSuppressedWarning(trimmed)) {
+          errors.push({ type: 'warning', message: trimmed });
+        }
+      }
+    }
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+
+      if (trimmed.startsWith('! ')) {
+        const msg = trimmed.slice(2);
+        let lineNum: number | undefined;
+        let file: string | undefined;
+        let context: string | undefined;
+        const maxLook = 48;
+        for (let j = i + 1; j < Math.min(i + maxLook, lines.length); j++) {
+          const jtrim = lines[j].trim();
+          const m = jtrim.match(/^l\.(\d+)(?:\s+(.*))?$/);
+          if (m) {
+            lineNum = parseInt(m[1], 10);
+            const tail = m[2]?.trim();
+            if (tail) context = `l.${lineNum} ${tail}`;
+            break;
+          }
+        }
+        errors.push({ type: 'error', message: msg, line: lineNum, file, context });
+        cleanedLines.push(line);
+        continue;
+      }
+
+      if (/LaTeX Warning:/i.test(trimmed) || /Package \w+ Warning:/i.test(trimmed)) {
         cleanedLines.push(line);
         continue;
       }
 
       if (/pdfTeX warning:/i.test(trimmed) && !/fontmap entry/.test(trimmed)) {
-        if (!isSuppressedWarning(trimmed)) {
-          errors.push({ type: 'warning', message: trimmed });
-        }
         cleanedLines.push(line);
         continue;
       }
@@ -542,7 +599,13 @@
       cleanedLines.push(line);
     }
 
-    return { errors, cleanedLines };
+    const warnSlice = selectLastLatexEngineLogForWarnings(rawLog);
+    const warnLines = warnSlice.split('\n');
+    for (let i = 0; i < warnLines.length; i++) {
+      pushWarningsFromLine(warnLines[i].trim());
+    }
+
+    return { errors: dedupeDiagnostics(errors), cleanedLines };
   }
 
   async function saveAndCompile() {
@@ -1267,7 +1330,12 @@
                   {#each $compileErrors.filter(e => e.type === 'error') as err}
                     <div class="error-item is-error">
                       <span class="error-type-badge err-badge">E</span>
-                      <span class="error-msg">{err.message}</span>
+                      <div class="error-text">
+                        <span class="error-msg">{err.message}</span>
+                        {#if err.context}
+                          <div class="error-context">{err.context}</div>
+                        {/if}
+                      </div>
                       {#if err.line}
                         <span class="error-line">{E.linePrefix} {err.line}</span>
                       {/if}
@@ -1550,7 +1618,21 @@
   }
   .err-badge { background: var(--error); color: white; }
   .warn-badge { background: var(--warning); color: #000; }
-  .error-msg { flex: 1; color: var(--text-primary); word-break: break-word; }
+  .error-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .error-msg { color: var(--text-primary); word-break: break-word; }
+  .error-context {
+    font-family: ui-monospace, monospace;
+    font-size: 10.5px;
+    color: var(--text-muted);
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
   .error-line {
     flex-shrink: 0;
     font-size: 10px;

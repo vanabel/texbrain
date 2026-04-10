@@ -7,7 +7,9 @@ export const commandPaletteOpen = writable(false);
 export const previewTab = writable<'preview' | 'errors' | 'warnings' | 'log'>('preview');
 export const compileStatus = writable<'idle' | 'compiling' | 'success' | 'error'>('idle');
 export const compileLog = writable<string[]>([]);
-export const compileErrors = writable<Array<{ type: 'error' | 'warning'; message: string; line?: number; file?: string }>>([]);
+export const compileErrors = writable<
+  Array<{ type: 'error' | 'warning'; message: string; line?: number; file?: string; context?: string }>
+>([]);
 export const toasts = writable<Array<{ id: string; message: string; type: 'info' | 'success' | 'warning' | 'error' }>>([]);
 
 let toastId = 0;
