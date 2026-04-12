@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <a href="https://tex.swimmingbrain.dev"><strong>Open the app → tex.swimmingbrain.dev</strong></a>
+  <a href="https://tex.vanabel.cn"><strong>Open the app → tex.vanabel.cn</strong></a>
 </p>
 
 ---
@@ -27,10 +27,16 @@
 
 I was tired of paying for basics. I wrote a thesis in LaTeX and fought the toolchain more than the content. Cloud editors paywall git; local setups diverge across machines. I wanted: open browser, write LaTeX, get a PDF. So I built this.
 
+### About this fork
+
+**TeXbrain** was originally created by [Braian Plaku](https://swimmingbrain.dev). **This repository**—[`vanabel/texbrain`](https://github.com/vanabel/texbrain)—is a **maintained fork** with substantial improvements and extra documentation. **Live demo (this fork):** [tex.vanabel.cn](https://tex.vanabel.cn). **Upstream public demo:** [tex.swimmingbrain.dev](https://tex.swimmingbrain.dev)—a different codebase and deployment. **Maintainer / contributor:** [vanabel](https://github.com/vanabel).
+
 ---
 
 ## Contents
 
+- [Why it exists](#why-it-exists)
+- [About this fork](#about-this-fork)
 - [What it does](#what-it-does)
 - [Features](#features)
 - [How it works](#how-it-works)
@@ -212,4 +218,4 @@ Full folder read/write needs the **File System Access API** (Chrome, Edge, Arc, 
 
 [MIT](LICENSE)
 
-Built by [Braian Plaku](https://swimmingbrain.dev)
+Original author: [Braian Plaku](https://swimmingbrain.dev). This fork is maintained by [vanabel](https://github.com/vanabel).

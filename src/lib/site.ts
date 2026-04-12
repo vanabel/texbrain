@@ -5,7 +5,7 @@ import { base } from '$app/paths';
  * 自定义根域名：`PUBLIC_SITE_ORIGIN=https://tex.example.com`，`BASE_PATH` 留空。
  */
 const raw = import.meta.env.PUBLIC_SITE_ORIGIN as string | undefined;
-export const publicSiteOrigin = (raw?.trim() || 'https://tex.swimmingbrain.dev').replace(/\/$/, '');
+export const publicSiteOrigin = (raw?.trim() || 'https://tex.vanabel.cn').replace(/\/$/, '');
 
 /** 绝对 URL（含 `base`），用于 canonical、og:url、og:image。 */
 export function siteUrl(path: string): string {

@@ -2,6 +2,10 @@
   "name": "texbrain",
   "version": "1.0.0",
   "author": "Braian Plaku",
+  "contributors": [
+    { "name": "Braian Plaku", "url": "https://swimmingbrain.dev" },
+    { "name": "vanabel", "url": "https://github.com/vanabel" }
+  ],
   "private": true,
   "scripts": {
     "dev": "node scripts/bundle-bibtex-example-zip.mjs && vite dev",

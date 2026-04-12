@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <a href="https://tex.swimmingbrain.dev"><strong>立即使用 → tex.swimmingbrain.dev</strong></a>
+  <a href="https://tex.vanabel.cn"><strong>立即使用 → tex.vanabel.cn</strong></a>
 </p>
 
 ---
@@ -27,10 +27,16 @@
 
 许多在线服务把本该免费的基础功能放在付费墙后；本地环境又在不同机器上难以一致。写论文时花在工具链上的时间往往多过写作本身。我想要的是：打开浏览器，写 LaTeX，得到 PDF。于是有了 TeXbrain。
 
+### 关于本分支
+
+TeXbrain 应用由 [Braian Plaku](https://swimmingbrain.dev) 开创并推广。**本仓库** [`vanabel/texbrain`](https://github.com/vanabel/texbrain) 是在此基础上的**持续维护分支**，包含大量功能与文档上的改进。**本分支在线演示：** [tex.vanabel.cn](https://tex.vanabel.cn)。**上游公开演示：** [tex.swimmingbrain.dev](https://tex.swimmingbrain.dev)（另一套代码与部署）。**当前维护者 / 贡献者：** [vanabel](https://github.com/vanabel)。
+
 ---
 
 ## 目录
 
+- [项目由来](#项目由来)
+- [关于本分支](#关于本分支)
 - [它能做什么](#它能做什么)
 - [功能概览](#功能概览)
 - [实现方式](#实现方式)
@@ -212,4 +218,4 @@ pm2 startup
 
 [MIT](LICENSE)
 
-作者：[Braian Plaku](https://swimmingbrain.dev)
+原项目作者：[Braian Plaku](https://swimmingbrain.dev)。本分支由 [vanabel](https://github.com/vanabel) 维护并持续改进。
