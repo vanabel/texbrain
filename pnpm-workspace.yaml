@@ -1,2 +1,6 @@
+# pnpm 9+ requires `packages` when `pnpm-workspace.yaml` is present (even for a single root package).
+packages:
+  - '.'
+
 allowBuilds:
   esbuild: true

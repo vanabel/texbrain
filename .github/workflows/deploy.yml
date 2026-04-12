@@ -16,6 +16,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # Use Node 24 for JS-based actions (checkout/setup-node/pnpm); see GitHub Actions Node deprecation notices.
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -23,9 +26,9 @@ jobs:
           version: 9
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
-      - run: pnpm install
+      - run: pnpm install --frozen-lockfile
       - run: pnpm build
         env:
           # 仓库 Settings → Variables：自定义部署域名与 GitHub Pages 子路径（见 README「Deploying to GitHub Pages」）
