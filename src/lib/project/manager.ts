@@ -82,7 +82,7 @@ async function finalizeProjectFromGitImport(
     const fileHandle = await currentDir.getFileHandle(fileName, { create: true });
     const writable = await fileHandle.createWritable();
     if (content instanceof Uint8Array) {
-      await writable.write(content.buffer.slice(content.byteOffset, content.byteOffset + content.byteLength));
+      await writable.write(content.subarray());
     } else {
       await writable.write(content);
     }

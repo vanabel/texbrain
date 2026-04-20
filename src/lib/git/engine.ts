@@ -101,10 +101,17 @@ export async function deleteFileFromGit(path: string) {
   } catch { /* file may not exist */ }
 }
 
+const RE_BINARY_EXT = /\.(pdf|png|jpe?g|gif|webp|bmp|ico|zip|gz|tgz|xz|bz2|7z|tar|mp3|mp4|webm|woff2?|ttf|otf|eot|bin|wasm|mps|eps|ai)$/i;
+
+function isLikelyBinaryRelPath(relPath: string): boolean {
+  const base = relPath.split('/').pop() || relPath;
+  return RE_BINARY_EXT.test(base);
+}
+
 export async function readAllFilesFromGit(): Promise<Map<string, string | Uint8Array>> {
   const result = new Map<string, string | Uint8Array>();
   const pfs = getFs().promises;
-  const textDecoder = new TextDecoder('utf-8', { fatal: false });
+  const utf8DecoderStrict = new TextDecoder('utf-8', { fatal: true });
 
   async function walk(dirPath: string, prefix: string) {
     let entries: string[];
@@ -120,16 +127,18 @@ export async function readAllFilesFromGit(): Promise<Map<string, string | Uint8A
           await walk(fullPath, prefix ? prefix + '/' + entry : entry);
         } else {
           const raw = new Uint8Array(await pfs.readFile(fullPath));
-          // PDF / images: keep bytes. UTF-8 text: store string for editor/git diff ergonomics.
-          const asText = textDecoder.decode(raw);
-          const roundTrip = new TextEncoder().encode(asText);
-          const isUtf8Text =
-            raw.byteLength === roundTrip.byteLength &&
-            raw.every((b, i) => b === roundTrip[i]);
-          result.set(
-            prefix ? prefix + '/' + entry : entry,
-            isUtf8Text ? asText : raw
-          );
+          const rel = prefix ? prefix + '/' + entry : entry;
+
+          if (isLikelyBinaryRelPath(rel)) {
+            result.set(rel, raw);
+          } else {
+            // UTF-8 text: store string. Unknown extensions: only treat as text if strictly valid UTF-8.
+            try {
+              result.set(rel, utf8DecoderStrict.decode(raw));
+            } catch {
+              result.set(rel, raw);
+            }
+          }
         }
       } catch { /* skip unreadable */ }
     }
