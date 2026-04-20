@@ -621,7 +621,29 @@
   ): Promise<void> {
     const textExts = new Set([
       'tex', 'sty', 'cls', 'bib', 'bbl', 'blg', 'bst', 'def', 'cfg', 'fd',
-      'dtx', 'ins', 'ltx', 'txt', 'bbx', 'cbx', 'lbx'
+      'dtx', 'ins', 'ltx', 'txt', 'bbx', 'cbx', 'lbx',
+      // lstinputlisting / minted 等常引用的源码（此前未收录会导致 MEMFS 中缺文件）
+      // 覆盖 swuthesis 类附录常见示例：Matlab(.m)、R(.R)、C++、Python、Wolfram(.wl)/Mathematica(.nb) 等
+      'm',
+      'r',
+      'cpp',
+      'cxx',
+      'cc',
+      'c',
+      'h',
+      'hpp',
+      'java',
+      'py',
+      'sh',
+      'sql',
+      'lua',
+      'pl',
+      'rs',
+      'go',
+      'wl',
+      'wls',
+      'nb',
+      'ipynb'
     ]);
     const binaryExts = new Set([
       'png', 'jpg', 'jpeg', 'pdf', 'eps', 'mps', 'svg', 'gif', 'bmp',

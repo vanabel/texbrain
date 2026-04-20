@@ -84,13 +84,13 @@ This repo includes a small **bilingual BibTeX + MetaPost** layout under [`exampl
 
 ## Deploying to GitHub Pages
 
-The included workflow (`.github/workflows/deploy.yml`) builds and publishes the `build/` folder. To point canonical URLs, Open Graph, and asset paths at **your** fork instead of the default origin:
+The included workflow (`.github/workflows/deploy.yml`) builds and publishes the `build/` folder. **Do this first:** enable Pages and choose **GitHub Actions** as the source, or the deploy job fails with **404 / Not Found** when creating the deployment.
 
-1. **GitHub repository → Settings → Secrets and variables → Actions → Variables** (or **Repository variables**):
+1. **Pages (required):** Repository **Settings → Pages → Build and deployment → Source: GitHub Actions**. Save. If you previously used **Deploy from a branch**, switch to **GitHub Actions** (only one source applies). Then re-run the workflow (Actions tab → failed run → **Re-run all jobs**, or use **workflow_dispatch** if available).
+
+2. **GitHub repository → Settings → Secrets and variables → Actions → Variables** (or **Repository variables**) — optional but recommended so canonical URLs match your site:
    - **`PUBLIC_SITE_ORIGIN`** — Scheme + host only, **no trailing slash**, e.g. `https://yourname.github.io` for GitHub-hosted sites, or `https://tex.example.com` for a custom domain at the site root.
    - **`BASE_PATH`** — If the app is served under a subpath (typical GitHub **project** Pages: `https://yourname.github.io/repo-name/`), set `BASE_PATH` to `/repo-name` (leading slash). For a **user/org** site at the domain root or a custom domain with no subpath, leave **`BASE_PATH` unset** or empty.
-
-2. **Pages**: Settings → Pages → Build and deployment → Source: **GitHub Actions**.
 
 3. Optional: edit `static/sitemap.xml` and `static/robots.txt` so `Sitemap:` and `<loc>` match your public URL.
 

@@ -3,6 +3,7 @@ name: deploy to github pages
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -41,9 +42,13 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    # Required on this job so OIDC + Pages API work (see actions/deploy-pages README).
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
