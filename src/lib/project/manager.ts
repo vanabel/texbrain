@@ -62,6 +62,8 @@ export async function handleNewProject() {
 export type CloneProjectOptions = {
   /** If set (e.g. `examples`), only that top-level folder is fetched via GitHub zip (no full git clone). */
   onlySubpath?: string;
+  /** Git branch or tag for `git clone`, or for GitHub zip when `onlySubpath` is set. Leave empty for default. */
+  ref?: string;
 };
 
 async function finalizeProjectFromGitImport(
@@ -110,6 +112,7 @@ export async function cloneProject(url: string, name: string, options?: ClonePro
   }
 
   const onlySubpath = options?.onlySubpath?.replace(/^\/+|\/+$/g, '');
+  const ref = options?.ref?.trim().replace(/^refs\/heads\//i, '') || undefined;
   if (onlySubpath && !parseGithubRepoUrl(url)) {
     addToast('Folder-only download works for github.com repository URLs.', 'error');
     return;
@@ -128,10 +131,10 @@ export async function cloneProject(url: string, name: string, options?: ClonePro
 
   if (onlySubpath) {
     const gh = parseGithubRepoUrl(url)!;
-    const { textFiles } = await downloadGithubSubfolderAsMaps(gh, onlySubpath, get(gitCorsProxy));
+    const { textFiles } = await downloadGithubSubfolderAsMaps(gh, onlySubpath, get(gitCorsProxy), ref);
     await syncFilesToGit(textFiles);
   } else {
-    await cloneRepo(url);
+    await cloneRepo(url, ref);
   }
 
   await finalizeProjectFromGitImport(

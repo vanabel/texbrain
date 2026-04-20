@@ -97,6 +97,9 @@ export type EditorUi = {
   cloneDesc: string;
   labelRepoUrl: string;
   clonePresetExamples: string;
+  clonePresetSwuthesis: string;
+  labelCloneBranch: string;
+  cloneBranchPlaceholder: string;
   labelProjectName: string;
   cloneExamplesOnly: string;
   cloning: string;
@@ -255,13 +258,16 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     cloneDesc: 'Clone a Git repository and open it as a project',
     labelRepoUrl: 'Repository URL',
     clonePresetExamples: 'Use official TeXbrain repo (BibTeX + MetaPost EN/ZH example)',
+    clonePresetSwuthesis: 'Use SWUThesis (branch online-texbrain)',
+    labelCloneBranch: 'Branch or tag (optional)',
+    cloneBranchPlaceholder: 'e.g. main, online-texbrain — leave empty for default',
     labelProjectName: 'Project Name',
     cloneExamplesOnly: 'Only download examples/ (GitHub zip, smaller — no git history)',
     cloning: 'Cloning...',
     chooseLocationClone: 'Choose Location & Clone',
     back: 'Back',
     cloneHint:
-      "You'll pick a folder where the project will be saved. Full git clone uses the CORS proxy in Git > Remote. examples/-only uses the same proxy to download GitHub's zip archive.",
+      "You'll pick a folder where the project will be saved. Full git clone uses the CORS proxy in Git > Remote; set Branch to clone a non-default branch. examples/-only downloads GitHub's zip for that branch via the same proxy.",
     promptFolderName: 'Project folder name:',
 
     toastExportNoFile: 'Export: no active file',
@@ -410,13 +416,16 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     cloneDesc: '克隆 Git 仓库并作为工程打开',
     labelRepoUrl: '仓库地址',
     clonePresetExamples: '使用官方 TeXbrain 仓库（中英 BibTeX + MetaPost 示例）',
+    clonePresetSwuthesis: '使用 SWUThesis（分支 online-texbrain）',
+    labelCloneBranch: '分支或标签（可选）',
+    cloneBranchPlaceholder: '如 main、online-texbrain — 留空则使用默认分支',
     labelProjectName: '工程名称',
     cloneExamplesOnly: '仅下载 examples/（GitHub zip，体积更小，无 git 历史）',
     cloning: '克隆中…',
     chooseLocationClone: '选择位置并克隆',
     back: '返回',
     cloneHint:
-      '请选择保存工程的文件夹。完整 git 克隆使用 Git → 远程 中的 CORS 代理；仅 examples/ 时通过同一代理下载 GitHub zip。',
+      '请选择保存工程的文件夹。完整 git 克隆使用 Git → 远程 中的 CORS 代理；填写「分支」可克隆非默认分支。仅下载 examples/ 时，会按所选分支下载对应 GitHub zip。',
     promptFolderName: '工程文件夹名称：',
 
     toastExportNoFile: '导出失败：没有活动文件',

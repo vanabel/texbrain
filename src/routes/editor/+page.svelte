@@ -39,6 +39,10 @@
   import GitPanel from '$lib/ui/GitPanel.svelte';
   import DrawioEditor from '$lib/ui/DrawioEditor.svelte';
   import { TEXBRAIN_GITHUB_CLONE_URL } from '$lib/constants/texbrain-repo';
+  import {
+    SWUTHESIS_DEFAULT_BRANCH,
+    SWUTHESIS_GITHUB_CLONE_URL
+  } from '$lib/constants/swuthesis-repo';
   import { readTextAtProjectPath, writeTextAtProjectPath } from '$lib/fs/project-path';
 
   let editorView: EditorView | null = null;
@@ -126,6 +130,8 @@
   let showCloneForm = false;
   let cloneUrl = '';
   let cloneName = '';
+  /** Git branch or tag; empty = remote default. Used for full clone and GitHub zip (examples/). */
+  let cloneBranch = '';
   let cloning = false;
   /** When true, GitHub URLs fetch only `examples/` via zip (not a full git clone). */
   let cloneExamplesOnly = false;
@@ -1038,6 +1044,7 @@
     showCloneForm = true;
     cloneUrl = '';
     cloneName = '';
+    cloneBranch = '';
     cloneExamplesOnly = false;
   }
 
@@ -1045,6 +1052,7 @@
     showCloneForm = false;
     cloneUrl = '';
     cloneName = '';
+    cloneBranch = '';
     cloneExamplesOnly = false;
   }
 
@@ -1059,7 +1067,15 @@
   function fillTexbrainCloneForExamples() {
     cloneUrl = TEXBRAIN_GITHUB_CLONE_URL;
     cloneName = 'texbrain-examples';
+    cloneBranch = '';
     cloneExamplesOnly = true;
+  }
+
+  function fillSwuthesisClone() {
+    cloneUrl = SWUTHESIS_GITHUB_CLONE_URL;
+    cloneName = 'SWUThesis';
+    cloneBranch = SWUTHESIS_DEFAULT_BRANCH;
+    cloneExamplesOnly = false;
   }
 
   async function handleLoadBundledBibtexExample() {
@@ -1084,12 +1100,15 @@
     if (!url || !name) return;
     cloning = true;
     try {
+      const ref = cloneBranch.trim();
       await cloneProject(url, name, {
-        onlySubpath: cloneExamplesOnly ? 'examples' : undefined
+        onlySubpath: cloneExamplesOnly ? 'examples' : undefined,
+        ref: ref || undefined
       });
       showCloneForm = false;
       cloneUrl = '';
       cloneName = '';
+      cloneBranch = '';
       cloneExamplesOnly = false;
       buildEditor();
     } catch (err: any) {
@@ -1496,7 +1515,20 @@
                   <div class="clone-field">
                     <label for="clone-url">{E.labelRepoUrl}</label>
                     <input id="clone-url" type="text" bind:value={cloneUrl} on:input={onCloneUrlInput} placeholder="https://github.com/user/repo" class="clone-input" />
-                    <button type="button" class="clone-preset-btn" on:click={fillTexbrainCloneForExamples}>{E.clonePresetExamples}</button>
+                    <div class="clone-preset-list">
+                      <button type="button" class="clone-preset-btn" on:click={fillTexbrainCloneForExamples}>{E.clonePresetExamples}</button>
+                      <button type="button" class="clone-preset-btn" on:click={fillSwuthesisClone}>{E.clonePresetSwuthesis}</button>
+                    </div>
+                  </div>
+                  <div class="clone-field">
+                    <label for="clone-branch">{E.labelCloneBranch}</label>
+                    <input
+                      id="clone-branch"
+                      type="text"
+                      bind:value={cloneBranch}
+                      placeholder={E.cloneBranchPlaceholder}
+                      class="clone-input"
+                    />
                   </div>
                   <div class="clone-field">
                     <label for="clone-name">{E.labelProjectName}</label>
@@ -1653,9 +1685,16 @@
   .clone-field label { font-size: 11px; font-weight: 500; color: var(--text-secondary); font-family: var(--font-editor); }
   .clone-input { width: 100%; padding: 7px 10px; font-size: 12.5px; font-family: var(--font-editor); background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--border); outline: none; }
   .clone-input:focus { border-color: var(--accent); }
+  .clone-preset-list {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    margin-top: 2px;
+  }
   .clone-preset-btn {
     align-self: flex-start;
-    margin-top: 2px;
+    margin-top: 0;
     padding: 0;
     font-size: 11px;
     color: var(--accent);

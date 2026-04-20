@@ -128,11 +128,14 @@ export function extractSubfolderFromUnzipped(
 export async function downloadGithubSubfolderAsMaps(
   ref: GithubRepoRef,
   subfolder: string,
-  corsProxy: string
+  corsProxy: string,
+  /** When set, download this branch only. Otherwise try `main` then `master`. */
+  branchHint?: string
 ): Promise<{ textFiles: Map<string, string> }> {
   const prefix = subfolder.replace(/^\/+|\/+$/g, '');
 
-  const branches = ['main', 'master'];
+  const hint = branchHint?.trim().replace(/^refs\/heads\//i, '');
+  const branches = hint ? [hint] : ['main', 'master'];
   let zipBuf: ArrayBuffer | null = null;
   let lastErr: unknown;
   for (const branch of branches) {

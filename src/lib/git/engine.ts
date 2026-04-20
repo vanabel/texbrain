@@ -472,12 +472,14 @@ export async function pull(remoteName: string = 'origin', branch?: string): Prom
   });
 }
 
-export async function cloneRepo(url: string): Promise<void> {
+export async function cloneRepo(url: string, ref?: string): Promise<void> {
   await ensureBuffer();
   await ensureDir(DIR);
   const auth = getAuth();
   const userProxy = get(gitCorsProxy).trim();
   const candidates = [...new Set([userProxy || DEFAULT_CORS_PROXY, DEFAULT_CORS_PROXY])];
+
+  const branch = ref?.trim().replace(/^refs\/heads\//i, '');
 
   let lastErr: unknown;
   for (let i = 0; i < candidates.length; i++) {
@@ -490,7 +492,9 @@ export async function cloneRepo(url: string): Promise<void> {
         url,
         corsProxy: candidates[i],
         onAuth: () => auth,
-        singleBranch: false
+        ...(branch
+          ? { ref: branch, singleBranch: true }
+          : { singleBranch: false })
       });
       return;
     } catch (e) {
