@@ -80,6 +80,9 @@ Open a folder, edit, preview PDF, commit, push to GitHub—**from one tab**.
 
 This repo includes a small **bilingual BibTeX + MetaPost** layout under [`examples/bibtex-metapost-english-chinese/`](examples/bibtex-metapost-english-chinese/README.md) (e.g. `gbt7714` vs `amsrefs` / `amsrn.bst`, plus a MetaPost sample). **In the web app:** welcome screen → **Clone Repository** → **Use official TeXbrain repo (BibTeX EN/ZH example)** — or paste `https://github.com/vanabel/texbrain.git`. After clone, open the `.tex` you want under `examples/bibtex-metapost-english-chinese/English-bibtex/` or `.../Chinese-bibtex/` and compile (**Active tab** or set **Entry** to that file). Classic BibTeX needs **BusyTeX** on the deployment (`pnpm run download-busytex`). Details: [examples/bibtex-metapost-english-chinese/README.md](examples/bibtex-metapost-english-chinese/README.md).
 
+> Known issue: in some BusyTeX runs, `cleveref` (`\cref` / `\Cref`) may fail with errors like `Extra \endcsname`.
+> The `Chinese-biblatex` example includes a BusyTeX-only fallback: when `\BUSYTEX` is defined, it maps `\cref/\Cref` to `\autoref`; local TeX keeps native `cleveref`.
+
 ---
 
 ## Deploying to GitHub Pages
