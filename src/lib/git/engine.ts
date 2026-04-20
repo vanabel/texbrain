@@ -110,14 +110,50 @@ function isLikelyBinaryRelPath(relPath: string): boolean {
 
 export async function readAllFilesFromGit(): Promise<Map<string, string | Uint8Array>> {
   const result = new Map<string, string | Uint8Array>();
-  const pfs = getFs().promises;
   const utf8DecoderStrict = new TextDecoder('utf-8', { fatal: true });
 
+  // Prefer reading from the git object DB at HEAD instead of scanning the working tree.
+  // In-browser clones can occasionally leave the working tree incomplete while the index
+  // still lists paths (matches: `git ls-files` shows files but working tree misses them).
+  try {
+    const headOid = await git.resolveRef({ fs: getFs(), dir: DIR, ref: 'HEAD' });
+    const paths = await git.listFiles({ fs: getFs(), dir: DIR, ref: headOid });
+    for (const filepath of paths) {
+      try {
+        const { blob } = await git.readBlob({
+          fs: getFs(),
+          dir: DIR,
+          oid: headOid,
+          filepath
+        });
+        const raw = new Uint8Array(blob);
+
+        if (isLikelyBinaryRelPath(filepath)) {
+          result.set(filepath, raw);
+        } else {
+          try {
+            result.set(filepath, utf8DecoderStrict.decode(raw));
+          } catch {
+            result.set(filepath, raw);
+          }
+        }
+      } catch (e) {
+        console.warn('[TeXbrain] skip unreadable git blob:', filepath, e);
+      }
+    }
+    return result;
+  } catch (e) {
+    console.warn('[TeXbrain] HEAD export failed, falling back to working tree scan:', e);
+  }
+
+  const pfs = getFs().promises;
   async function walk(dirPath: string, prefix: string) {
     let entries: string[];
     try {
       entries = await pfs.readdir(dirPath);
-    } catch { return; }
+    } catch {
+      return;
+    }
     for (const entry of entries) {
       if (entry === '.git') continue;
       const fullPath = dirPath + '/' + entry;
@@ -132,7 +168,6 @@ export async function readAllFilesFromGit(): Promise<Map<string, string | Uint8A
           if (isLikelyBinaryRelPath(rel)) {
             result.set(rel, raw);
           } else {
-            // UTF-8 text: store string. Unknown extensions: only treat as text if strictly valid UTF-8.
             try {
               result.set(rel, utf8DecoderStrict.decode(raw));
             } catch {
@@ -140,7 +175,9 @@ export async function readAllFilesFromGit(): Promise<Map<string, string | Uint8A
             }
           }
         }
-      } catch { /* skip unreadable */ }
+      } catch {
+        /* skip unreadable */
+      }
     }
   }
 
