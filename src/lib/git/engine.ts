@@ -101,9 +101,10 @@ export async function deleteFileFromGit(path: string) {
   } catch { /* file may not exist */ }
 }
 
-export async function readAllFilesFromGit(): Promise<Map<string, string>> {
-  const result = new Map<string, string>();
+export async function readAllFilesFromGit(): Promise<Map<string, string | Uint8Array>> {
+  const result = new Map<string, string | Uint8Array>();
   const pfs = getFs().promises;
+  const textDecoder = new TextDecoder('utf-8', { fatal: false });
 
   async function walk(dirPath: string, prefix: string) {
     let entries: string[];
@@ -118,8 +119,17 @@ export async function readAllFilesFromGit(): Promise<Map<string, string>> {
         if (stat.isDirectory()) {
           await walk(fullPath, prefix ? prefix + '/' + entry : entry);
         } else {
-          const content = await pfs.readFile(fullPath, 'utf8') as string;
-          result.set(prefix ? prefix + '/' + entry : entry, content);
+          const raw = new Uint8Array(await pfs.readFile(fullPath));
+          // PDF / images: keep bytes. UTF-8 text: store string for editor/git diff ergonomics.
+          const asText = textDecoder.decode(raw);
+          const roundTrip = new TextEncoder().encode(asText);
+          const isUtf8Text =
+            raw.byteLength === roundTrip.byteLength &&
+            raw.every((b, i) => b === roundTrip[i]);
+          result.set(
+            prefix ? prefix + '/' + entry : entry,
+            isUtf8Text ? asText : raw
+          );
         }
       } catch { /* skip unreadable */ }
     }

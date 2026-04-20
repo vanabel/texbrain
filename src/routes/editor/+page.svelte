@@ -1032,7 +1032,7 @@
 
     for (const tab of currentFiles) {
       const newContent = gitFiles.get(tab.path);
-      if (newContent !== undefined) {
+      if (newContent !== undefined && typeof newContent === 'string') {
         updateFileContent(tab.id, newContent);
       }
     }
