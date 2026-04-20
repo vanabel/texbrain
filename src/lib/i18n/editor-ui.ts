@@ -72,13 +72,17 @@ export type EditorUi = {
   tabErrors: string;
   tabWarnings: string;
   tabLog: string;
+  tabSteps: string;
   savePdf: string;
   ttSavePdf: string;
+  copyLog: string;
+  ttCopyLog: string;
   downloadBbl: string;
   ttDownloadBbl: string;
   noErrors: string;
   noWarnings: string;
   noLogYet: string;
+  noStepsYet: string;
   linePrefix: string;
 
   // Welcome / clone
@@ -110,6 +114,8 @@ export type EditorUi = {
   toastCollabJoined: string;
   toastCloneCors: string;
   toastCloneFailed: string;
+  toastCopyLogSuccess: string;
+  toastCopyLogFailed: string;
 
   // Status bar
   statusCompiling: string;
@@ -224,13 +230,17 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     tabErrors: 'Errors',
     tabWarnings: 'Warnings',
     tabLog: 'Log',
+    tabSteps: 'Steps',
     savePdf: 'Save PDF',
     ttSavePdf: 'Save PDF',
+    copyLog: 'Copy Log',
+    ttCopyLog: 'Copy compilation log',
     downloadBbl: 'Download BBL',
     ttDownloadBbl: 'Download BBL',
     noErrors: 'No errors',
     noWarnings: 'No warnings',
     noLogYet: 'No compilation log yet',
+    noStepsYet: 'No compile steps yet',
     linePrefix: 'line',
 
     welcomeTitle: 'Welcome to TeXbrain',
@@ -263,6 +273,8 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     toastCloneCors:
       'Network/CORS blocked. On localhost use pnpm dev or pnpm preview (zip uses a built-in proxy). On a static host, set Git → Remote CORS proxy to https://cors.isomorphic-git.org or use full git clone.',
     toastCloneFailed: 'Clone failed: {msg}',
+    toastCopyLogSuccess: 'Compilation log copied',
+    toastCopyLogFailed: 'Copy failed: {msg}',
 
     statusCompiling: 'Compiling',
     statusReady: 'Ready',
@@ -374,13 +386,17 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     tabErrors: '错误',
     tabWarnings: '警告',
     tabLog: '日志',
+    tabSteps: '步骤',
     savePdf: '保存 PDF',
     ttSavePdf: '保存 PDF',
+    copyLog: '复制日志',
+    ttCopyLog: '复制编译日志',
     downloadBbl: '下载 BBL',
     ttDownloadBbl: '下载 BBL',
     noErrors: '无错误',
     noWarnings: '无警告',
     noLogYet: '尚无编译日志',
+    noStepsYet: '尚无编译步骤',
     linePrefix: '行',
 
     welcomeTitle: '欢迎使用 TeXbrain',
@@ -412,6 +428,8 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     toastCloneCors:
       '网络/CORS 被拦截。本地请使用 pnpm dev 或 pnpm preview（zip 走内置代理）。静态部署请在 Git → 远程 设置 CORS 代理为 https://cors.isomorphic-git.org 或使用完整 git 克隆。',
     toastCloneFailed: '克隆失败：{msg}',
+    toastCopyLogSuccess: '已复制编译日志',
+    toastCopyLogFailed: '复制失败：{msg}',
 
     statusCompiling: '编译中',
     statusReady: '就绪',

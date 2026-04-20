@@ -1,28 +1,64 @@
 import { base } from '$app/paths';
 import { projectUsesBiblatexBibliography } from './biblatex-detect';
 
+/** 仅在这些扩展名里判断 biber / biblatex 载入方式，避免 .cbx/.bbx/.bib/.ipynb 等里的说明文字触发误判。 */
+const RE_BIB_ENGINE_NARROW_PATH = /\.(tex|cls|sty|clo|cfg|ltx)$/i;
+
+function joinNarrowForBibEngine(files: Map<string, string>): string {
+  const chunks: string[] = [];
+  for (const [path, content] of files) {
+    if (RE_BIB_ENGINE_NARROW_PATH.test(path)) chunks.push(content);
+  }
+  return chunks.join('\n');
+}
+
 /** BusyTeX WASM 静态资源根路径（由 `pnpm run download-busytex` 下载到 static/busytex/） */
 export const BUSYTEX_BASE_PATH = `${base}/busytex`;
 export type CompileEngine = 'pdflatex' | 'xelatex';
 
 let runnerPromise: Promise<import('texlyre-busytex').BusyTexRunner> | null = null;
 
+/** 识别载入 biblatex（可选参数可跨多行；`\RequirePackage%` 换行后再 `[` 也允许）。 */
+function loadsBiblatexPackage(all: string): boolean {
+  const pkg = String.raw`(?:usepackage|RequirePackage)`;
+  const pct = String.raw`(?:\s*%\s*[^\n]*)?`;
+  // 可选参数：非贪婪到首个 ]；与 {biblatex} 之间的 % 断行
+  return new RegExp(
+    String.raw`\\${pkg}${pct}\s*(?:\[[\s\S]*?\])?${pct}\s*\{\s*biblatex\s*\}`,
+    'm'
+  ).test(all);
+}
+
+function hasBiblatexBiberBackend(all: string): boolean {
+  return (
+    /backend\s*=\s*biber/.test(all) ||
+    /\\PassOptionsToPackage\s*\{\s*backend\s*=\s*biber\s*\}\s*\{\s*biblatex\s*\}/.test(all)
+  );
+}
+
 /**
  * 判断项目是否需要真正的 BibTeX（bibtex8）流程（与 SwiftLaTeX 仅多次 pdfTeX 不同）。
  * - 经典 `\\bibliography` / `\\bibliographystyle`：需要。
- * - biblatex：以 `\\addbibresource` 或 `\\printbibliography` 为准；且需 `backend=bibtex`（或 bibtex8）。
- * - 显式 `backend=biber` 或默认 biblatex（biber）：不适用 BusyTeX。
+ * - biblatex：BusyTeX / SwiftLaTeX WASM **不能跑 biber**，可执行的后端只有 bibtex8。因此在
+ *   `.tex` / `.cls` / `.sty` / `.clo` / `.cfg` / `.ltx` 中**未**显式写 `backend=biber` 时，只要识别到
+ *   biblatex（`\\usepackage/\\RequirePackage`、或 `\\addbibresource` / `\\printbibliography`、或字面 `{biblatex}`），
+ *   即视为需要 bibtex8。这样类文件里用宏展开 `backend=\\foo` 而非常量 `backend=bibtex` 的模板也能触发 BibTeX。
+ * - 仅在上述窄源码里出现 `backend=biber`（或等价的 `\\PassOptionsToPackage`）时视为 biber 工程，不跑 bibtex8。
  */
 export function projectNeedsBibtexEngine(files: Map<string, string>): boolean {
+  const narrow = joinNarrowForBibEngine(files);
   const all = [...files.values()].join('\n');
-  if (projectUsesBiblatexBibliography(all)) {
-    if (/backend\s*=\s*biber/.test(all)) return false;
-    if (/backend\s*=\s*bibtex8?/.test(all)) return true;
-    return false;
-  }
+
   if (/\\bibliography\{/.test(all)) return true;
   if (/\\bibliographystyle\{/.test(all)) return true;
-  return false;
+
+  if (hasBiblatexBiberBackend(narrow)) return false;
+
+  return (
+    loadsBiblatexPackage(narrow) ||
+    projectUsesBiblatexBibliography(narrow) ||
+    /\{\s*biblatex\s*\}/.test(narrow)
+  );
 }
 
 let assetsCheckCache: boolean | null = null;
@@ -70,6 +106,12 @@ export interface BusyTexCompileOutcome {
   log: string;
   usedBusyTex: boolean;
   bbl?: { path: string; content: string };
+}
+
+function withBusyTexMarker(source: string): string {
+  // Inject a stable marker macro for template-level compatibility guards.
+  // \providecommand avoids overriding user-defined \BUSYTEX.
+  return `\\providecommand\\BUSYTEX{}\n${source}`;
 }
 
 function readTextFromUnknown(value: unknown): string | undefined {
@@ -214,7 +256,7 @@ export async function compileWithBusyTexBibtex(
   let result: import('texlyre-busytex').CompileResult;
   try {
     result = await compiler.compile({
-      input: mainContent,
+      input: withBusyTexMarker(mainContent),
       bibtex,
       additionalFiles,
       verbose: 'silent'

@@ -47,6 +47,7 @@
   let pdfViewer: PdfViewer;
   let compiling = false;
   let compileStuckTimer = 0;
+  let compileSteps: string[] = [];
   $: E = editorUi[$locale];
 
   function uiMsg() {
@@ -381,6 +382,11 @@
         af.name,
         projectFiles
       );
+      compileSteps = [
+        `[collect] files=${projectFiles.size}, binary=${binaryFiles.size}`,
+        `[target] ${mainFile}`,
+        `[engine] ${compileEngine}`
+      ];
       currentCompileTarget = mainFile;
       compileLog.set([`[${ts()}] compiling ${mainFile}...`]);
 
@@ -406,6 +412,10 @@
       ]);
 
       const { errors: parsedErrors, cleanedLines } = parseLog(result.log || '');
+      const parsedSteps = extractCompileSteps(result.log || '');
+      compileSteps = parsedSteps.length > 0
+        ? parsedSteps
+        : [...compileSteps, `[result] exit ${result.status}`];
       compileErrors.set(parsedErrors);
 
       if (result.status === 0 && result.pdf) {
@@ -442,6 +452,7 @@
       bblFile = undefined;
       compileStatus.set('error');
       compileLog.update(log => [...log, `[error] ${err.message || String(err)}`]);
+      compileSteps = [...compileSteps, `[exception] ${err.message || String(err)}`];
 
       if (isCollabMode) {
         setCompileResult({ status: 'error', pdf: null, log: [`[error] ${err.message || String(err)}`], errors: [{ type: 'error', message: err.message || String(err) }], pageCount: 0 });
@@ -455,6 +466,39 @@
   function compilePreview() { doCompile(); }
 
   function ts() { return new Date().toLocaleTimeString(); }
+
+  function extractCompileSteps(rawLog: string): string[] {
+    const steps: string[] = [];
+    if (!rawLog) return steps;
+
+    const stepHeaderRe = /^\[([^\]]+)\]\s+exit\s+(-?\d+)\s*$/gm;
+    for (const match of rawLog.matchAll(stepHeaderRe)) {
+      steps.push(`[${match[1]}] exit ${match[2]}`);
+    }
+    if (steps.length > 0) return steps;
+
+    const lines = rawLog.split('\n');
+    let pendingCmd: string | null = null;
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('$ ')) {
+        pendingCmd = trimmed.slice(2).trim();
+        continue;
+      }
+      const exitMatch = trimmed.match(/^EXITCODE:\s*(-?\d+)/);
+      if (exitMatch && pendingCmd) {
+        steps.push(`[${pendingCmd}] exit ${exitMatch[1]}`);
+        pendingCmd = null;
+      }
+    }
+    return steps;
+  }
+
+  function isStepFailure(step: string): boolean {
+    const m = step.match(/\bexit\s+(-?\d+)\b/i);
+    if (m) return parseInt(m[1], 10) !== 0;
+    return /error|failed|exception/i.test(step);
+  }
 
   /** BusyTeX appends `--- steps ---` with per-command logs; warnings from earlier passes are stale after bibtex / reruns. */
   function selectLastLatexEngineLogForWarnings(rawLog: string): string {
@@ -730,6 +774,29 @@
     a.download = baseName + '.pdf';
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function copyCompileLog() {
+    const text = get(compileLog).join('\n');
+    if (!text.trim()) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      addToast(uiMsg().toastCopyLogSuccess, 'success', 1200);
+    } catch (err: any) {
+      addToast(expandEditorTemplate(uiMsg().toastCopyLogFailed, { msg: err?.message || String(err) }), 'error');
+    }
   }
 
   async function saveBbl() {
@@ -1092,10 +1159,14 @@
               pdfViewer?.setPageCount(pdfPageCount);
               compileStatus.set('success');
               compileLog.set([`[${ts()}] compilation successful (${pdfPageCount} pages)`, ...log]);
+              const parsedSteps = extractCompileSteps(log.join('\n'));
+              compileSteps = parsedSteps.length > 0 ? parsedSteps : ['[remote] host compilation succeeded'];
               compileErrors.set(errors);
             } else {
               compileStatus.set('error');
               compileLog.set([`[${ts()}] compilation failed`, ...log]);
+              const parsedSteps = extractCompileSteps(log.join('\n'));
+              compileSteps = parsedSteps.length > 0 ? parsedSteps : ['[remote] host compilation failed'];
               compileErrors.set(errors);
               previewTab.set('errors');
             }
@@ -1326,11 +1397,18 @@
                 {/if}
               </button>
               <button class="preview-tab" class:active={$previewTab === 'log'} on:click={() => previewTab.set('log')}>{E.tabLog}</button>
+              <button class="preview-tab" class:active={$previewTab === 'steps'} on:click={() => previewTab.set('steps')}>{E.tabSteps}</button>
               <div style="flex:1"></div>
               {#if pdfData}
                 <button class="preview-tab save-pdf" on:click={savePdf} title={E.ttSavePdf}>
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M4 7l4 4 4-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12v2h12v-2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
                   <span style="font-size:11px;margin-left:3px">{E.savePdf}</span>
+                </button>
+              {/if}
+              {#if $compileLog.length > 0}
+                <button class="preview-tab save-pdf" on:click={copyCompileLog} title={E.ttCopyLog}>
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="5" y="3" width="8" height="10" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="3" y="5" width="8" height="10" rx="1" stroke="currentColor" stroke-width="1.2"/></svg>
+                  <span style="font-size:11px;margin-left:3px">{E.copyLog}</span>
                 </button>
               {/if}
               {#if hasDownloadableBbl()}
@@ -1381,13 +1459,22 @@
                   {/each}
                 {/if}
               </div>
-            {:else}
+            {:else if $previewTab === 'log'}
               <div class="log-content">
                 {#each $compileLog as entry}
                   <div class="log-entry" class:error={entry.includes('[Error]') || entry.includes('!')} class:success={entry.includes('successful')}>{entry}</div>
                 {/each}
                 {#if $compileLog.length === 0}
                   <div class="preview-empty"><p>{E.noLogYet}</p></div>
+                {/if}
+              </div>
+            {:else}
+              <div class="log-content">
+                {#each compileSteps as step}
+                  <div class="log-entry" class:error={isStepFailure(step)} class:success={!isStepFailure(step)}>{step}</div>
+                {/each}
+                {#if compileSteps.length === 0}
+                  <div class="preview-empty"><p>{E.noStepsYet}</p></div>
                 {/if}
               </div>
             {/if}

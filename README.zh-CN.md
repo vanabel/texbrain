@@ -45,6 +45,7 @@ TeXbrain 应用由 [Braian Plaku](https://swimmingbrain.dev) 开创并推广。*
 - [双语 BibTeX 示例](#双语-bibtex-示例)
 - [部署到 GitHub Pages](#部署到-github-pages)
 - [本地运行](#本地运行)
+- [BusyTeX 字体覆盖（以 SWUThesis 为例）](#busytex-字体覆盖以-swuthesis-为例)
 - [PM2 部署](#pm2-部署)
 - [未来路线图（草案）](ROADMAP.zh-CN.md)
 - [浏览器支持](#浏览器支持)
@@ -173,6 +174,27 @@ pnpm run download-busytex
 ```
 
 若不执行此步，SwiftLaTeX 仍可编译；经典 BibTeX 引用解析则依赖上述资源。`static/busytex/` 默认已加入 `.gitignore` 以控制仓库体积；若线上站点也需要 BusyTeX，请在本地或 CI 中于构建前执行该命令。
+
+### BusyTeX 字体覆盖（以 SWUThesis 为例）
+
+当模板里已定义 `\youyuan`（或其他命令）时，直接 `\newCJKfontfamily\youyuan` 可能报 *already defined*。在部分环境中，`\renewCJKfontfamily` 也可能不存在。更稳妥的方式是：先注册一个新字体族，再把模板命令重定向到该字体族。
+
+将 `YouYuan.ttf` 放在主文件（如 `swuthesis-main.tex`）同目录后，可在导言区使用：
+
+```tex
+\usepackage{xeCJK}
+\IfFileExists{YouYuan.ttf}{
+  \setCJKfamilyfont{yy}{YouYuan.ttf}
+  \renewcommand{\youyuan}{\CJKfamily{yy}}
+}{
+  \typeout{[FONT] YouYuan.ttf not found, keep default \string\youyuan}
+}
+```
+
+说明：
+- 该方案不会改 `ctex` 主字体，只影响调用 `\youyuan` 的位置。
+- 需使用 `xelatex` 编译。
+- 若字体在子目录（如 `fonts/`），可改为 `\setCJKfamilyfont{yy}[Path=./fonts/,Extension=.ttf]{YouYuan}`。
 
 ## PM2 部署
 

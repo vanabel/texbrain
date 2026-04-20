@@ -1,0 +1,54 @@
+\documentclass[12pt,a4paper,fontset=fandol]{ctexart}
+
+\usepackage{geometry}
+\geometry{left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
+
+\usepackage{amsmath,amssymb}
+\usepackage{hyperref}
+\usepackage{cleveref}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  citecolor=red,
+  urlcolor=blue
+}
+
+% BusyTeX compatibility: only downgrade in BusyTeX runs.
+% Local TeX engines keep native cleveref behavior.
+\ifdefined\BUSYTEX
+  \AtBeginDocument{%
+    \let\cref\autoref
+    \let\Cref\autoref
+  }
+\fi
+
+% Test target: biblatex + backend=bibtex (bibtex8 in BusyTeX)
+\usepackage[
+  backend=bibtex,
+  style=numeric,
+  sorting=none,
+  giveninits=true
+]{biblatex}
+\addbibresource{references.bib}
+
+\title{\textbf{Chinese BibLaTeX Test}\\\large (backend=bibtex)}
+\author{TeXbrain Example}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Purpose}\label{sec:purpose}
+This example is used to test Chinese bibliography behavior under
+\texttt{biblatex + backend=bibtex} in TeXbrain.
+
+\section{Citations}\label{sec:citations}
+English citations: \cite{knuth1984texbook,vaswani2017attention}.
+
+Chinese citations: \cite{zhouzhihua2016ml,liguojie2012bigdata}.
+
+Cross-reference test via \texttt{cleveref}: see \cref{sec:purpose}.
+
+\printbibliography
+\end{document}
