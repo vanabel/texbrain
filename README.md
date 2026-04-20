@@ -41,6 +41,7 @@ I was tired of paying for basics. I wrote a thesis in LaTeX and fought the toolc
 - [Features](#features)
 - [How it works](#how-it-works)
 - [Security & privacy](#security--privacy)
+- [Template repos & Git (user guidance)](#template-repos--git-user-guidance)
 - [Tech stack](#tech-stack)
 - [BibTeX example (English / Chinese)](#bibtex-example-english--chinese)
 - [Deploying to GitHub Pages](#deploying-to-github-pages)
@@ -138,6 +139,20 @@ Everything runs in your browser unless **you** push to a remote.
 - Git is a JS library—no shell injection  
 - Default git CORS proxy: `cors.isomorphic-git.org` (replaceable)  
 - TeX/LaTeX are FOSS; this repo does not redistribute TeX sources  
+
+---
+
+## Template repos & Git (user guidance)
+
+You can paste the following into your README / group announcement. It explains **what TeXbrain does and does not do**, and the **recommended workflow** (matter-of-fact, not alarmist):
+
+TeXbrain is **not** a “live-sync to the cloud” editor: your edits are saved to the **local project folder you picked** by default. Unless you configure credentials and explicitly **push**, your changes will **not** affect the template repository on GitHub.
+
+Do not treat the **upstream template** as your day-to-day working repo: **fork** it to your account and work on the fork; keep upstream read-only and pull updates when needed.
+
+If you must connect TeXbrain to GitHub in the browser: use a **read-only** token, or a **least-privilege** token; do not grant write access to a shared template repository.
+
+For thesis/class templates: prefer the maintainer’s **`online-texbrain`** branch for browser/TeXbrain compatibility (paths/resources are maintained against that branch). In TeXbrain, use the **SWUThesis** clone preset, or set **Branch** to `online-texbrain`.
 
 ---
 
