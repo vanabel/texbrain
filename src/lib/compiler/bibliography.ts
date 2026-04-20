@@ -1,3 +1,5 @@
+import { projectUsesBiblatexBibliography } from './biblatex-detect';
+
 interface BibEntry {
   type: string;
   key: string;
@@ -134,16 +136,17 @@ function formatEntry(e: BibEntry): string {
 }
 
 export function patchBiblatexFiles(files: Map<string, string>): Map<string, string> {
-  let usesBiblatex = false;
   let bibPath = '';
+  const joined = [...files.values()].join('\n');
+
+  if (!projectUsesBiblatexBibliography(joined)) return files;
 
   for (const [, content] of files) {
-    if (/\\usepackage(\[[^\]]*\])?\{biblatex\}/.test(content)) usesBiblatex = true;
-    const m = content.match(/\\addbibresource\{([^}]+)\}/);
-    if (m) bibPath = m[1];
+    const m = content.match(/\\addbibresource(?:\s*\[[\s\S]*?\])?\s*\{([^}]+)\}/);
+    if (m) bibPath = m[1].trim();
   }
 
-  if (!usesBiblatex || !bibPath) return files;
+  if (!bibPath) return files;
 
   const bibContent = files.get(bibPath);
   if (!bibContent) return files;
@@ -167,9 +170,9 @@ export function patchBiblatexFiles(files: Map<string, string>): Map<string, stri
   const patched = new Map(files);
   for (const [path, content] of patched) {
     let c = content;
-    c = c.replace(/\\usepackage(\[[^\]]*\])?\{biblatex\}/g, '');
-    c = c.replace(/\\addbibresource\{[^}]+\}/g, '');
-    c = c.replace(/\\printbibliography(\[[^\]]*\])?/g, bbl);
+    c = c.replace(/\\(?:usepackage|RequirePackage)(?:\[[\s\S]*?\])?\{biblatex\}/g, '');
+    c = c.replace(/\\addbibresource(?:\s*\[[\s\S]*?\])?\s*\{[^}]+\}/g, '');
+    c = c.replace(/\\printbibliography\b(?:\s*\[[\s\S]*?\])?/g, bbl);
     c = c.replace(/\\(?:autocite|parencite|textcite|fullcite|Autocite|Parencite|Textcite|Fullcite)(\*)?/g, '\\cite');
     patched.set(path, c);
   }

@@ -1,4 +1,5 @@
 import { base } from '$app/paths';
+import { projectUsesBiblatexBibliography } from './biblatex-detect';
 
 /** BusyTeX WASM 静态资源根路径（由 `pnpm run download-busytex` 下载到 static/busytex/） */
 export const BUSYTEX_BASE_PATH = `${base}/busytex`;
@@ -9,13 +10,12 @@ let runnerPromise: Promise<import('texlyre-busytex').BusyTexRunner> | null = nul
 /**
  * 判断项目是否需要真正的 BibTeX（bibtex8）流程（与 SwiftLaTeX 仅多次 pdfTeX 不同）。
  * - 经典 `\\bibliography` / `\\bibliographystyle`：需要。
- * - `biblatex` 且 `backend=bibtex`：需要。
- * - 默认 `biblatex`（通常为 biber）或显式 `backend=biber`：不适用 BusyTeX。
+ * - biblatex：以 `\\addbibresource` 或 `\\printbibliography` 为准；且需 `backend=bibtex`（或 bibtex8）。
+ * - 显式 `backend=biber` 或默认 biblatex（biber）：不适用 BusyTeX。
  */
 export function projectNeedsBibtexEngine(files: Map<string, string>): boolean {
   const all = [...files.values()].join('\n');
-  const usesBiblatex = /\\usepackage(?:\[[^\]]*\])?\{biblatex\}/.test(all);
-  if (usesBiblatex) {
+  if (projectUsesBiblatexBibliography(all)) {
     if (/backend\s*=\s*biber/.test(all)) return false;
     if (/backend\s*=\s*bibtex8?/.test(all)) return true;
     return false;
