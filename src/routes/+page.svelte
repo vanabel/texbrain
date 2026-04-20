@@ -138,39 +138,42 @@
 
   <footer class="footer">
     <div class="footer-inner">
-      <div class="footer-brand">
-        <span class="logo-mark"><Logo size={16} /></span>
-        <span class="footer-name">TeXbrain</span>
-      </div>
-      <div class="footer-links">
-        <a href="{base}/privacy">{L.footerPrivacy}</a>
-        <a href="{base}/terms">{L.footerTerms}</a>
-        <a href="{base}/imprint">{L.footerImprint}</a>
-      </div>
-      <p class="footer-credit">
-        {#if $locale === 'en'}
-          made with <span class="heart">&hearts;</span> by
-          <a href="https://swimmingbrain.dev" target="_blank" rel="noopener">Braian Plaku</a>
-        {:else}
-          <a href="https://swimmingbrain.dev" target="_blank" rel="noopener">Braian Plaku</a>
-          用 <span class="heart">&hearts;</span> 制作
+      <div class="footer-one-line">
+        <div class="footer-brand">
+          <span class="logo-mark"><Logo size={16} /></span>
+          <span class="footer-name">TeXbrain</span>
+        </div>
+        <span class="footer-gap" aria-hidden="true">·</span>
+        <div class="footer-links">
+          <a href="{base}/privacy">{L.footerPrivacy}</a>
+          <a href="{base}/terms">{L.footerTerms}</a>
+          <a href="{base}/imprint">{L.footerImprint}</a>
+        </div>
+        <span class="footer-gap" aria-hidden="true">·</span>
+        <span class="footer-credit">
+          {#if $locale === 'en'}
+            made with <span class="heart">&hearts;</span> by
+            <a href="https://swimmingbrain.dev" target="_blank" rel="noopener">Braian Plaku</a>
+          {:else}
+            <a href="https://swimmingbrain.dev" target="_blank" rel="noopener">Braian Plaku</a>
+            用 <span class="heart">&hearts;</span> 制作
+          {/if}
+        </span>
+        {#if texbrainBuildRevision && commitUrl}
+          <span class="footer-gap" aria-hidden="true">·</span>
+          <a
+            href={commitUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="footer-revision-link"
+            title={L.footerBuildLinkTitle}
+          >
+            <span class="footer-revision-label">{L.footerBuildLabel}</span>
+            <code class="footer-revision-sha">{texbrainBuildRevision}</code>
+          </a>
         {/if}
-      </p>
-    </div>
-    {#if texbrainBuildRevision && commitUrl}
-      <div class="footer-revision">
-        <a
-          href={commitUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          class="footer-revision-link"
-          title={L.footerBuildLinkTitle}
-        >
-          <span class="footer-revision-label">{L.footerBuildLabel}</span>
-          <code class="footer-revision-sha">{texbrainBuildRevision}</code>
-        </a>
       </div>
-    {/if}
+    </div>
   </footer>
 </div>
 
@@ -473,11 +476,7 @@
   .footer {
     flex-shrink: 0;
     border-top: 1px solid var(--border);
-    padding: 12px 32px 14px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
+    padding: 10px 32px 12px;
   }
 
   .footer-inner {
@@ -485,25 +484,43 @@
     width: 100%;
     margin: 0 auto;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    justify-content: center;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
   }
 
-  .footer-revision {
+  /** 品牌、链接、署名、构建 SHA 全部同一行；极窄屏可横向滑动查看 */
+  .footer-one-line {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 0 10px;
+    white-space: nowrap;
     font-size: 11px;
     font-family: var(--font-editor);
     color: var(--text-muted);
+    min-width: min-content;
+  }
+
+  .footer-gap {
+    flex: 0 0 auto;
+    opacity: 0.45;
+    user-select: none;
+    padding: 0 2px;
   }
 
   .footer-revision-link {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    flex: 0 0 auto;
     text-decoration: none;
     color: inherit;
     border-radius: var(--radius-sm);
     padding: 2px 4px;
-    margin: -2px -4px;
+    margin: 0;
+    white-space: nowrap;
   }
 
   .footer-revision-link:hover {
@@ -531,6 +548,7 @@
 
   .footer-brand {
     display: flex;
+    flex: 0 0 auto;
     align-items: center;
     gap: 6px;
   }
@@ -538,14 +556,16 @@
   .footer-name {
     font-family: var(--font-brand);
     font-style: italic;
-    font-size: 14px;
+    font-size: 13px;
     color: var(--text-primary);
   }
 
   .footer-credit {
-    font-size: 11px;
-    color: var(--text-muted);
-    font-family: var(--font-editor);
+    flex: 0 0 auto;
+    margin: 0;
+    font-size: inherit;
+    color: inherit;
+    font-family: inherit;
   }
 
   .footer-credit a {
@@ -574,9 +594,11 @@
 
   .footer-links {
     display: flex;
-    gap: 16px;
-    font-size: 11px;
-    font-family: var(--font-editor);
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 12px;
+    font-size: inherit;
+    font-family: inherit;
   }
 
   .footer-links a {
