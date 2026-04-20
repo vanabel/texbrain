@@ -32,6 +32,10 @@ export const landingCopy: Record<
     footerPrivacy: string;
     footerTerms: string;
     footerImprint: string;
+    /** Label before the short git SHA in the footer (e.g. “Build”). */
+    footerBuildLabel: string;
+    /** `title` on the commit link. */
+    footerBuildLinkTitle: string;
   }
 > = {
   en: {
@@ -97,7 +101,9 @@ export const landingCopy: Record<
     ],
     footerPrivacy: 'Privacy',
     footerTerms: 'Terms',
-    footerImprint: 'Imprint'
+    footerImprint: 'Imprint',
+    footerBuildLabel: 'Build',
+    footerBuildLinkTitle: 'This commit on GitHub'
   },
   zh: {
     metaTitle: 'TeXbrain | 浏览器里的 LaTeX 编辑器',
@@ -159,6 +165,8 @@ export const landingCopy: Record<
     ],
     footerPrivacy: '隐私',
     footerTerms: '条款',
-    footerImprint: '法律信息'
+    footerImprint: '法律信息',
+    footerBuildLabel: '构建',
+    footerBuildLinkTitle: '在 GitHub 上查看该提交'
   }
 };

@@ -4,9 +4,11 @@
   import Logo from '$lib/ui/Logo.svelte';
   import LanguageSwitch from '$lib/ui/LanguageSwitch.svelte';
   import { locale } from '$lib/i18n/locale';
+  import { texbrainBuildRevision, texbrainGitCommitUrl } from '$lib/build-meta';
   import { landingCopy } from '$lib/i18n/landing';
 
   $: L = landingCopy[$locale];
+  $: commitUrl = texbrainGitCommitUrl();
 </script>
 
 <svelte:head>
@@ -155,6 +157,20 @@
         {/if}
       </p>
     </div>
+    {#if texbrainBuildRevision && commitUrl}
+      <div class="footer-revision">
+        <a
+          href={commitUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="footer-revision-link"
+          title={L.footerBuildLinkTitle}
+        >
+          <span class="footer-revision-label">{L.footerBuildLabel}</span>
+          <code class="footer-revision-sha">{texbrainBuildRevision}</code>
+        </a>
+      </div>
+    {/if}
   </footer>
 </div>
 
@@ -457,15 +473,60 @@
   .footer {
     flex-shrink: 0;
     border-top: 1px solid var(--border);
-    padding: 12px 32px;
+    padding: 12px 32px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
   }
 
   .footer-inner {
     max-width: 1200px;
+    width: 100%;
     margin: 0 auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
+  }
+
+  .footer-revision {
+    font-size: 11px;
+    font-family: var(--font-editor);
+    color: var(--text-muted);
+  }
+
+  .footer-revision-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+    color: inherit;
+    border-radius: var(--radius-sm);
+    padding: 2px 4px;
+    margin: -2px -4px;
+  }
+
+  .footer-revision-link:hover {
+    color: var(--accent);
+    background: var(--bg-surface);
+  }
+
+  .footer-revision-label {
+    opacity: 0.85;
+  }
+
+  .footer-revision-sha {
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+  }
+
+  .footer-revision-link:hover .footer-revision-sha {
+    border-color: var(--accent);
+    color: var(--accent);
   }
 
   .footer-brand {
