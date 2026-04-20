@@ -539,7 +539,10 @@ export async function cloneRepo(url: string, ref?: string): Promise<void> {
 
   let lastErr: unknown;
   for (let i = 0; i < candidates.length; i++) {
-    if (i > 0) await wipeProjectDirForRetry();
+    // LightningFS is persisted per project name. A previous failed/partial clone or local edits
+    // can leave a dirty worktree; git.clone checkout then errors with "would be overwritten".
+    // Always start from a clean DIR on the first attempt (and again on proxy retries).
+    await wipeProjectDirForRetry();
     try {
       await git.clone({
         fs: getFs(),
