@@ -163,82 +163,8 @@ function extractBusyTexBbl(result: any): { path: string; content: string } | und
   return undefined;
 }
 
-function dedupePaths(paths: string[]): string[] {
-  return [...new Set(paths.map(p => p.trim()).filter(Boolean))];
-}
-
-function guessBblCandidates(mainFile: string): string[] {
-  const base = mainFile.replace(/^.*[\\/]/, '');
-  const stem = base.replace(/\.tex$/i, '');
-  return dedupePaths([
-    'main.bbl',
-    '/main.bbl',
-    './main.bbl',
-    `${stem}.bbl`,
-    `/${stem}.bbl`,
-    `./${stem}.bbl`,
-    'texput.bbl',
-    '/texput.bbl'
-  ]);
-}
-
-async function listBblCandidatesFromRunnerFS(runner: any): Promise<string[]> {
-  const discovered = new Set<string>();
-
-  const readerFns: Array<((p: string) => any) | undefined> = [
-    runner?.fs?.readdir ? (p: string) => runner.fs.readdir(p) : undefined,
-    runner?.FS?.readdir ? (p: string) => runner.FS.readdir(p) : undefined,
-    runner?.Module?.FS?.readdir ? (p: string) => runner.Module.FS.readdir(p) : undefined
-  ];
-
-  for (const readdir of readerFns) {
-    if (!readdir) continue;
-    const stack = ['/', '.'];
-    const seen = new Set<string>();
-    while (stack.length) {
-      const dir = stack.pop()!;
-      const normDir = dir === '.' ? '/' : dir;
-      if (seen.has(normDir)) continue;
-      seen.add(normDir);
-
-      let entries: string[] | undefined;
-      try {
-        const out = readdir(normDir);
-        entries = Array.isArray(out) ? out.map(String) : undefined;
-      } catch {
-        entries = undefined;
-      }
-      if (!entries?.length) continue;
-
-      for (const name of entries) {
-        if (name === '.' || name === '..') continue;
-        const full = normDir === '/' ? `/${name}` : `${normDir}/${name}`;
-        if (/\.bbl$/i.test(name)) discovered.add(full);
-        if (!name.includes('.')) stack.push(full);
-      }
-    }
-  }
-
-  return [...discovered];
-}
-
-async function tryReadBblFromRunner(
-  runner: any,
-  mainFile: string
-): Promise<{
-  bbl?: { path: string; content: string };
-  debug: {
-    guessed: string[];
-    discovered: string[];
-    attempted: string[];
-    matchedPath?: string;
-    matchedLength?: number;
-  };
-}> {
-  const discovered = await listBblCandidatesFromRunnerFS(runner);
-  const guessed = guessBblCandidates(mainFile);
-  const candidates = dedupePaths([...guessed, ...discovered]);
-  const attempted: string[] = [];
+async function tryReadBblFromRunner(runner: any): Promise<{ path: string; content: string } | undefined> {
+  const candidates = ['main.bbl', '/main.bbl', './main.bbl', 'texput.bbl', '/texput.bbl'];
   const dec = new TextDecoder();
 
   const toText = (v: any): string | undefined => {
@@ -259,7 +185,6 @@ async function tryReadBblFromRunner(
   };
 
   for (const p of candidates) {
-    attempted.push(p);
     const readers: Array<(() => any) | undefined> = [
       runner?.readFile ? () => runner.readFile(p) : undefined,
       runner?.fs?.readFile ? () => runner.fs.readFile(p) : undefined,
@@ -268,22 +193,10 @@ async function tryReadBblFromRunner(
     ];
     for (const read of readers) {
       const text = await tryValue(read);
-      if (text) {
-        const normalized = p.replace(/^\.?\//, '');
-        return {
-          bbl: { path: normalized, content: text },
-          debug: {
-            guessed,
-            discovered,
-            attempted,
-            matchedPath: normalized,
-            matchedLength: text.length
-          }
-        };
-      }
+      if (text) return { path: p.replace(/^\.?\//, ''), content: text };
     }
   }
-  return { debug: { guessed, discovered, attempted } };
+  return undefined;
 }
 
 /**
@@ -374,22 +287,11 @@ export async function compileWithBusyTexBibtex(
     artifactNote +
     resultShapeNote;
 
-  const bblFromResult = extractBusyTexBbl(result as any);
-  const runnerRead = bblFromResult ? undefined : await tryReadBblFromRunner(runner, mainFile);
-  const bbl = bblFromResult || runnerRead?.bbl;
-  const bblProbeNote =
-    '\n\n[TeXbrain] BBL probe:\n' +
-    `from-result: ${bblFromResult ? 'yes' : 'no'}\n` +
-    `guessed-candidates: ${runnerRead ? runnerRead.debug.guessed.join(', ') || '(none)' : '(skipped)'}\n` +
-    `fs-discovered-candidates: ${runnerRead ? runnerRead.debug.discovered.join(', ') || '(none)' : '(skipped)'}\n` +
-    `attempted-read-paths: ${runnerRead ? runnerRead.debug.attempted.join(', ') || '(none)' : '(skipped)'}\n` +
-    `matched-path: ${runnerRead?.debug.matchedPath || (bblFromResult?.path ?? '(none)')}\n` +
-    `matched-length: ${runnerRead?.debug.matchedLength ?? (bblFromResult?.content.length ?? 0)}`;
-  const logWithBblProbe = log + bblProbeNote;
+  const bbl = extractBusyTexBbl(result as any) || (await tryReadBblFromRunner(runner));
   return {
     pdf: result.pdf,
     status,
-    log: logWithBblProbe,
+    log,
     usedBusyTex: true,
     bbl
   };
