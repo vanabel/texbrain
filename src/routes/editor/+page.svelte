@@ -9,7 +9,7 @@
   import { insertAtCursor, createEditor, replaceEditorContent } from '$lib/editor/setup';
   import type { EditorView } from '@codemirror/view';
   import type { Snippet as SnippetDef } from '$lib/snippets/index';
-  import { compileLaTeX, warmup } from '$lib/compiler/latex-engine';
+  import { compileLaTeX, getTexliveCacheState, setTexliveProgressReporter } from '$lib/compiler/latex-engine';
   import { resolveCompileMainFile, type CompileMainMode } from '$lib/compiler/compile-main';
   import type { CompileEngine } from '$lib/compiler/busytex-bibtex';
   import { yCollab } from 'y-codemirror.next';
@@ -60,6 +60,8 @@
 
   let compileEngine: CompileEngine = 'xelatex';
   let compileMainMode: CompileMainMode = 'active-tab';
+  let showEngineHelp = false;
+  let enginePickerEl: HTMLElement | null = null;
   let currentCompileTarget = '';
   let pdfPageCount = 1;
   let drawioEditor: DrawioEditor;
@@ -395,6 +397,30 @@
       ];
       currentCompileTarget = mainFile;
       compileLog.set([`[${ts()}] compiling ${mainFile}...`]);
+      if (compileEngine === 'xelatex') {
+        compileLog.update(log => [
+          ...log,
+          `[${ts()}] [BusyTeX] XeLaTeX pipeline enabled (if browser cache is empty, BusyTeX runtime data may download).`
+        ]);
+      } else {
+        const cacheState = await getTexliveCacheState();
+        if (cacheState === 'cold') {
+          compileLog.update(log => [
+            ...log,
+            `[${ts()}] [TeXLive cache] first-time cache build detected for pdfLaTeX; initial download may take longer, later runs should be faster.`
+          ]);
+        } else if (cacheState === 'warm') {
+          compileLog.update(log => [
+            ...log,
+            `[${ts()}] [TeXLive cache] local cache hit detected for pdfLaTeX.`
+          ]);
+        } else {
+          compileLog.update(log => [
+            ...log,
+            `[${ts()}] [TeXLive cache] cache state unknown; browser storage might be restricted (e.g. incognito mode).`
+          ]);
+        }
+      }
 
       updateIncludeMap(projectFiles, mainFile);
 
@@ -412,6 +438,9 @@
       }
       pdfViewer?.setScrollTarget(computeDocumentFraction(), compileContext);
 
+      setTexliveProgressReporter((message: string) => {
+        compileLog.update(log => [...log, `[${ts()}] ${message}`]);
+      });
       const result = await Promise.race([
         compileLaTeX(mainFile, projectFiles, binaryFiles, compileEngine),
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error('compilation timed out after 180s')), 180_000))
@@ -464,6 +493,7 @@
         setCompileResult({ status: 'error', pdf: null, log: [`[error] ${err.message || String(err)}`], errors: [{ type: 'error', message: err.message || String(err) }], pageCount: 0 });
       }
     } finally {
+      setTexliveProgressReporter(null);
       compiling = false;
       compileStuckTimer = 0;
     }
@@ -948,7 +978,15 @@
     else if (mod && e.key === '/') { e.preventDefault(); snippetPickerOpen.update(v => !v); }
     else if (mod && e.key === 'g') { e.preventDefault(); if (get(projectHandle)) gitPanelOpen.update(v => !v); }
     else if (mod && e.key === 'p') { e.preventDefault(); previewOpen.update(v => !v); }
-    else if (e.key === 'Escape') { commandPaletteOpen.set(false); snippetPickerOpen.set(false); }
+    else if (e.key === 'Escape') { commandPaletteOpen.set(false); snippetPickerOpen.set(false); showEngineHelp = false; }
+  }
+
+  function handleGlobalPointerDown(e: PointerEvent) {
+    if (!showEngineHelp) return;
+    const target = e.target as Node | null;
+    if (enginePickerEl && target && !enginePickerEl.contains(target)) {
+      showEngineHelp = false;
+    }
   }
 
   function handleDragOver(e: DragEvent) { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'; }
@@ -1237,8 +1275,6 @@
     if (savedMainMode === 'active-tab' || savedMainMode === 'entry-point') {
       compileMainMode = savedMainMode;
     }
-    warmup().catch(() => {});
-
     function onBeforeUnload(e: BeforeUnloadEvent) {
       if ($files.some(f => f.dirty)) { e.preventDefault(); e.returnValue = ''; }
     }
@@ -1261,7 +1297,11 @@
   <title>{$activeFile ? `${$activeFile.name}${$activeFile.dirty ? ' *' : ''} | TeXbrain` : 'TeXbrain Editor'}</title>
 </svelte:head>
 
-<svelte:window on:keydown={handleGlobalKeydown} bind:innerWidth={windowWidth} />
+<svelte:window
+  on:keydown={handleGlobalKeydown}
+  on:pointerdown={handleGlobalPointerDown}
+  bind:innerWidth={windowWidth}
+/>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="editor-app" on:dragover={handleDragOver} on:drop={handleDrop} role="application">
@@ -1303,12 +1343,22 @@
         {/if}
         <span>{compiling ? E.compiling : E.compile}</span>
       </button>
-      <label class="engine-picker" title={E.ttEngine}>
+      <label class="engine-picker" title={`${E.ttEngine} — ${E.ttEngineBehavior}`} bind:this={enginePickerEl}>
         <span>{E.engine}</span>
         <select bind:value={compileEngine} disabled={compiling}>
           <option value="xelatex">XeLaTeX</option>
           <option value="pdflatex">pdfLaTeX</option>
         </select>
+        <button
+          type="button"
+          class="engine-help-btn"
+          title={E.ttEngineBehavior}
+          aria-label={E.ttEngineBehavior}
+          on:click={() => (showEngineHelp = !showEngineHelp)}
+        >?</button>
+        {#if showEngineHelp}
+          <div class="engine-help-pop">{E.ttEngineBehavior}</div>
+        {/if}
       </label>
       <label class="engine-picker" title={E.ttCompileMode}>
         <span>{E.compileMode}</span>
@@ -1626,6 +1676,7 @@
   .action-btn span { display: none; }
   @media (min-width: 768px) { .action-btn span { display: inline; } }
   .engine-picker { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text-muted); margin-left: 4px; }
+  .engine-picker { position: relative; }
   .engine-picker select {
     background: var(--bg-hover);
     color: var(--text-primary);
@@ -1635,6 +1686,35 @@
     height: 24px;
   }
   .engine-picker select:disabled { opacity: 0.6; }
+  .engine-help-btn {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    background: var(--bg-elevated);
+    font-size: 10px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+  .engine-help-btn:hover { color: var(--text-primary); border-color: var(--accent); }
+  .engine-help-pop {
+    position: absolute;
+    top: 28px;
+    right: 0;
+    width: 280px;
+    padding: 8px 10px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.45;
+    z-index: 20;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+  }
   .separator { width: 1px; height: 16px; background: var(--border); margin: 0 3px; }
 
   .toolbar { height: var(--toolbar-h); background: var(--bg-surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 10px; flex-shrink: 0; gap: 6px; }

@@ -41,6 +41,9 @@ importers:
       '@lezer/lr':
         specifier: ^1.4.0
         version: 1.4.8
+      '@vanabel/texlyre-busytex':
+        specifier: 0.1.4-beta
+        version: 0.1.4-beta
       buffer:
         specifier: ^6.0.3
         version: 6.0.3
@@ -62,9 +65,6 @@ importers:
       process:
         specifier: ^0.11.10
         version: 0.11.10
-      texlyre-busytex:
-        specifier: 0.1.4-alpha
-        version: 0.1.4-alpha
       y-codemirror.next:
         specifier: ^0.3.5
         version: 0.3.5(@codemirror/state@6.6.0)(@codemirror/view@6.41.0)(yjs@13.6.30)
@@ -733,6 +733,10 @@ packages:
   '@typescript-eslint/types@8.58.1':
     resolution: {integrity: sha512-io/dV5Aw5ezwzfPBBWLoT+5QfVtP8O7q4Kftjn5azJ88bYyp/ZMCsyW1lpKK46EXJcaYMZ1JtYj+s/7TdzmQMw==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+
+  '@vanabel/texlyre-busytex@0.1.4-beta':
+    resolution: {integrity: sha512-8iIL+Xttu6Qng/upxSlXFJxGwY59s+GpI+F44rcAypRTjhy6NzsoClaka02ykU1MbYUWIqfodTl6yWo+4S+soA==}
+    hasBin: true
 
   '@zeit/schemas@2.36.0':
     resolution: {integrity: sha512-7kjMwcChYEzMKjeex9ZFXkt1AyNov9R5HZtjBKVsmVpw7pa7ZtlCGvCBC2vnnXctaYN+aRI61HjIqeetZW5ROg==}
@@ -1930,10 +1934,6 @@ packages:
     resolution: {integrity: sha512-1MOpMXuhGzGL5TTCZFItxCc0AARf1EZFQkGqMm7ERKj8+Hgr5oLvJOVFcC+lRmR8hCe2S3jC4T5D7Vg/d7/fhA==}
     engines: {node: '>=6'}
 
-  texlyre-busytex@0.1.4-alpha:
-    resolution: {integrity: sha512-NxQhAuPlWj0gfhBDWWmGeS2o/YcNu+YRujaeswKxeiiKycLjCh7ekmPpIiovcrUWsMPcNjRq2jVsyQEJm9+cww==}
-    hasBin: true
-
   timers-browserify@2.0.12:
     resolution: {integrity: sha512-9phl76Cqm6FhSX9Xe1ZUAMLtm1BLkKj2Qd5ApyWkXzsMRaA7dgr81kf4wJmQf/hAvg8EEyJxDo3du/0KlhPiKQ==}
     engines: {node: '>=0.6.0'}
@@ -2604,6 +2604,8 @@ snapshots:
   '@types/trusted-types@2.0.7': {}
 
   '@typescript-eslint/types@8.58.1': {}
+
+  '@vanabel/texlyre-busytex@0.1.4-beta': {}
 
   '@zeit/schemas@2.36.0': {}
 
@@ -3946,8 +3948,6 @@ snapshots:
   tailwindcss@4.2.2: {}
 
   tapable@2.3.2: {}
-
-  texlyre-busytex@0.1.4-alpha: {}
 
   timers-browserify@2.0.12:
     dependencies:

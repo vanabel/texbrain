@@ -3,8 +3,14 @@
   "version": "1.0.0",
   "author": "Braian Plaku",
   "contributors": [
-    { "name": "Braian Plaku", "url": "https://swimmingbrain.dev" },
-    { "name": "vanabel", "url": "https://github.com/vanabel" }
+    {
+      "name": "Braian Plaku",
+      "url": "https://swimmingbrain.dev"
+    },
+    {
+      "name": "vanabel",
+      "url": "https://github.com/vanabel"
+    }
   ],
   "private": true,
   "scripts": {
@@ -46,6 +52,7 @@
     "@isomorphic-git/lightning-fs": "^4.6.0",
     "@lezer/highlight": "^1.2.0",
     "@lezer/lr": "^1.4.0",
+    "@vanabel/texlyre-busytex": "0.1.4-beta",
     "buffer": "^6.0.3",
     "fflate": "^0.8.2",
     "idb-keyval": "^6.2.1",
@@ -53,7 +60,6 @@
     "latex.js": "^0.12.6",
     "pdfjs-dist": "^4.9.155",
     "process": "^0.11.10",
-    "texlyre-busytex": "0.1.4-alpha",
     "y-codemirror.next": "^0.3.5",
     "y-webrtc": "^10.3.0",
     "yjs": "^13.6.30"

@@ -52,6 +52,7 @@ export type EditorUi = {
   ttCompileShortcut: string;
   ttGitShortcut: string;
   ttEngine: string;
+  ttEngineBehavior: string;
   ttCompileMode: string;
 
   unsavedTooltip: string;
@@ -215,6 +216,8 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     ttCompileShortcut: 'Compile (Ctrl+Enter)',
     ttGitShortcut: 'Git (Ctrl+G)',
     ttEngine: 'Compilation engine',
+    ttEngineBehavior:
+      'SwiftLaTeX (pdfLaTeX) uses TeXLive cache (first run slower, later runs faster). BusyTeX (XeLaTeX/BibTeX pipeline) does not use TeXbrain TeXLive warmup.',
     ttCompileMode: 'Main file selection mode',
 
     unsavedTooltip: 'Unsaved changes',
@@ -374,6 +377,8 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     ttCompileShortcut: '编译 (Ctrl+Enter)',
     ttGitShortcut: 'Git (Ctrl+G)',
     ttEngine: '编译引擎',
+    ttEngineBehavior:
+      'SwiftLaTeX（pdfLaTeX）会使用 TeXLive 缓存（首次较慢，后续更快）；BusyTeX（XeLaTeX/BibTeX 流水线）不走 TeXbrain 的 TeXLive 预热路径。',
     ttCompileMode: '主文件选择方式',
 
     unsavedTooltip: '未保存的更改',

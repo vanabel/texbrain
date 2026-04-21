@@ -24,6 +24,24 @@ interface TexliveCache {
   binaryFiles: Record<string, string>;
 }
 
+export type TexliveCacheState = 'warm' | 'cold' | 'unknown';
+
+let texliveProgressReporter: ((message: string) => void) | null = null;
+
+export function setTexliveProgressReporter(
+  reporter: ((message: string) => void) | null
+): void {
+  texliveProgressReporter = reporter;
+}
+
+function reportTexliveProgress(message: string): void {
+  try {
+    texliveProgressReporter?.(message);
+  } catch {
+    // ignore reporter errors
+  }
+}
+
 function openIdb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(IDB_NAME, IDB_VERSION);
@@ -99,15 +117,25 @@ async function fetchBinaryFile(name: string): Promise<string | null> {
 
 async function fetchAllFiles(textNames: string[], binNames: string[]): Promise<TexliveCache> {
   const cache: TexliveCache = { textFiles: {}, binaryFiles: {} };
+  const total = textNames.length + binNames.length;
+  let done = 0;
 
   const tasks: (() => Promise<void>)[] = [
     ...textNames.map(name => async () => {
       const content = await fetchTextFile(name).catch(() => null);
       if (content) cache.textFiles[name] = content;
+      done += 1;
+      if (done % 100 === 0 || done === total) {
+        reportTexliveProgress(`[TeXLive cache] downloading files ${done}/${total}`);
+      }
     }),
     ...binNames.map(name => async () => {
       const b64 = await fetchBinaryFile(name).catch(() => null);
       if (b64) cache.binaryFiles[name] = b64;
+      done += 1;
+      if (done % 100 === 0 || done === total) {
+        reportTexliveProgress(`[TeXLive cache] downloading files ${done}/${total}`);
+      }
     })
   ];
 
@@ -133,17 +161,20 @@ async function preloadTexliveCache(eng: any): Promise<void> {
 
   // try loading from IndexedDB first
   try {
+    reportTexliveProgress('[TeXLive cache] checking local IndexedDB cache...');
     const db = await openIdb();
     const cached = await idbGet(db, 'texlive');
     if (cached) {
       writeToEngine(eng, cached);
       db.close();
       texliveLoaded = true;
+      reportTexliveProgress('[TeXLive cache] cache hit, loaded from IndexedDB.');
       return;
     }
     db.close();
   } catch { /* fall through to network */ }
 
+  reportTexliveProgress('[TeXLive cache] cache miss, downloading from /texlive/cache ...');
   const [textNames, binNames] = await Promise.all([
     loadManifest(`${base}/texlive/cache-manifest-text.txt`),
     loadManifest(`${base}/texlive/cache-manifest-binary.txt`)
@@ -152,13 +183,27 @@ async function preloadTexliveCache(eng: any): Promise<void> {
   const cache = await fetchAllFiles(textNames, binNames);
   writeToEngine(eng, cache);
   texliveLoaded = true;
+  reportTexliveProgress('[TeXLive cache] download complete, loaded into MEMFS.');
 
   // persist for next visit
   try {
     const db = await openIdb();
     await idbPut(db, 'texlive', cache);
     db.close();
+    reportTexliveProgress('[TeXLive cache] persisted to IndexedDB for next visit.');
   } catch { /* non-critical */ }
+}
+
+export async function getTexliveCacheState(): Promise<TexliveCacheState> {
+  if (texliveLoaded) return 'warm';
+  try {
+    const db = await openIdb();
+    const cached = await idbGet(db, 'texlive');
+    db.close();
+    return cached ? 'warm' : 'cold';
+  } catch {
+    return 'unknown';
+  }
 }
 
 function loadScript(src: string): Promise<void> {
