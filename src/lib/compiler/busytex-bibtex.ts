@@ -115,14 +115,20 @@ function withBusyTexMarker(source: string): string {
 }
 
 function readTextFromUnknown(value: unknown): string | undefined {
+  const dec = new TextDecoder();
   if (typeof value === 'string') return value;
-  if (value instanceof Uint8Array) return new TextDecoder().decode(value);
+  if (value instanceof Uint8Array) return dec.decode(value);
+  if (value instanceof ArrayBuffer) return dec.decode(new Uint8Array(value));
   if (value && typeof value === 'object') {
     const v = value as any;
     if (typeof v.content === 'string') return v.content;
-    if (v.content instanceof Uint8Array) return new TextDecoder().decode(v.content);
+    if (v.content instanceof Uint8Array) return dec.decode(v.content);
+    if (v.content instanceof ArrayBuffer) return dec.decode(new Uint8Array(v.content));
     if (typeof v.data === 'string') return v.data;
-    if (v.data instanceof Uint8Array) return new TextDecoder().decode(v.data);
+    if (v.data instanceof Uint8Array) return dec.decode(v.data);
+    if (v.data instanceof ArrayBuffer) return dec.decode(new Uint8Array(v.data));
+    if (typeof v.text === 'string') return v.text;
+    if (typeof v.value === 'string') return v.value;
   }
   return undefined;
 }
