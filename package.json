@@ -52,7 +52,7 @@
     "@isomorphic-git/lightning-fs": "^4.6.0",
     "@lezer/highlight": "^1.2.0",
     "@lezer/lr": "^1.4.0",
-    "@vanabel/texlyre-busytex": "0.1.5-beta",
+    "@vanabel/texlyre-busytex": "0.1.6-beta",
     "buffer": "^6.0.3",
     "fflate": "^0.8.2",
     "idb-keyval": "^6.2.1",

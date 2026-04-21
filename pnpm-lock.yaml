@@ -42,8 +42,8 @@ importers:
         specifier: ^1.4.0
         version: 1.4.8
       '@vanabel/texlyre-busytex':
-        specifier: 0.1.5-beta
-        version: 0.1.5-beta
+        specifier: 0.1.6-beta
+        version: 0.1.6-beta
       buffer:
         specifier: ^6.0.3
         version: 6.0.3
@@ -734,8 +734,8 @@ packages:
     resolution: {integrity: sha512-io/dV5Aw5ezwzfPBBWLoT+5QfVtP8O7q4Kftjn5azJ88bYyp/ZMCsyW1lpKK46EXJcaYMZ1JtYj+s/7TdzmQMw==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
-  '@vanabel/texlyre-busytex@0.1.5-beta':
-    resolution: {integrity: sha512-3wSr1CMCmFy9hRdHsmXpGoQn8kBulj10z6uJEqnidHIE/8yZaIbX6vp+cBM9lIBt3tyAgsesEbiA41e3oesArQ==}
+  '@vanabel/texlyre-busytex@0.1.6-beta':
+    resolution: {integrity: sha512-zABbJu82n4lLWzhFU6FAWXprUqd+cRBGExF9T1M84B/u9HTbQXOmpoTC7O4YqlnIeFOmNRyhDt2CGv09g4ZP4g==}
     hasBin: true
 
   '@zeit/schemas@2.36.0':
@@ -2605,7 +2605,7 @@ snapshots:
 
   '@typescript-eslint/types@8.58.1': {}
 
-  '@vanabel/texlyre-busytex@0.1.5-beta': {}
+  '@vanabel/texlyre-busytex@0.1.6-beta': {}
 
   '@zeit/schemas@2.36.0': {}
 
