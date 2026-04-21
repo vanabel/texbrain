@@ -909,14 +909,11 @@
 
     try {
       const relPath = bbl.path.replace(/\\/g, '/');
-      const fileHandle = await writeTextAtProjectPath(handle, relPath, bbl.content);
-      const baseName = relPath.split('/').pop() || 'main.bbl';
+      await writeTextAtProjectPath(handle, relPath, bbl.content);
 
       const existing = get(files).find(f => (f.path || f.name) === relPath);
       if (existing) {
         updateFileContent(existing.id, bbl.content);
-      } else {
-        openFileTab(baseName, bbl.content, fileHandle, relPath);
       }
       await refreshProjectTree();
     } catch (e) {
