@@ -169,8 +169,43 @@ function extractBusyTexBbl(result: any): { path: string; content: string } | und
   return undefined;
 }
 
-async function tryReadBblFromRunner(runner: any): Promise<{ path: string; content: string } | undefined> {
-  const candidates = ['main.bbl', '/main.bbl', './main.bbl', 'texput.bbl', '/texput.bbl'];
+function bblRuntimeType(value: unknown): string {
+  if (value === null) return 'null';
+  if (value === undefined) return 'undefined';
+  if (typeof value === 'string') return 'string';
+  if (value instanceof Uint8Array) return `Uint8Array(${value.byteLength})`;
+  if (value instanceof ArrayBuffer) return `ArrayBuffer(${value.byteLength})`;
+  if (typeof value === 'object') {
+    const v = value as any;
+    const keys = Object.keys(v).slice(0, 8).join(',');
+    return `object{${keys || 'no-keys'}}`;
+  }
+  return typeof value;
+}
+
+function bblCandidates(mainFile: string): string[] {
+  const mainBase = mainFile.replace(/^.*[\\/]/, '');
+  const stem = mainBase.replace(/\.tex$/i, '') || 'main';
+  return [
+    'main.bbl',
+    '/main.bbl',
+    './main.bbl',
+    `${stem}.bbl`,
+    `/${stem}.bbl`,
+    `./${stem}.bbl`,
+    'texput.bbl',
+    '/texput.bbl',
+    '/tmp/main.bbl',
+    '/work/main.bbl'
+  ];
+}
+
+async function tryReadBblFromRunner(
+  runner: any,
+  mainFile: string
+): Promise<{ bbl?: { path: string; content: string }; attempted: string[] }> {
+  const candidates = bblCandidates(mainFile);
+  const attempted: string[] = [];
   const dec = new TextDecoder();
 
   const toText = (v: any): string | undefined => {
@@ -191,6 +226,7 @@ async function tryReadBblFromRunner(runner: any): Promise<{ path: string; conten
   };
 
   for (const p of candidates) {
+    attempted.push(p);
     const readers: Array<(() => any) | undefined> = [
       runner?.readFile ? () => runner.readFile(p) : undefined,
       runner?.fs?.readFile ? () => runner.fs.readFile(p) : undefined,
@@ -199,10 +235,10 @@ async function tryReadBblFromRunner(runner: any): Promise<{ path: string; conten
     ];
     for (const read of readers) {
       const text = await tryValue(read);
-      if (text) return { path: p.replace(/^\.?\//, ''), content: text };
+      if (text) return { bbl: { path: p.replace(/^\.?\//, ''), content: text }, attempted };
     }
   }
-  return undefined;
+  return { attempted };
 }
 
 /**
@@ -293,11 +329,20 @@ export async function compileWithBusyTexBibtex(
     artifactNote +
     resultShapeNote;
 
-  const bbl = extractBusyTexBbl(result as any) || (await tryReadBblFromRunner(runner));
+  const rawBbl = (result as any)?.bbl;
+  const bblFromResult = extractBusyTexBbl(result as any);
+  const fromRunner = bblFromResult ? { attempted: [] } : await tryReadBblFromRunner(runner, mainFile);
+  const bbl = bblFromResult || fromRunner.bbl;
+  const bblDiag =
+    '\n\n[TeXbrain] BusyTeX bbl diagnostics:\n' +
+    `result.bbl runtime type: ${bblRuntimeType(rawBbl)}\n` +
+    `extracted from result: ${bblFromResult ? `yes (${bblFromResult.path}, ${bblFromResult.content.length} chars)` : 'no'}\n` +
+    `runner read candidates: ${(fromRunner.attempted || []).join(', ') || '(skipped)'}\n` +
+    `final bbl: ${bbl ? `${bbl.path} (${bbl.content.length} chars)` : '(none)'}`;
   return {
     pdf: result.pdf,
     status,
-    log,
+    log: log + bblDiag,
     usedBusyTex: true,
     bbl
   };
