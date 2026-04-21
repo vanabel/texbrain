@@ -65,7 +65,7 @@ Open a folder, edit, preview PDF, commit, push to GitHub—**from one tab**.
 
 | | |
 | --- | --- |
-| **Compile in-browser** | WebAssembly TeX. Default: [SwiftLaTeX](https://github.com/SwiftLaTeX/SwiftLaTeX) pdfTeX. Optional [BusyTeX](https://github.com/TeXlyre/texlyre-busytex) (`texlyre-busytex`) for real **BibTeX** when your project uses classic `\bibliography` / `\bibliographystyle` or biblatex with `backend=bibtex`. First SwiftLaTeX run can take ~1 min (TexLive cache); later runs are usually seconds. |
+| **Compile in-browser** | WebAssembly TeX. Default: [SwiftLaTeX](https://github.com/SwiftLaTeX/SwiftLaTeX) pdfTeX. Optional [BusyTeX](https://github.com/TeXlyre/texlyre-busytex) (`texlyre-busytex`) for real **BibTeX** when your project uses classic `\bibliography` / `\bibliographystyle` or biblatex with `backend=bibtex`. **Important:** TeXLive cache warmup applies to the SwiftLaTeX (pdfTeX) path, not the BusyTeX XeLaTeX path. |
 | **PDF preview** | [pdf.js](https://mozilla.github.io/pdf.js/)—multi-page, zoom, text selection. |
 | **Git** | Clone, branch, stage, commit, push, pull, merge via [isomorphic-git](https://isomorphic-git.org/)—no CLI. |
 | **Local files** | [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API) on Chromium—read/write your disk folder. |
@@ -83,6 +83,7 @@ This repo includes a small **bilingual BibTeX + MetaPost** layout under [`exampl
 
 > Known issue: in some BusyTeX runs, `cleveref` (`\cref` / `\Cref`) may fail with errors like `Extra \endcsname`.
 > The `Chinese-biblatex` example includes a BusyTeX-only fallback: when `\BUSYTEX` is defined, it maps `\cref/\Cref` to `\autoref`; local TeX keeps native `cleveref`.
+> For `biblatex` with `backend=bibtex` (BusyTeX bibtex8 path), please provide `sortname` for non-Latin author names to avoid unstable name hash/initial generation. Example: `author = {{周志华}}, sortname = {Zhou, Zhihua}`.
 
 ---
 
@@ -111,6 +112,12 @@ The included workflow (`.github/workflows/deploy.yml`) builds and publishes the 
 1. **[SwiftLaTeX](https://github.com/SwiftLaTeX/SwiftLaTeX)** pdfTeX (WASM) — default. MEMFS for project files; TexLive cache from static assets on first compile; preprocessor for unsupported bits. Biblatex + **Biber** (typical default) stays here with a small bibliography workaround.
 
 2. **[BusyTeX](https://github.com/TeXlyre/texlyre-busytex)** ([`texlyre-busytex`](https://www.npmjs.com/package/texlyre-busytex)) — when BibTeX is required **and** `static/busytex/` is present. PdfLaTeX + bibtex8 pipeline. NPM ships only the JS API; large WASM assets are downloaded separately (upstream design).
+
+**Cache/download behavior at a glance:**
+
+- **SwiftLaTeX path (`pdfLaTeX`)** uses TeXLive cache (IndexedDB). First run may be slow; later runs are faster when cache persists.
+- **BusyTeX path (`XeLaTeX` / BusyTeX BibTeX pipeline)** does not use TeXbrain's TeXLive cache warmup path.
+- In browser **incognito/private mode**, storage is temporary, so large runtime downloads may repeat each session.
 
 **Compile target mode (top bar `Compile`).**
 

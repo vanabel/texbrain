@@ -16,7 +16,7 @@ function joinNarrowForBibEngine(files: Map<string, string>): string {
 export const BUSYTEX_BASE_PATH = `${base}/busytex`;
 export type CompileEngine = 'pdflatex' | 'xelatex';
 
-let runnerPromise: Promise<import('texlyre-busytex').BusyTexRunner> | null = null;
+let runnerPromise: Promise<import('@vanabel/texlyre-busytex').BusyTexRunner> | null = null;
 
 /** 识别载入 biblatex（可选参数可跨多行；`\RequirePackage%` 换行后再 `[` 也允许）。 */
 function loadsBiblatexPackage(all: string): boolean {
@@ -80,10 +80,10 @@ export async function busytexAssetsAvailable(): Promise<boolean> {
   }
 }
 
-async function getBusyTexRunner(): Promise<import('texlyre-busytex').BusyTexRunner> {
+async function getBusyTexRunner(): Promise<import('@vanabel/texlyre-busytex').BusyTexRunner> {
   if (!runnerPromise) {
     runnerPromise = (async () => {
-      const { BusyTexRunner } = await import('texlyre-busytex');
+      const { BusyTexRunner } = await import('@vanabel/texlyre-busytex');
       const runner = new BusyTexRunner({
         busytexBasePath: BUSYTEX_BASE_PATH,
         verbose: false
@@ -200,7 +200,7 @@ async function tryReadBblFromRunner(runner: any): Promise<{ path: string; conten
 }
 
 /**
- * 使用 texlyre-busytex 的 PdfLaTeX + bibtex8 编译（多轮 pdflatex/bibtex）。
+ * 使用 @vanabel/texlyre-busytex 的 PdfLaTeX + bibtex8 编译（多轮 pdflatex/bibtex）。
  * 主稿在 BusyTeX 虚拟文件系统中固定为 `main.tex`，内容由入口文件内容提供。
  */
 export async function compileWithBusyTexBibtex(
@@ -220,7 +220,7 @@ export async function compileWithBusyTexBibtex(
     };
   }
 
-  let runner: import('texlyre-busytex').BusyTexRunner;
+  let runner: import('@vanabel/texlyre-busytex').BusyTexRunner;
   try {
     runner = await getBusyTexRunner();
   } catch (e) {
@@ -236,9 +236,9 @@ export async function compileWithBusyTexBibtex(
     };
   }
 
-  const { PdfLatex, XeLatex } = await import('texlyre-busytex');
+  const { PdfLatex, XeLatex } = await import('@vanabel/texlyre-busytex');
 
-  const additionalFiles: import('texlyre-busytex').FileInput[] = [];
+  const additionalFiles: import('@vanabel/texlyre-busytex').FileInput[] = [];
   for (const [path, content] of files) {
     // BusyTeX compiles the provided `input` as virtual `main.tex`.
     // Never allow project files to overwrite this reserved entry.
@@ -253,7 +253,7 @@ export async function compileWithBusyTexBibtex(
   }
 
   const compiler = engine === 'xelatex' ? new XeLatex(runner) : new PdfLatex(runner);
-  let result: import('texlyre-busytex').CompileResult;
+  let result: import('@vanabel/texlyre-busytex').CompileResult;
   try {
     result = await compiler.compile({
       input: withBusyTexMarker(mainContent),
