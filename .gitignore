@@ -12,3 +12,6 @@ busytex-assets.tar.gz
 # BusyTeX WASM (~175MB); generate with: pnpm run download-busytex
 static/busytex/
 static/bundled-bibtex-example.zip
+static/texlive/cache/
+static/texlive/cache-manifest-text.txt
+static/texlive/cache-manifest-binary.txt
