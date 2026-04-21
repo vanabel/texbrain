@@ -16,7 +16,7 @@ function joinNarrowForBibEngine(files: Map<string, string>): string {
 export const BUSYTEX_BASE_PATH = `${base}/busytex`;
 export type CompileEngine = 'pdflatex' | 'xelatex';
 
-let runnerPromise: Promise<import('texlyre-busytex').BusyTexRunner> | null = null;
+let runnerPromise: Promise<import('@vanabel/texlyre-busytex').BusyTexRunner> | null = null;
 
 /** 识别载入 biblatex（可选参数可跨多行；`\RequirePackage%` 换行后再 `[` 也允许）。 */
 function loadsBiblatexPackage(all: string): boolean {
@@ -80,10 +80,10 @@ export async function busytexAssetsAvailable(): Promise<boolean> {
   }
 }
 
-async function getBusyTexRunner(): Promise<import('texlyre-busytex').BusyTexRunner> {
+async function getBusyTexRunner(): Promise<import('@vanabel/texlyre-busytex').BusyTexRunner> {
   if (!runnerPromise) {
     runnerPromise = (async () => {
-      const { BusyTexRunner } = await import('texlyre-busytex');
+      const { BusyTexRunner } = await import('@vanabel/texlyre-busytex');
       const runner = new BusyTexRunner({
         busytexBasePath: BUSYTEX_BASE_PATH,
         verbose: false
@@ -163,8 +163,82 @@ function extractBusyTexBbl(result: any): { path: string; content: string } | und
   return undefined;
 }
 
-async function tryReadBblFromRunner(runner: any): Promise<{ path: string; content: string } | undefined> {
-  const candidates = ['main.bbl', '/main.bbl', './main.bbl', 'texput.bbl', '/texput.bbl'];
+function dedupePaths(paths: string[]): string[] {
+  return [...new Set(paths.map(p => p.trim()).filter(Boolean))];
+}
+
+function guessBblCandidates(mainFile: string): string[] {
+  const base = mainFile.replace(/^.*[\\/]/, '');
+  const stem = base.replace(/\.tex$/i, '');
+  return dedupePaths([
+    'main.bbl',
+    '/main.bbl',
+    './main.bbl',
+    `${stem}.bbl`,
+    `/${stem}.bbl`,
+    `./${stem}.bbl`,
+    'texput.bbl',
+    '/texput.bbl'
+  ]);
+}
+
+async function listBblCandidatesFromRunnerFS(runner: any): Promise<string[]> {
+  const discovered = new Set<string>();
+
+  const readerFns: Array<((p: string) => any) | undefined> = [
+    runner?.fs?.readdir ? (p: string) => runner.fs.readdir(p) : undefined,
+    runner?.FS?.readdir ? (p: string) => runner.FS.readdir(p) : undefined,
+    runner?.Module?.FS?.readdir ? (p: string) => runner.Module.FS.readdir(p) : undefined
+  ];
+
+  for (const readdir of readerFns) {
+    if (!readdir) continue;
+    const stack = ['/', '.'];
+    const seen = new Set<string>();
+    while (stack.length) {
+      const dir = stack.pop()!;
+      const normDir = dir === '.' ? '/' : dir;
+      if (seen.has(normDir)) continue;
+      seen.add(normDir);
+
+      let entries: string[] | undefined;
+      try {
+        const out = readdir(normDir);
+        entries = Array.isArray(out) ? out.map(String) : undefined;
+      } catch {
+        entries = undefined;
+      }
+      if (!entries?.length) continue;
+
+      for (const name of entries) {
+        if (name === '.' || name === '..') continue;
+        const full = normDir === '/' ? `/${name}` : `${normDir}/${name}`;
+        if (/\.bbl$/i.test(name)) discovered.add(full);
+        if (!name.includes('.')) stack.push(full);
+      }
+    }
+  }
+
+  return [...discovered];
+}
+
+async function tryReadBblFromRunner(
+  runner: any,
+  mainFile: string
+): Promise<{
+  bbl?: { path: string; content: string };
+  debug: {
+    guessed: string[];
+    discovered: string[];
+    attempted: string[];
+    matchedPath?: string;
+    matchedLength?: number;
+  };
+}> {
+  const discovered = await listBblCandidatesFromRunnerFS(runner);
+  const guessed = guessBblCandidates(mainFile);
+  const candidates = dedupePaths([...guessed, ...discovered]);
+  const attempted: string[] = [];
   const dec = new TextDecoder();
 
   const toText = (v: any): string | undefined => {
@@ -185,6 +259,7 @@ async function tryReadBblFromRunner(runner: any): Promise<{ path: string; conten
   };
 
   for (const p of candidates) {
+    attempted.push(p);
     const readers: Array<(() => any) | undefined> = [
       runner?.readFile ? () => runner.readFile(p) : undefined,
       runner?.fs?.readFile ? () => runner.fs.readFile(p) : undefined,
@@ -193,14 +268,26 @@ async function tryReadBblFromRunner(runner: any): Promise<{ path: string; conten
     ];
     for (const read of readers) {
       const text = await tryValue(read);
-      if (text) return { path: p.replace(/^\.?\//, ''), content: text };
+      if (text) {
+        const normalized = p.replace(/^\.?\//, '');
+        return {
+          bbl: { path: normalized, content: text },
+          debug: {
+            guessed,
+            discovered,
+            attempted,
+            matchedPath: normalized,
+            matchedLength: text.length
+          }
+        };
+      }
     }
   }
-  return undefined;
+  return { debug: { guessed, discovered, attempted } };
 }
 
 /**
- * 使用 texlyre-busytex 的 PdfLaTeX + bibtex8 编译（多轮 pdflatex/bibtex）。
+ * 使用 @vanabel/texlyre-busytex 的 PdfLaTeX + bibtex8 编译（多轮 pdflatex/bibtex）。
  * 主稿在 BusyTeX 虚拟文件系统中固定为 `main.tex`，内容由入口文件内容提供。
  */
 export async function compileWithBusyTexBibtex(
@@ -220,7 +307,7 @@ export async function compileWithBusyTexBibtex(
     };
   }
 
-  let runner: import('texlyre-busytex').BusyTexRunner;
+  let runner: import('@vanabel/texlyre-busytex').BusyTexRunner;
   try {
     runner = await getBusyTexRunner();
   } catch (e) {
@@ -236,9 +323,9 @@ export async function compileWithBusyTexBibtex(
     };
   }
 
-  const { PdfLatex, XeLatex } = await import('texlyre-busytex');
+  const { PdfLatex, XeLatex } = await import('@vanabel/texlyre-busytex');
 
-  const additionalFiles: import('texlyre-busytex').FileInput[] = [];
+  const additionalFiles: import('@vanabel/texlyre-busytex').FileInput[] = [];
   for (const [path, content] of files) {
     // BusyTeX compiles the provided `input` as virtual `main.tex`.
     // Never allow project files to overwrite this reserved entry.
@@ -253,7 +340,7 @@ export async function compileWithBusyTexBibtex(
   }
 
   const compiler = engine === 'xelatex' ? new XeLatex(runner) : new PdfLatex(runner);
-  let result: import('texlyre-busytex').CompileResult;
+  let result: import('@vanabel/texlyre-busytex').CompileResult;
   try {
     result = await compiler.compile({
       input: withBusyTexMarker(mainContent),
@@ -287,11 +374,22 @@ export async function compileWithBusyTexBibtex(
     artifactNote +
     resultShapeNote;
 
-  const bbl = extractBusyTexBbl(result as any) || (await tryReadBblFromRunner(runner));
+  const bblFromResult = extractBusyTexBbl(result as any);
+  const runnerRead = bblFromResult ? undefined : await tryReadBblFromRunner(runner, mainFile);
+  const bbl = bblFromResult || runnerRead?.bbl;
+  const bblProbeNote =
+    '\n\n[TeXbrain] BBL probe:\n' +
+    `from-result: ${bblFromResult ? 'yes' : 'no'}\n` +
+    `guessed-candidates: ${runnerRead ? runnerRead.debug.guessed.join(', ') || '(none)' : '(skipped)'}\n` +
+    `fs-discovered-candidates: ${runnerRead ? runnerRead.debug.discovered.join(', ') || '(none)' : '(skipped)'}\n` +
+    `attempted-read-paths: ${runnerRead ? runnerRead.debug.attempted.join(', ') || '(none)' : '(skipped)'}\n` +
+    `matched-path: ${runnerRead?.debug.matchedPath || (bblFromResult?.path ?? '(none)')}\n` +
+    `matched-length: ${runnerRead?.debug.matchedLength ?? (bblFromResult?.content.length ?? 0)}`;
+  const logWithBblProbe = log + bblProbeNote;
   return {
     pdf: result.pdf,
     status,
-    log,
+    log: logWithBblProbe,
     usedBusyTex: true,
     bbl
   };
