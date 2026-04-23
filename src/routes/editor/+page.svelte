@@ -11,7 +11,12 @@
   import type { Snippet as SnippetDef } from '$lib/snippets/index';
   import { compileLaTeX, getTexliveCacheState, setTexliveProgressReporter } from '$lib/compiler/latex-engine';
   import { resolveCompileMainFile, type CompileMainMode } from '$lib/compiler/compile-main';
-  import type { CompileEngine } from '$lib/compiler/busytex-bibtex';
+  import {
+    busytexAssetsAvailable,
+    needsBusyTexForProject,
+    warmupBusyTexForProject,
+    type CompileEngine
+  } from '$lib/compiler/busytex-bibtex';
   import { yCollab } from 'y-codemirror.next';
   import { collabActive, collabPanelOpen, collabPeers, collabConnected } from '$lib/collab/store';
   import { createRoom, joinRoom, leaveRoom, getYTextWithUndo, getAwareness, setCurrentFile, getSharedFileList, getSharedEntryPoint, isHost, requestCompile, setCompileStatus, setCompileResult, observeCompileState, readCompileState, collectFilesFromYjs } from '$lib/collab/provider';
@@ -50,6 +55,8 @@
   let bblFile: { path: string; content: string } | undefined = undefined;
   let pdfViewer: PdfViewer;
   let compiling = false;
+  /** True while BusyTeX worker/WASM is loading before actual TeX run (compile button shows dedicated label). */
+  let busytexWarming = false;
   let compileStuckTimer = 0;
   let compileSteps: string[] = [];
   $: E = editorUi[$locale];
@@ -318,9 +325,9 @@
     const af = get(activeFile);
     if (!af) return;
 
-    // safety valve: force-reset if stuck for >30s
+    // safety valve: force-reset if stuck for >2min (BusyTeX first download can exceed 30s)
     if (compiling) {
-      if (compileStuckTimer && Date.now() - compileStuckTimer > 30_000) {
+      if (compileStuckTimer && Date.now() - compileStuckTimer > 120_000) {
         compiling = false;
         compileStuckTimer = 0;
       } else {
@@ -422,6 +429,18 @@
         }
       }
 
+      if (await busytexAssetsAvailable()) {
+        if (needsBusyTexForProject(compileEngine, projectFiles)) {
+          busytexWarming = true;
+          try {
+            compileLog.update(log => [...log, `[${ts()}] ${E.busyTexWarmupLog}`]);
+            await warmupBusyTexForProject(compileEngine, projectFiles);
+          } finally {
+            busytexWarming = false;
+          }
+        }
+      }
+
       updateIncludeMap(projectFiles, mainFile);
 
       let compileContext = '';
@@ -443,7 +462,9 @@
       });
       const result = await Promise.race([
         compileLaTeX(mainFile, projectFiles, binaryFiles, compileEngine),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('compilation timed out after 180s')), 180_000))
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('compilation timed out after 600s')), 600_000)
+        )
       ]);
 
       const { errors: parsedErrors, cleanedLines } = parseLog(result.log || '');
@@ -494,6 +515,7 @@
       }
     } finally {
       setTexliveProgressReporter(null);
+      busytexWarming = false;
       compiling = false;
       compileStuckTimer = 0;
     }
@@ -1275,6 +1297,9 @@
     if (savedMainMode === 'active-tab' || savedMainMode === 'entry-point') {
       compileMainMode = savedMainMode;
     }
+    if (compileEngine === 'xelatex') {
+      void warmupBusyTexForProject('xelatex', new Map());
+    }
     function onBeforeUnload(e: BeforeUnloadEvent) {
       if ($files.some(f => f.dirty)) { e.preventDefault(); e.returnValue = ''; }
     }
@@ -1341,7 +1366,7 @@
         {:else}
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M5 3l8 5-8 5V3z" fill="currentColor"/></svg>
         {/if}
-        <span>{compiling ? E.compiling : E.compile}</span>
+        <span>{compiling ? (busytexWarming ? E.compilingBusyTex : E.compiling) : E.compile}</span>
       </button>
       <label class="engine-picker" title={`${E.ttEngine} — ${E.ttEngineBehavior}`} bind:this={enginePickerEl}>
         <span>{E.engine}</span>

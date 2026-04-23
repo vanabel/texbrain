@@ -33,6 +33,10 @@ export type EditorUi = {
   save: string;
   compile: string;
   compiling: string;
+  /** Compile button label while BusyTeX WASM/runtime is loading before TeX runs */
+  compilingBusyTex: string;
+  /** Compile log line when starting BusyTeX warmup */
+  busyTexWarmupLog: string;
   engine: string;
   compileMode: string;
   optActiveTab: string;
@@ -198,6 +202,9 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     save: 'Save',
     compile: 'Compile',
     compiling: 'Compiling...',
+    compilingBusyTex: 'Loading BusyTeX…',
+    busyTexWarmupLog:
+      '[BusyTeX] Loading runtime (WASM / data). First visit or empty cache can take several minutes on a slow network.',
     engine: 'Engine',
     compileMode: 'Compile',
     optActiveTab: 'Active Tab',
@@ -359,6 +366,9 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     save: '保存',
     compile: '编译',
     compiling: '编译中…',
+    compilingBusyTex: 'BusyTeX 加载中…',
+    busyTexWarmupLog:
+      '[BusyTeX] 正在加载运行时（WASM / 数据包）。首次访问或浏览器无缓存时，弱网下可能需数分钟。',
     engine: '引擎',
     compileMode: '编译',
     optActiveTab: '当前标签',

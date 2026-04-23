@@ -100,6 +100,29 @@ export function resetBusyTexRunner(): void {
   runnerPromise = null;
 }
 
+/** 当前引擎与工程是否会走 BusyTeX（XeLaTeX 固定走；pdfLaTeX 仅在需要 BibTeX 流水线且资源存在时走）。 */
+export function needsBusyTexForProject(engine: CompileEngine, files: Map<string, string>): boolean {
+  if (engine === 'xelatex') return true;
+  return engine === 'pdflatex' && projectNeedsBibtexEngine(files);
+}
+
+/**
+ * 预初始化 BusyTeX Worker（与编译共用单例）。失败时重置 runner，便于后续编译重试。
+ * 可在首屏或编译前调用；无资源或不需要 BusyTeX 时为 no-op。
+ */
+export async function warmupBusyTexForProject(
+  engine: CompileEngine,
+  files: Map<string, string>
+): Promise<void> {
+  if (!needsBusyTexForProject(engine, files)) return;
+  if (!(await busytexAssetsAvailable())) return;
+  try {
+    await getBusyTexRunner();
+  } catch {
+    resetBusyTexRunner();
+  }
+}
+
 export interface BusyTexCompileOutcome {
   pdf: Uint8Array | undefined;
   status: number;

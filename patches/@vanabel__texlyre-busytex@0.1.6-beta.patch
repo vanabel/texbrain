@@ -1,0 +1,22 @@
+diff --git a/dist/core/busytex-runner.js b/dist/core/busytex-runner.js
+index 7fe139fe33b4126a5ea7ace30d115b5a6deca24e..c5a12029e4f4463444b88eb96a9eb92cba3add4a 100644
+--- a/dist/core/busytex-runner.js
++++ b/dist/core/busytex-runner.js
+@@ -35,7 +35,7 @@ export class BusyTexRunner {
+             this.worker = new Worker(workerPath);
+             const timeout = setTimeout(() => {
+                 reject(new Error('Timeout waiting for BusyTeX worker to initialize'));
+-            }, 120000);
++            }, 300000);
+             this.worker.onmessage = ({ data }) => {
+                 if (data.initialized) {
+                     clearTimeout(timeout);
+@@ -109,7 +109,7 @@ export class BusyTexRunner {
+             }
+             const timeout = setTimeout(() => {
+                 reject(new Error('Compilation timeout'));
+-            }, 120000);
++            }, 300000);
+             this.worker.onmessage = ({ data }) => {
+                 if (data.print) {
+                     this.logger.debug(data.print);

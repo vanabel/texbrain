@@ -9,6 +9,8 @@ build/
 *.log
 *.tgz
 busytex-assets.tar.gz
+# Optional local BusyTeX runtime tarball (not part of standard static deploy)
+static/busytex-runtime.tar.gz
 # BusyTeX WASM (~175MB); generate with: pnpm run download-busytex
 static/busytex/
 static/bundled-bibtex-example.zip
