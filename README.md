@@ -199,6 +199,8 @@ pnpm run download-busytex
 
 Without it, SwiftLaTeX still works; classic BibTeX citation resolution needs this step. `static/busytex/` is gitignored—run locally or in CI before deploy if the hosted site should use BusyTeX.
 
+If `package.json` pins `@vanabel/texlyre-busytex` to `file:../texlyre-busytex`, clone [vanabel/texlyre-busytex](https://github.com/vanabel/texlyre-busytex) **next to** this repo (same parent directory as `texbrain`) and use branch `release/vanabel-0.1.7-beta` (or a commit that includes the runner fix). After **`@vanabel/texlyre-busytex@0.1.7-beta` is published to npm**, switch the dependency to `"0.1.7-beta"` and run `pnpm install` so CI and single-repo clones do not need a sibling checkout.
+
 ## PM2 deployment
 
 Use PM2 to host the static build with automatic restarts:

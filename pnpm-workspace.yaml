@@ -4,5 +4,3 @@ packages:
 
 allowBuilds:
   esbuild: true
-patchedDependencies:
-  '@vanabel/texlyre-busytex@0.1.6-beta': patches/@vanabel__texlyre-busytex@0.1.6-beta.patch
