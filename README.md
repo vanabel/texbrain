@@ -46,6 +46,7 @@ I was tired of paying for basics. I wrote a thesis in LaTeX and fought the toolc
 - [BibTeX example (English / Chinese)](#bibtex-example-english--chinese)
 - [Deploying to GitHub Pages](#deploying-to-github-pages)
 - [Running locally](#running-locally)
+- [Cloudflare cache purge (BusyTeX)](#cloudflare-cache-purge-busytex)
 - [PM2 deployment](#pm2-deployment)
 - [Future roadmap (draft)](ROADMAP.md)
 - [Browser support](#browser-support)
@@ -198,6 +199,32 @@ pnpm run download-busytex
 ```
 
 Without it, SwiftLaTeX still works; classic BibTeX citation resolution needs this step. `static/busytex/` is gitignored—run locally or in CI before deploy if the hosted site should use BusyTeX.
+
+### Cloudflare cache purge (BusyTeX)
+
+Use this script after updating BusyTeX assets to purge Cloudflare edge cache for core BusyTeX files:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${CF_API_TOKEN:?need CF_API_TOKEN}"
+: "${CF_ZONE_ID:?need CF_ZONE_ID}"
+
+curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache" \
+  -H "Authorization: Bearer ${CF_API_TOKEN}" \
+  -H "Content-Type: application/json" \
+  --data '{
+    "files": [
+      "https://tex.vanabel.cn/busytex/busytex.js",
+      "https://tex.vanabel.cn/busytex/busytex.wasm",
+      "https://tex.vanabel.cn/busytex/texlive-basic.js",
+      "https://tex.vanabel.cn/busytex/texlive-basic.data",
+      "https://tex.vanabel.cn/busytex/texlive-extra.js",
+      "https://tex.vanabel.cn/busytex/texlive-extra.data"
+    ]
+  }' | jq .
+```
 
 ## PM2 deployment
 

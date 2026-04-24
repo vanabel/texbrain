@@ -46,6 +46,7 @@ TeXbrain 应用由 [Braian Plaku](https://swimmingbrain.dev) 开创并推广。*
 - [双语 BibTeX 示例](#双语-bibtex-示例)
 - [部署到 GitHub Pages](#部署到-github-pages)
 - [本地运行](#本地运行)
+- [Cloudflare 缓存清理（BusyTeX）](#cloudflare-缓存清理busytex)
 - [BusyTeX 字体覆盖（以 SWUThesis 为例）](#busytex-字体覆盖以-swuthesis-为例)
 - [PM2 部署](#pm2-部署)
 - [未来路线图（草案）](ROADMAP.zh-CN.md)
@@ -199,6 +200,32 @@ pnpm run download-busytex
 ```
 
 若不执行此步，SwiftLaTeX 仍可编译；经典 BibTeX 引用解析则依赖上述资源。`static/busytex/` 默认已加入 `.gitignore` 以控制仓库体积；若线上站点也需要 BusyTeX，请在本地或 CI 中于构建前执行该命令。
+
+### Cloudflare 缓存清理（BusyTeX）
+
+更新 BusyTeX 资源后，可使用下列脚本清理 Cloudflare 边缘缓存中的核心 BusyTeX 文件：
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${CF_API_TOKEN:?need CF_API_TOKEN}"
+: "${CF_ZONE_ID:?need CF_ZONE_ID}"
+
+curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache" \
+  -H "Authorization: Bearer ${CF_API_TOKEN}" \
+  -H "Content-Type: application/json" \
+  --data '{
+    "files": [
+      "https://tex.vanabel.cn/busytex/busytex.js",
+      "https://tex.vanabel.cn/busytex/busytex.wasm",
+      "https://tex.vanabel.cn/busytex/texlive-basic.js",
+      "https://tex.vanabel.cn/busytex/texlive-basic.data",
+      "https://tex.vanabel.cn/busytex/texlive-extra.js",
+      "https://tex.vanabel.cn/busytex/texlive-extra.data"
+    ]
+  }' | jq .
+```
 
 ### BusyTeX 字体覆盖（以 SWUThesis 为例）
 
