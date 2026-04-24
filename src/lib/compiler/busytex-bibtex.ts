@@ -15,6 +15,8 @@ function joinNarrowForBibEngine(files: Map<string, string>): string {
 /** BusyTeX WASM 静态资源根路径（由 `pnpm run download-busytex` 下载到 static/busytex/） */
 export const BUSYTEX_BASE_PATH = `${base}/busytex`;
 export type CompileEngine = 'pdflatex' | 'xelatex';
+const BUSYTEX_TEXLIVE_BASIC = `${BUSYTEX_BASE_PATH}/texlive-basic.js`;
+const BUSYTEX_TEXLIVE_EXTRA = `${BUSYTEX_BASE_PATH}/texlive-extra.js`;
 
 let runnerPromise: Promise<import('@vanabel/texlyre-busytex').BusyTexRunner> | null = null;
 
@@ -71,9 +73,15 @@ export async function busytexAssetsAvailable(): Promise<boolean> {
   }
   try {
     const url = `${BUSYTEX_BASE_PATH}/busytex.js`;
-    const r = await fetch(url, { method: 'HEAD', cache: 'force-cache' });
-    assetsCheckCache = r.ok;
-    return assetsCheckCache;
+    const head = await fetch(url, { method: 'HEAD', cache: 'force-cache' });
+    if (head.ok) {
+      assetsCheckCache = true;
+      return true;
+    }
+    // Some CDNs/proxies reject HEAD on static assets; fallback to GET probe.
+    const get = await fetch(url, { method: 'GET', cache: 'force-cache' });
+    assetsCheckCache = get.ok;
+    return get.ok;
   } catch {
     assetsCheckCache = false;
     return false;
@@ -86,8 +94,12 @@ async function getBusyTexRunner(): Promise<import('@vanabel/texlyre-busytex').Bu
       const { BusyTexRunner } = await import('@vanabel/texlyre-busytex');
       const runner = new BusyTexRunner({
         busytexBasePath: BUSYTEX_BASE_PATH,
-        verbose: false
-      });
+        verbose: false,
+        // Compatibility with newer BusyTeX runners: provide data package lists explicitly.
+        // Older versions ignore unknown fields, so this is safe across 0.1.x / 1.x lines.
+        preloadDataPackages: [BUSYTEX_TEXLIVE_BASIC, BUSYTEX_TEXLIVE_EXTRA],
+        catalogDataPackages: [BUSYTEX_TEXLIVE_BASIC]
+      } as any);
       await runner.initialize(true);
       return runner;
     })();
