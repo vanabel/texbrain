@@ -200,8 +200,6 @@ pnpm run download-busytex
 
 若不执行此步，SwiftLaTeX 仍可编译；经典 BibTeX 引用解析则依赖上述资源。`static/busytex/` 默认已加入 `.gitignore` 以控制仓库体积；若线上站点也需要 BusyTeX，请在本地或 CI 中于构建前执行该命令。
 
-`package.json` 将 `@vanabel/texlyre-busytex` 指向 `file:../texlyre-busytex` 时，请把 [vanabel/texlyre-busytex](https://github.com/vanabel/texlyre-busytex) 仓库检出在与本目录**同级**（例如 `.../node.js/texbrain` 与 `.../node.js/texlyre-busytex`），并建议使用分支 `release/vanabel-0.1.7-beta` 或已合并该修复的提交。当 **`@vanabel/texlyre-busytex@0.1.7-beta` 已发布到 npm** 后，请把该项改为 `"0.1.7-beta"` 并执行 `pnpm install`，以便 CI 与仅克隆本仓库的环境无需同级源码。
-
 ### BusyTeX 字体覆盖（以 SWUThesis 为例）
 
 当模板里已定义 `\youyuan`（或其他命令）时，直接 `\newCJKfontfamily\youyuan` 可能报 *already defined*。在部分环境中，`\renewCJKfontfamily` 也可能不存在。更稳妥的方式是：先注册一个新字体族，再把模板命令重定向到该字体族。
