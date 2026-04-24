@@ -273,6 +273,26 @@ async function tryReadBblFromRunner(
       if (text) return { bbl: { path: p.replace(/^\.?\//, ''), content: text }, attempted };
     }
   }
+
+  // texlyre-busytex >= 0.1.7-beta exposes project file listing helpers.
+  // Use it as a fallback when direct FS readers are unavailable.
+  try {
+    if (typeof runner?.readProjectFiles === 'function') {
+      attempted.push('readProjectFiles(.)');
+      const projectFiles = await runner.readProjectFiles('.');
+      if (Array.isArray(projectFiles)) {
+        for (const f of projectFiles) {
+          const p = String((f as any)?.path || (f as any)?.name || '');
+          if (!p || !p.toLowerCase().endsWith('.bbl')) continue;
+          const text = readTextFromUnknown((f as any)?.content ?? (f as any)?.contents ?? (f as any)?.data);
+          if (text) return { bbl: { path: p.replace(/^\.?\//, ''), content: text }, attempted };
+        }
+      }
+    }
+  } catch {
+    // Ignore readProjectFiles errors and keep graceful fallback behavior.
+  }
+
   return { attempted };
 }
 
