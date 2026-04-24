@@ -6,7 +6,7 @@ settings:
 
 patchedDependencies:
   '@vanabel/texlyre-busytex@0.1.6-beta':
-    hash: 14968af625a27cce08c77045877eabafae9e03fa18a064180a0b9d9ffe147028
+    hash: c987aecfb1b4b9da86890d9ec53d17fdc0e071815eacd46c580e6f4ff8772565
     path: patches/@vanabel__texlyre-busytex@0.1.6-beta.patch
 
 importers:
@@ -48,7 +48,7 @@ importers:
         version: 1.4.8
       '@vanabel/texlyre-busytex':
         specifier: 0.1.6-beta
-        version: 0.1.6-beta(patch_hash=14968af625a27cce08c77045877eabafae9e03fa18a064180a0b9d9ffe147028)
+        version: 0.1.6-beta(patch_hash=c987aecfb1b4b9da86890d9ec53d17fdc0e071815eacd46c580e6f4ff8772565)
       buffer:
         specifier: ^6.0.3
         version: 6.0.3
@@ -2610,7 +2610,7 @@ snapshots:
 
   '@typescript-eslint/types@8.58.1': {}
 
-  '@vanabel/texlyre-busytex@0.1.6-beta(patch_hash=14968af625a27cce08c77045877eabafae9e03fa18a064180a0b9d9ffe147028)': {}
+  '@vanabel/texlyre-busytex@0.1.6-beta(patch_hash=c987aecfb1b4b9da86890d9ec53d17fdc0e071815eacd46c580e6f4ff8772565)': {}
 
   '@zeit/schemas@2.36.0': {}
 

@@ -1,22 +1,80 @@
 diff --git a/dist/core/busytex-runner.js b/dist/core/busytex-runner.js
-index 7fe139fe33b4126a5ea7ace30d115b5a6deca24e..c5a12029e4f4463444b88eb96a9eb92cba3add4a 100644
+index 7fe139fe33b4126a5ea7ace30d115b5a6deca24e..c501eab76497aead5dc25c45c60ffecb056ea1c5 100644
 --- a/dist/core/busytex-runner.js
 +++ b/dist/core/busytex-runner.js
-@@ -35,7 +35,7 @@ export class BusyTexRunner {
+@@ -33,22 +33,33 @@ export class BusyTexRunner {
+         return new Promise((resolve, reject) => {
+             const workerPath = `${this.config.busytexBasePath}/busytex_worker.js`;
              this.worker = new Worker(workerPath);
-             const timeout = setTimeout(() => {
-                 reject(new Error('Timeout waiting for BusyTeX worker to initialize'));
+-            const timeout = setTimeout(() => {
+-                reject(new Error('Timeout waiting for BusyTeX worker to initialize'));
 -            }, 120000);
-+            }, 300000);
++            // After downloads, the worker runs applet --version probes before posting { initialized }.
++            // Only { print } arrives during that phase; reset the stall timer on each print (TeXbrain patch).
++            const INIT_STALL_MS = 900000;
++            let timeoutId;
++            const armInitTimeout = () => {
++                clearTimeout(timeoutId);
++                timeoutId = setTimeout(() => {
++                    reject(new Error('Timeout waiting for BusyTeX worker to initialize'));
++                }, INIT_STALL_MS);
++            };
++            armInitTimeout();
              this.worker.onmessage = ({ data }) => {
                  if (data.initialized) {
-                     clearTimeout(timeout);
-@@ -109,7 +109,7 @@ export class BusyTexRunner {
+-                    clearTimeout(timeout);
++                    clearTimeout(timeoutId);
+                     this.logger.debug('BusyTeX worker initialized:', data.initialized);
+                     resolve();
+                 }
+                 else if (data.exception) {
+-                    clearTimeout(timeout);
++                    clearTimeout(timeoutId);
+                     reject(new Error(data.exception));
+                 }
++                else if (data.print) {
++                    armInitTimeout();
++                }
+             };
+             this.worker.onerror = (error) => {
+-                clearTimeout(timeout);
++                clearTimeout(timeoutId);
+                 reject(new Error(`Worker error: ${error.message}`));
+             };
+             const busytexJs = `${this.config.busytexBasePath}/busytex.js`;
+@@ -107,15 +118,22 @@ export class BusyTexRunner {
+                 reject(new Error('Worker not initialized'));
+                 return;
              }
-             const timeout = setTimeout(() => {
-                 reject(new Error('Compilation timeout'));
+-            const timeout = setTimeout(() => {
+-                reject(new Error('Compilation timeout'));
 -            }, 120000);
-+            }, 300000);
++            const COMPILE_STALL_MS = 900000;
++            let timeoutId;
++            const armCompileTimeout = () => {
++                clearTimeout(timeoutId);
++                timeoutId = setTimeout(() => {
++                    reject(new Error('Compilation timeout'));
++                }, COMPILE_STALL_MS);
++            };
++            armCompileTimeout();
              this.worker.onmessage = ({ data }) => {
                  if (data.print) {
                      this.logger.debug(data.print);
++                    armCompileTimeout();
+                 }
+                 else if (data.pdf !== undefined) {
+-                    clearTimeout(timeout);
++                    clearTimeout(timeoutId);
+                     resolve({
+                         success: data.exit_code === 0,
+                         pdf: data.pdf,
+@@ -127,7 +145,7 @@ export class BusyTexRunner {
+                     });
+                 }
+                 else if (data.exception) {
+-                    clearTimeout(timeout);
++                    clearTimeout(timeoutId);
+                     reject(new Error(data.exception));
+                 }
+             };
