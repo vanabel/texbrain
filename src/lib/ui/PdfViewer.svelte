@@ -3,12 +3,60 @@
   import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
   import 'pdfjs-dist/web/pdf_viewer.css';
   import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.mjs?url';
-import cMapProbeUrl from 'pdfjs-dist/cmaps/Adobe-GB1-UCS2.bcmap?url';
-import standardFontProbeUrl from 'pdfjs-dist/standard_fonts/FoxitSerif.pfb?url';
+  import cMapProbeUrl from 'pdfjs-dist/cmaps/Adobe-GB1-UCS2.bcmap?url';
+  import standardFontProbeUrl from 'pdfjs-dist/standard_fonts/FoxitSerif.pfb?url';
 
   pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
-const cMapUrl = cMapProbeUrl.replace(/[^/]+$/, '');
-const standardFontDataUrl = standardFontProbeUrl.replace(/[^/]+$/, '');
+
+  /** pdf.js expects a trailing slash on cmap / standard_fonts base URLs. */
+  function withTrailingSlash(url: string): string {
+    return url.endsWith('/') ? url : `${url}/`;
+  }
+
+  /**
+   * Resolve a directory URL against the current page so subdirectory deploys
+   * (SvelteKit `paths.base`) and odd static hosts still fetch the right assets.
+   */
+  function resolvePdfAssetDir(probeFileUrl: string): string {
+    const dir = probeFileUrl.replace(/[^/]+$/, '');
+    if (typeof window === 'undefined') return withTrailingSlash(dir);
+    try {
+      return withTrailingSlash(new URL(dir, window.location.href).href);
+    } catch {
+      return withTrailingSlash(dir);
+    }
+  }
+
+  function optionalBuildTimeBase(envKey: string): string | null {
+    const v = (import.meta.env[envKey] as string | undefined)?.trim();
+    return v || null;
+  }
+
+  function effectiveCMapBaseUrl(): string {
+    const override = optionalBuildTimeBase('VITE_PDFJS_CMAP_URL');
+    if (override) {
+      if (typeof window === 'undefined') return withTrailingSlash(override);
+      try {
+        return withTrailingSlash(new URL(override, window.location.href).href);
+      } catch {
+        return withTrailingSlash(override);
+      }
+    }
+    return resolvePdfAssetDir(cMapProbeUrl);
+  }
+
+  function effectiveStandardFontBaseUrl(): string {
+    const override = optionalBuildTimeBase('VITE_PDFJS_STANDARD_FONT_URL');
+    if (override) {
+      if (typeof window === 'undefined') return withTrailingSlash(override);
+      try {
+        return withTrailingSlash(new URL(override, window.location.href).href);
+      } catch {
+        return withTrailingSlash(override);
+      }
+    }
+    return resolvePdfAssetDir(standardFontProbeUrl);
+  }
 
   export let pdfData: Uint8Array | undefined = undefined;
   /** Ctrl/Cmd+click on the rendered page: PDF coordinates in points (origin bottom-left). */
@@ -122,9 +170,13 @@ const standardFontDataUrl = standardFontProbeUrl.replace(/[^/]+$/, '');
 
       const doc = await pdfjsLib.getDocument({
         data: data.slice(),
-        cMapUrl,
+        cMapUrl: effectiveCMapBaseUrl(),
         cMapPacked: true,
-        standardFontDataUrl,
+        standardFontDataUrl: effectiveStandardFontBaseUrl(),
+        // Let the main document fetch cmaps / standard fonts. Some NAS / reverse-proxy
+        // setups mishandle the same requests when issued from inside pdf.worker (broken
+        // cmap bytes → translateFont / ToUnicode failures and missing CJK glyphs).
+        useWorkerFetch: false,
         // NAS/browser combos can hit pdf.js font parsing issues in translateFont.
         // Force the non-FontFace renderer path for better compatibility.
         useSystemFonts: false,

@@ -290,7 +290,7 @@ curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge
 使用 PM2 托管静态构建，并支持自动重启：
 
 ```bash
-pnpm build
+VITE_PDF_VIEWER=pdfjs pnpm build
 pnpm pm2:start
 ```
 
