@@ -111,6 +111,9 @@ The included workflow (`.github/workflows/deploy.yml`) builds and publishes the 
 2. **GitHub repository → Settings → Secrets and variables → Actions → Variables** (or **Repository variables**) — optional but recommended so canonical URLs match your site:
    - **`PUBLIC_SITE_ORIGIN`** — Scheme + host only, **no trailing slash**, e.g. `https://yourname.github.io` for GitHub-hosted sites, or `https://tex.example.com` for a custom domain at the site root.
    - **`BASE_PATH`** — If the app is served under a subpath (typical GitHub **project** Pages: `https://yourname.github.io/repo-name/`), set `BASE_PATH` to `/repo-name` (leading slash). For a **user/org** site at the domain root or a custom domain with no subpath, leave **`BASE_PATH` unset** or empty.
+   - **`VITE_PDF_VIEWER`** (optional) — Set to `pdfjs` if you want the production preview to use pdf.js (SyncTeX in the preview pane); omit for the default native PDF viewer.
+
+   **Where to define them:** The workflow’s **build** job uses `${{ vars.* }}` but does **not** attach to the `github-pages` **environment**, so these values must live under **Actions → Variables** at **repository** (or organization) scope. Variables defined **only** under **Settings → Environments → github-pages** are **not** visible to `pnpm build`. The workflow reads `PUBLIC_SITE_ORIGIN` from **`vars` only** (not `secrets`); use a **repository variable** for that public URL—avoid duplicating the same name as both a secret and a variable.
 
 3. Optional: edit `static/sitemap.xml` and `static/robots.txt` so `Sitemap:` and `<loc>` match your public URL.
 
