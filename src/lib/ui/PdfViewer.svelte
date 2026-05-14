@@ -32,6 +32,32 @@
     return v || null;
   }
 
+  /** Same version as `pdf.worker` (from `package.json` of `pdfjs-dist`). */
+  function pdfjsBundledVersion(): string {
+    const v = (pdfjsLib as { version?: string }).version?.trim();
+    return v || '4.10.38';
+  }
+
+  /**
+   * Dev: always use Vite-resolved cmap / standard_fonts (fast, offline).
+   * Prod: default to jsDelivr so `vite preview`, NAS, and empty MIME on `.bcmap`
+   * cannot break CJK (translateFont / ToUnicode). Air-gapped: set
+   * `VITE_PDFJS_LOCAL_PDF_ASSETS=1` at build time to keep hashed `_app/immutable` assets.
+   */
+  function preferBundledPdfjsAssets(): boolean {
+    if (import.meta.env.DEV) return true;
+    const v = (import.meta.env.VITE_PDFJS_LOCAL_PDF_ASSETS as string | undefined)?.trim().toLowerCase();
+    return v === '1' || v === 'true' || v === 'yes';
+  }
+
+  function defaultCdnCmapBaseUrl(): string {
+    return withTrailingSlash(`https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsBundledVersion()}/cmaps`);
+  }
+
+  function defaultCdnStandardFontBaseUrl(): string {
+    return withTrailingSlash(`https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsBundledVersion()}/standard_fonts`);
+  }
+
   function effectiveCMapBaseUrl(): string {
     const override = optionalBuildTimeBase('VITE_PDFJS_CMAP_URL');
     if (override) {
@@ -42,7 +68,10 @@
         return withTrailingSlash(override);
       }
     }
-    return resolvePdfAssetDir(cMapProbeUrl);
+    if (preferBundledPdfjsAssets()) {
+      return resolvePdfAssetDir(cMapProbeUrl);
+    }
+    return defaultCdnCmapBaseUrl();
   }
 
   function effectiveStandardFontBaseUrl(): string {
@@ -55,7 +84,10 @@
         return withTrailingSlash(override);
       }
     }
-    return resolvePdfAssetDir(standardFontProbeUrl);
+    if (preferBundledPdfjsAssets()) {
+      return resolvePdfAssetDir(standardFontProbeUrl);
+    }
+    return defaultCdnStandardFontBaseUrl();
   }
 
   export let pdfData: Uint8Array | undefined = undefined;
@@ -168,19 +200,21 @@
       pendingFraction = -1;
       pendingSourceText = '';
 
+      const bundled = preferBundledPdfjsAssets();
+      const strictNoFontFace =
+        (import.meta.env.VITE_PDF_DISABLE_FONT_FACE as string | undefined)?.trim().toLowerCase() === 'true';
+
       const doc = await pdfjsLib.getDocument({
         data: data.slice(),
         cMapUrl: effectiveCMapBaseUrl(),
         cMapPacked: true,
         standardFontDataUrl: effectiveStandardFontBaseUrl(),
-        // Let the main document fetch cmaps / standard fonts. Some NAS / reverse-proxy
-        // setups mishandle the same requests when issued from inside pdf.worker (broken
-        // cmap bytes → translateFont / ToUnicode failures and missing CJK glyphs).
-        useWorkerFetch: false,
-        // NAS/browser combos can hit pdf.js font parsing issues in translateFont.
-        // Force the non-FontFace renderer path for better compatibility.
-        useSystemFonts: false,
-        disableFontFace: true
+        // Bundled `_app/immutable` assets: fetch from the document (some NAS / static hosts
+        // break worker subrequests). Public CDN: worker fetch matches dev and is reliable.
+        useWorkerFetch: bundled ? false : true,
+        ...(strictNoFontFace
+          ? { useSystemFonts: false as const, disableFontFace: true as const }
+          : { disableFontFace: false as const })
       }).promise;
       pdfDoc = doc;
       pageCount = doc.numPages;

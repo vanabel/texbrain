@@ -69,7 +69,7 @@ Open a folder, edit, preview PDF, commit, push to GitHub—**from one tab**.
 | | |
 | --- | --- |
 | **Compile in-browser** | WebAssembly TeX. Default: [SwiftLaTeX](https://github.com/SwiftLaTeX/SwiftLaTeX) pdfTeX. Optional [BusyTeX](https://github.com/TeXlyre/texlyre-busytex) (`texlyre-busytex`) for real **BibTeX** when your project uses classic `\bibliography` / `\bibliographystyle` or biblatex with `backend=bibtex`. **Important:** TeXLive cache warmup applies to the SwiftLaTeX (pdfTeX) path, not the BusyTeX XeLaTeX path. |
-| **PDF preview** | **Dev:** [pdf.js](https://mozilla.github.io/pdf.js/) (multi-page, zoom, selection). **Default production build:** native browser PDF in an `<iframe>` (stable on some static hosts). **Optional:** set **`VITE_PDF_VIEWER=pdfjs`** at **build time** to use pdf.js in production too (needed for **SyncTeX** in the preview pane; rare pdf.js font issues on some browsers). |
+| **PDF preview** | **Dev:** [pdf.js](https://mozilla.github.io/pdf.js/) (multi-page, zoom, selection). **Default production build:** native browser PDF in an `<iframe>` (stable on some static hosts). **Optional:** set **`VITE_PDF_VIEWER=pdfjs`** at **build time** to use pdf.js in production too (needed for **SyncTeX** in the preview pane). With that flag, **production** loads pdf.js **CMap** and **standard 14 fonts** from **[jsDelivr](https://www.jsdelivr.com/)** (same `pdfjs-dist` version as the bundled worker) so CJK and **`pnpm preview`** match **`pnpm dev`** without depending on MIME rules for hashed `.bcmap` under `/_app/immutable/`. **Air-gapped:** set **`VITE_PDFJS_LOCAL_PDF_ASSETS=1`** at build time to keep those files bundled. See [PDF.js production preview](#pdfjs-production-preview) below. |
 | **Git** | Clone, branch, stage, commit, push, pull, merge via [isomorphic-git](https://isomorphic-git.org/)—no CLI. |
 | **Local files** | [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API) on Chromium—read/write your disk folder. |
 | **Projects** | Tree, tabs, drag-and-drop; `.tex`, `.bib`, `.sty`, `.cls`, and more. |
@@ -89,6 +89,15 @@ When the compiler returns SyncTeX data, TeXbrain keeps it **in memory** for the 
 - **Inverse (PDF → source):** **Ctrl** or **⌘** + **primary click** on the rendered page (**pdf.js** path only).
 - **Hosted sites:** run **`VITE_PDF_VIEWER=pdfjs pnpm build`** (and redeploy). For GitHub Actions, set repository variable **`VITE_PDF_VIEWER`** to `pdfjs` (see `.github/workflows/deploy.yml`).
 - **Collaboration:** guests who receive only the remote PDF do **not** receive SyncTeX blobs; inverse/forward from SyncTeX apply to **local** compiles with synctex data.
+
+### PDF.js production preview
+
+When you build with **`VITE_PDF_VIEWER=pdfjs`**, the preview pane uses pdf.js in **production** the same way as in dev. CMap and standard-font files are loaded from **jsDelivr** (`pdfjs-dist@<same version as your lockfile>`), which avoids broken CJK / `translateFont` issues that can appear with **`pnpm preview`** or some static hosts when those binaries are served only from hashed `/_app/immutable/assets/*.bcmap` (e.g. empty `Content-Type`).
+
+- **Sanity check:** `VITE_PDF_VIEWER=pdfjs pnpm build` then **`pnpm preview`** — Chinese and other CID fonts should render if the browser can reach **cdn.jsdelivr.net**.
+- **Offline / air-gapped:** set **`VITE_PDFJS_LOCAL_PDF_ASSETS=1`** (or `true` / `yes`) at **build time** to bundle cmap/pfb from `pdfjs-dist` and load them from your origin instead.
+- **Optional overrides:** **`VITE_PDFJS_CMAP_URL`**, **`VITE_PDFJS_STANDARD_FONT_URL`** — base directories for cmap / `standard_fonts` (trailing slash optional; resolved against the page URL when relative).
+- **Optional:** **`VITE_PDF_DISABLE_FONT_FACE=true`** — force pdf.js’s non–`FontFace` canvas path (only if you hit a rare host/browser font issue).
 
 ---
 
@@ -112,6 +121,9 @@ The included workflow (`.github/workflows/deploy.yml`) builds and publishes the 
    - **`PUBLIC_SITE_ORIGIN`** — Scheme + host only, **no trailing slash**, e.g. `https://yourname.github.io` for GitHub-hosted sites, or `https://tex.example.com` for a custom domain at the site root.
    - **`BASE_PATH`** — If the app is served under a subpath (typical GitHub **project** Pages: `https://yourname.github.io/repo-name/`), set `BASE_PATH` to `/repo-name` (leading slash). For a **user/org** site at the domain root or a custom domain with no subpath, leave **`BASE_PATH` unset** or empty.
    - **`VITE_PDF_VIEWER`** (optional) — Set to `pdfjs` if you want the production preview to use pdf.js (SyncTeX in the preview pane); omit for the default native PDF viewer.
+   - **`VITE_PDFJS_LOCAL_PDF_ASSETS`** (optional) — Set to `1` / `true` / `yes` if the build must **not** fetch cmap / standard fonts from jsDelivr (offline or strict CSP). Omit for the default (jsDelivr in production when `VITE_PDF_VIEWER=pdfjs`).
+   - **`VITE_PDFJS_CMAP_URL`** / **`VITE_PDFJS_STANDARD_FONT_URL`** (optional) — Override cmap / standard-font base URLs (see [PDF.js production preview](#pdfjs-production-preview)).
+   - **`VITE_PDF_DISABLE_FONT_FACE`** (optional) — Set to `true` to force pdf.js’s non–`FontFace` rendering path.
 
    **Where to define them:** The workflow’s **build** job uses `${{ vars.* }}` but does **not** attach to the `github-pages` **environment**, so these values must live under **Actions → Variables** at **repository** (or organization) scope. Variables defined **only** under **Settings → Environments → github-pages** are **not** visible to `pnpm build`. The workflow reads `PUBLIC_SITE_ORIGIN` from **`vars` only** (not `secrets`); use a **repository variable** for that public URL—avoid duplicating the same name as both a secret and a variable.
 
