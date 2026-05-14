@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { base } from '$app/paths';
   import { browser } from '$app/environment';
   import { get } from 'svelte/store';
@@ -8,6 +8,7 @@
   import { handleOpenFile, handleSaveFile, handleSaveFileAs, handleDroppedFiles, handleOpenDirectory, handleNewProject, cloneProject, loadBundledBibtexExample, refreshProjectTree } from '$lib/project/manager';
   import { insertAtCursor, createEditor, replaceEditorContent } from '$lib/editor/setup';
   import type { EditorView } from '@codemirror/view';
+  import { EditorSelection } from '@codemirror/state';
   import type { Snippet as SnippetDef } from '$lib/snippets/index';
   import { compileLaTeX, getTexliveCacheState, setTexliveProgressReporter } from '$lib/compiler/latex-engine';
   import { resolveCompileMainFile, type CompileMainMode } from '$lib/compiler/compile-main';
@@ -49,6 +50,13 @@
     SWUTHESIS_GITHUB_CLONE_URL
   } from '$lib/constants/swuthesis-repo';
   import { readTextAtProjectPath, writeTextAtProjectPath } from '$lib/fs/project-path';
+  import type { PdfSyncObject } from '$lib/synctex/parse-synctex';
+  import {
+    parseSynctexFromBytes,
+    synctexForward,
+    synctexInverse,
+    matchSynctexPathToProject
+  } from '$lib/synctex/query';
 
   let editorView: EditorView | null = null;
   let pdfData: Uint8Array | undefined = undefined;
@@ -71,6 +79,8 @@
   let enginePickerEl: HTMLElement | null = null;
   let currentCompileTarget = '';
   let pdfPageCount = 1;
+  /** Parsed SyncTeX for the last successful local compile (inverse / forward). */
+  let synctexModel: PdfSyncObject | undefined;
   let drawioEditor: DrawioEditor;
 
   function isDrawioFile(name: string): boolean {
@@ -443,20 +453,6 @@
 
       updateIncludeMap(projectFiles, mainFile);
 
-      let compileContext = '';
-      if (editorView) {
-        const state = editorView.state;
-        const pos = state.selection.main.head;
-        const line = state.doc.lineAt(pos);
-        const startLine = Math.max(1, line.number - 1);
-        const endLine = Math.min(state.doc.lines, line.number + 1);
-        for (let i = startLine; i <= endLine; i++) {
-          compileContext += state.doc.line(i).text + ' ';
-        }
-        compileContext = compileContext.trim();
-      }
-      pdfViewer?.setScrollTarget(computeDocumentFraction(), compileContext);
-
       setTexliveProgressReporter((message: string) => {
         compileLog.update(log => [...log, `[${ts()}] ${message}`]);
       });
@@ -481,6 +477,37 @@
           pdfViewer?.setPageCount(pdfPageCount);
         }
 
+        let stx = result.synctex;
+        if (stx instanceof ArrayBuffer) stx = new Uint8Array(stx);
+        synctexModel = stx instanceof Uint8Array && stx.byteLength ? parseSynctexFromBytes(stx) : undefined;
+
+        pdfViewer?.clearPendingScrollTargets();
+        let synBox: ReturnType<typeof synctexForward> = null;
+        if (synctexModel && editorView) {
+          const af = get(activeFile);
+          const texPath = ((af?.path || af?.name || '') as string).trim();
+          if (texPath.toLowerCase().endsWith('.tex')) {
+            const ln = editorView.state.doc.lineAt(editorView.state.selection.main.head).number;
+            synBox = synctexForward(synctexModel, texPath, ln, pdfPageCount);
+          }
+        }
+        if (synBox) pdfViewer?.setSynctexScrollTarget(synBox);
+        else {
+          let compileContext = '';
+          if (editorView) {
+            const state = editorView.state;
+            const pos = state.selection.main.head;
+            const line = state.doc.lineAt(pos);
+            const startLine = Math.max(1, line.number - 1);
+            const endLine = Math.min(state.doc.lines, line.number + 1);
+            for (let i = startLine; i <= endLine; i++) {
+              compileContext += state.doc.line(i).text + ' ';
+            }
+            compileContext = compileContext.trim();
+          }
+          pdfViewer?.setScrollTarget(computeDocumentFraction(), compileContext);
+        }
+
         pdfData = new Uint8Array(result.pdf);
         bblFile = await resolveBblAfterCompile(result.bbl, mainFile);
         await persistBblToProject(bblFile);
@@ -495,6 +522,7 @@
           setCompileResult({ status: 'success', pdf: pdfData, log: cleanedLines, errors: parsedErrors, pageCount: pdfPageCount });
         }
       } else {
+        synctexModel = undefined;
         bblFile = undefined;
         compileStatus.set('error');
         compileLog.set([`[${ts()}] compilation failed (status ${result.status})`, ...cleanedLines]);
@@ -505,6 +533,7 @@
         }
       }
     } catch (err: any) {
+      synctexModel = undefined;
       bblFile = undefined;
       compileStatus.set('error');
       compileLog.update(log => [...log, `[error] ${err.message || String(err)}`]);
@@ -794,6 +823,18 @@
   // double-click in editor jumps pdf to approximate cursor position
   function handleEditorDblClick() {
     if (!editorView || !pdfData) return;
+    if (synctexModel) {
+      const af = get(activeFile);
+      const texPath = ((af?.path || af?.name || '') as string).trim();
+      if (texPath.toLowerCase().endsWith('.tex')) {
+        const ln = editorView.state.doc.lineAt(editorView.state.selection.main.head).number;
+        const box = synctexForward(synctexModel, texPath, ln, pdfPageCount);
+        if (box) {
+          pdfViewer?.scrollToSynctexPdfBox(box);
+          return;
+        }
+      }
+    }
     const state = editorView.state;
     const pos = state.selection.main.head;
     const line = state.doc.lineAt(pos);
@@ -805,6 +846,54 @@
     }
     const fraction = computeDocumentFraction();
     pdfViewer?.scrollToSourceText(context.trim(), fraction);
+  }
+
+  async function handleSynctexPdfNavigate(e: {
+    page: number;
+    xPt: number;
+    yFromBottomPt: number;
+    pageWidthPt: number;
+    pageHeightPt: number;
+  }) {
+    if (!synctexModel) {
+      addToast(uiMsg().toastSynctexUnavailable, 'info', 2200);
+      return;
+    }
+    const inv = synctexInverse(synctexModel, e.page, e.xPt, e.yFromBottomPt);
+    if (!inv) {
+      addToast(uiMsg().toastSynctexNoMatch, 'info', 2000);
+      return;
+    }
+    const paths = get(files)
+      .filter((t) => t.name.toLowerCase().endsWith('.tex'))
+      .map((t) => t.path || t.name);
+    const projPath = matchSynctexPathToProject(inv.synctexPath, paths);
+    if (!projPath) {
+      addToast(uiMsg().toastSynctexNoMatch, 'info', 2000);
+      return;
+    }
+    const existing = get(files).find((f) => (f.path || f.name) === projPath);
+    if (existing) {
+      activeFileId.set(existing.id);
+    } else {
+      const handle = get(projectHandle);
+      if (handle) {
+        const text = await readTextAtProjectPath(handle, projPath);
+        if (text != null) {
+          const name = projPath.split('/').pop() || projPath;
+          openFileTab(name, text, null, projPath);
+        }
+      }
+    }
+    await tick();
+    if (!editorView) return;
+    const ln = Math.max(1, Math.min(inv.line, editorView.state.doc.lines));
+    const pos = editorView.state.doc.line(ln).from;
+    editorView.dispatch({
+      selection: EditorSelection.single(pos),
+      scrollIntoView: true
+    });
+    previewTab.set('preview');
   }
 
   function handleSnippetInsert(snippet: SnippetDef) {
@@ -1230,6 +1319,7 @@
             const errors: any[] = JSON.parse(snap.errors);
 
             if (snap.status === 'success' && snap.pdf) {
+              synctexModel = undefined;
               pdfData = new Uint8Array(snap.pdf);
               pdfPageCount = snap.pageCount;
               pdfViewer?.setPageCount(pdfPageCount);
@@ -1490,6 +1580,9 @@
               <button class="preview-tab" class:active={$previewTab === 'log'} on:click={() => previewTab.set('log')}>{E.tabLog}</button>
               <button class="preview-tab" class:active={$previewTab === 'steps'} on:click={() => previewTab.set('steps')}>{E.tabSteps}</button>
               <div style="flex:1"></div>
+              {#if pdfData && synctexModel}
+                <span class="synctex-hint" title={E.ttSynctexPdfInverse}>{E.synctexInverseShort}</span>
+              {/if}
               {#if pdfData}
                 <button class="preview-tab save-pdf" on:click={savePdf} title={E.ttSavePdf}>
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M4 7l4 4 4-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12v2h12v-2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1511,7 +1604,7 @@
             </div>
             {#if $previewTab === 'preview'}
               <div class="preview-content">
-                <PdfViewer bind:this={pdfViewer} {pdfData} />
+                <PdfViewer bind:this={pdfViewer} {pdfData} synctexPdfNavigate={handleSynctexPdfNavigate} />
               </div>
             {:else if $previewTab === 'errors'}
               <div class="errors-content">
@@ -1763,6 +1856,16 @@
   .preview-tab { padding: 5px 12px; font-size: 11px; font-weight: 500; color: var(--text-muted); }
   .preview-tab:hover { color: var(--text-secondary); }
   .preview-tab.active { color: var(--text-primary); background: var(--bg-hover); }
+  .synctex-hint {
+    font-size: 10px;
+    color: var(--text-muted);
+    padding: 0 8px;
+    max-width: min(200px, 28vw);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 1;
+  }
   .preview-content { flex: 1; overflow: hidden; display: flex; }
 
   .log-content { flex: 1; overflow-y: auto; padding: 8px; font-family: var(--font-editor); font-size: 11px; }

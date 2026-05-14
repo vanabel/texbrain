@@ -142,6 +142,8 @@ export interface BusyTexCompileOutcome {
   log: string;
   usedBusyTex: boolean;
   bbl?: { path: string; content: string };
+  /** Gzip SyncTeX payload when the engine emits it (BusyTeX worker). */
+  synctex?: Uint8Array;
 }
 
 function withBusyTexMarker(source: string): string {
@@ -187,6 +189,14 @@ function collectBusyTexArtifacts(result: any): Array<{ path: string; value: unkn
     }
   }
   return out;
+}
+
+function synctexBytesFromBusyTexResult(result: unknown): Uint8Array | undefined {
+  const r = result as any;
+  const s = r?.synctex;
+  if (s instanceof Uint8Array && s.byteLength) return s;
+  if (s instanceof ArrayBuffer && s.byteLength) return new Uint8Array(s);
+  return undefined;
 }
 
 function artifactByteSize(value: unknown): number | undefined {
@@ -485,6 +495,7 @@ export async function compileWithBusyTexBibtex(
     status,
     log: log + bblDiag + synctexProbe,
     usedBusyTex: true,
-    bbl
+    bbl,
+    synctex: synctexBytesFromBusyTexResult(result)
   };
 }

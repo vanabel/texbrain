@@ -252,6 +252,8 @@ export interface CompileResult {
   status: number;
   log: string;
   bbl?: { path: string; content: string };
+  /** Raw `.synctex.gz` bytes when the engine produced SyncTeX. */
+  synctex?: Uint8Array;
 }
 
 function tryReadMemFSText(eng: any, path: string): string | undefined {
@@ -385,7 +387,8 @@ export async function compileLaTeX(
       pdf: busy.pdf,
       status: busy.status,
       log: rootNote + busy.log,
-      bbl: remapBblToProjectPath(compileRootDir, projectMainFile, busy.bbl)
+      bbl: remapBblToProjectPath(compileRootDir, projectMainFile, busy.bbl),
+      synctex: busy.synctex
     };
   }
 
@@ -396,7 +399,8 @@ export async function compileLaTeX(
         pdf: busy.pdf,
         status: busy.status,
         log: rootNote + busy.log,
-        bbl: remapBblToProjectPath(compileRootDir, projectMainFile, busy.bbl)
+        bbl: remapBblToProjectPath(compileRootDir, projectMainFile, busy.bbl),
+        synctex: busy.synctex
       };
     }
     busyTexFallbackNote =
@@ -453,6 +457,17 @@ export async function compileLaTeX(
   const bblPath = mainFile.replace(/\.tex$/i, '.bbl');
   const bblContent = tryReadMemFSText(eng, bblPath);
 
+  let synctexBytes: Uint8Array | undefined;
+  if (result.status === 0 && result.pdf) {
+    for (const p of synctexCandidatePathsForMain(mainFile)) {
+      const bytes = tryReadMemFSBytes(eng, p);
+      if (bytes?.byteLength) {
+        synctexBytes = bytes;
+        break;
+      }
+    }
+  }
+
   if (result.status === 0 && result.pdf) {
     log += formatSwiftLatexSynctexProbeLog(eng, mainFile);
   }
@@ -465,6 +480,7 @@ export async function compileLaTeX(
       compileRootDir,
       projectMainFile,
       bblContent ? { path: bblPath, content: bblContent } : undefined
-    )
+    ),
+    synctex: synctexBytes
   };
 }

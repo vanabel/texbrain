@@ -11,6 +11,17 @@ const cMapUrl = cMapProbeUrl.replace(/[^/]+$/, '');
 const standardFontDataUrl = standardFontProbeUrl.replace(/[^/]+$/, '');
 
   export let pdfData: Uint8Array | undefined = undefined;
+  /** Ctrl/Cmd+click on the rendered page: PDF coordinates in points (origin bottom-left). */
+  export let synctexPdfNavigate:
+    | ((e: {
+        page: number;
+        xPt: number;
+        yFromBottomPt: number;
+        pageWidthPt: number;
+        pageHeightPt: number;
+      }) => void)
+    | undefined = undefined;
+
   // In production static hosting (pm2 serve), some environments hit pdf.js font parsing bugs.
   // Use the browser's native PDF viewer there as a reliable fallback.
   const useNativeViewer = import.meta.env.PROD;
@@ -20,6 +31,13 @@ const standardFontDataUrl = standardFontProbeUrl.replace(/[^/]+$/, '');
   let pageCount = 1;
   let pendingFraction = -1;
   let pendingSourceText = '';
+  let pendingSynctex: {
+    page: number;
+    left: number;
+    bottom: number;
+    width: number;
+    height: number;
+  } | null = null;
   let scale = 1;
   let pdfDoc: any = null;
   let rendering = false;
@@ -30,6 +48,9 @@ const standardFontDataUrl = standardFontProbeUrl.replace(/[^/]+$/, '');
     items: Array<{ str: string; transform: number[] }>;
     viewportHeight: number;
   }> = [];
+
+  /** Unscaled PDF page size in points (per page index 0..n-1). */
+  let pageSizePts: Array<{ w: number; h: number }> = [];
 
   function makeLinkService(doc: any) {
     return {
@@ -84,6 +105,8 @@ const standardFontDataUrl = standardFontProbeUrl.replace(/[^/]+$/, '');
     rendering = true;
 
     try {
+      const synTarget = pendingSynctex;
+      pendingSynctex = null;
       const targetFraction = pendingFraction >= 0 ? pendingFraction : -1;
       const targetSourceText = pendingSourceText;
       pendingFraction = -1;
@@ -107,7 +130,9 @@ const standardFontDataUrl = standardFontProbeUrl.replace(/[^/]+$/, '');
 
       await renderAllPages(doc);
 
-      if (targetSourceText) {
+      if (synTarget) {
+        scrollToSynctexPdfBox(synTarget);
+      } else if (targetSourceText) {
         scrollToSourceText(targetSourceText, targetFraction >= 0 ? targetFraction : 0);
       } else if (targetFraction >= 0) {
         scrollToFractionImpl(targetFraction);
@@ -122,6 +147,7 @@ const standardFontDataUrl = standardFontProbeUrl.replace(/[^/]+$/, '');
   async function renderAllPages(doc: any) {
     container.innerHTML = '';
     pageTextCache = [];
+    pageSizePts = [];
     const dpr = window.devicePixelRatio || 1;
 
     const page1 = await doc.getPage(1);
@@ -132,6 +158,8 @@ const standardFontDataUrl = standardFontProbeUrl.replace(/[^/]+$/, '');
     for (let i = 1; i <= doc.numPages; i++) {
       const page = i === 1 ? page1 : await doc.getPage(i);
       const viewport = page.getViewport({ scale });
+      const unscaled = page.getViewport({ scale: 1 });
+      pageSizePts.push({ w: unscaled.width, h: unscaled.height });
 
       const pageDiv = document.createElement('div');
       pageDiv.dataset.page = String(i);
@@ -272,6 +300,60 @@ const standardFontDataUrl = standardFontProbeUrl.replace(/[^/]+$/, '');
     container.scrollTop = Math.max(0, pageEl.offsetTop + yFromTop - 50);
   }
 
+  /** Scroll to a SyncTeX box (PDF points, origin bottom-left). */
+  export function scrollToSynctexPdfBox(box: {
+    page: number;
+    left: number;
+    bottom: number;
+    width: number;
+    height: number;
+  }) {
+    if (!container || useNativeViewer) return;
+    const pageNum = Math.max(1, Math.min(box.page, pageCount));
+    const pageEl = container.querySelector(`[data-page="${pageNum}"]`) as HTMLElement;
+    if (!pageEl) return;
+    const canvas = pageEl.querySelector('canvas') as HTMLCanvasElement | null;
+    if (!canvas) return;
+    const sz = pageSizePts[pageNum - 1];
+    if (!sz?.h) {
+      scrollToPagePosition(pageNum, 0);
+      return;
+    }
+    const centerFromBottom = box.bottom + box.height / 2;
+    const yPtFromTop = sz.h - centerFromBottom;
+    const frac = Math.max(0, Math.min(1, yPtFromTop / sz.h));
+    const yWithin = frac * pageEl.offsetHeight;
+    scrollToPagePosition(pageNum, yWithin);
+  }
+
+  function handlePdfPointerDown(e: PointerEvent) {
+    if (useNativeViewer || !synctexPdfNavigate || !container) return;
+    if (!(e.ctrlKey || e.metaKey) || e.button !== 0) return;
+    const t = e.target as HTMLElement | null;
+    const pageEl = t?.closest?.('[data-page]') as HTMLElement | null;
+    if (!pageEl?.dataset.page) return;
+    const pageNum = parseInt(pageEl.dataset.page, 10);
+    const canvas = pageEl.querySelector('canvas') as HTMLCanvasElement | null;
+    if (!canvas) return;
+    const sz = pageSizePts[pageNum - 1];
+    if (!sz?.w || !sz?.h) return;
+    const crect = canvas.getBoundingClientRect();
+    const x = e.clientX - crect.left;
+    const y = e.clientY - crect.top;
+    if (x < 0 || y < 0 || x > crect.width || y > crect.height) return;
+    e.preventDefault();
+    const xPt = (x / crect.width) * sz.w;
+    const yFromTopPt = (y / crect.height) * sz.h;
+    const yFromBottomPt = sz.h - yFromTopPt;
+    synctexPdfNavigate({
+      page: pageNum,
+      xPt,
+      yFromBottomPt,
+      pageWidthPt: sz.w,
+      pageHeightPt: sz.h
+    });
+  }
+
   function handleWheel(e: WheelEvent) {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
@@ -298,6 +380,20 @@ const standardFontDataUrl = standardFontProbeUrl.replace(/[^/]+$/, '');
   }
 
   export function setPageCount(n: number) { if (n > 0) pageCount = n; }
+  export function clearPendingScrollTargets() {
+    pendingFraction = -1;
+    pendingSourceText = '';
+    pendingSynctex = null;
+  }
+  export function setSynctexScrollTarget(box: {
+    page: number;
+    left: number;
+    bottom: number;
+    width: number;
+    height: number;
+  }) {
+    pendingSynctex = box;
+  }
   export function setScrollTarget(fraction: number, sourceText?: string) {
     pendingFraction = Math.max(0, Math.min(1, fraction));
     pendingSourceText = sourceText || '';
@@ -322,7 +418,7 @@ const standardFontDataUrl = standardFontProbeUrl.replace(/[^/]+$/, '');
       ></iframe>
     {:else}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div bind:this={container} class="pdf-container" on:wheel={handleWheel}></div>
+      <div bind:this={container} class="pdf-container" on:wheel={handleWheel} on:pointerdown={handlePdfPointerDown}></div>
     {/if}
   {:else}
     <div class="pdf-empty">

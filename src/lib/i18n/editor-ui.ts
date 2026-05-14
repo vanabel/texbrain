@@ -89,6 +89,11 @@ export type EditorUi = {
   noLogYet: string;
   noStepsYet: string;
   linePrefix: string;
+  /** PDF preview: inverse SyncTeX (Ctrl/Cmd+click). */
+  ttSynctexPdfInverse: string;
+  synctexInverseShort: string;
+  toastSynctexNoMatch: string;
+  toastSynctexUnavailable: string;
 
   // Welcome / clone
   welcomeTitle: string;
@@ -255,6 +260,10 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     noLogYet: 'No compilation log yet',
     noStepsYet: 'No compile steps yet',
     linePrefix: 'line',
+    ttSynctexPdfInverse: 'Ctrl+click (⌘+click on Mac): jump from PDF to source (SyncTeX)',
+    synctexInverseShort: 'SyncTeX: Ctrl+click PDF → source',
+    toastSynctexNoMatch: 'SyncTeX: no source match for this click',
+    toastSynctexUnavailable: 'SyncTeX: compile with SyncTeX enabled (e.g. BusyTeX XeLaTeX)',
 
     welcomeTitle: 'Welcome to TeXbrain',
     welcomeDesc: 'Open a project folder or create a new one to get started',
@@ -419,6 +428,10 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     noLogYet: '尚无编译日志',
     noStepsYet: '尚无编译步骤',
     linePrefix: '行',
+    ttSynctexPdfInverse: 'Ctrl+点击（Mac 上 ⌘+点击）：从 PDF 跳转到源码（SyncTeX）',
+    synctexInverseShort: 'SyncTeX：Ctrl+单击 PDF → 源码',
+    toastSynctexNoMatch: 'SyncTeX：该位置未匹配到源码',
+    toastSynctexUnavailable: 'SyncTeX：请使用会生成 .synctex.gz 的方式编译（如 BusyTeX XeLaTeX）',
 
     welcomeTitle: '欢迎使用 TeXbrain',
     welcomeDesc: '打开工程文件夹或新建工程以开始',
