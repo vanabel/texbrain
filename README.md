@@ -114,7 +114,7 @@ The included workflow (`.github/workflows/deploy.yml`) builds and publishes the 
 
 3. Optional: edit `static/sitemap.xml` and `static/robots.txt` so `Sitemap:` and `<loc>` match your public URL.
 
-4. **BusyTeX** (BibTeX in the browser): add a step before `pnpm build` to run `pnpm run download-busytex`, or attach the downloaded `static/busytex/` artifact—same as local optional setup.
+4. **BusyTeX** (BibTeX in the browser): the workflow **downloads assets before `pnpm build`** (`pnpm run download-busytex:force` with `BUSYTEX_USE_CURL=1` for curl + retries—same files as `download-busytex`), with an **Actions cache** on `static/busytex` keyed by `pnpm-lock.yaml` so unchanged lockfiles skip the ~175 MB download. To ship without BusyTeX, remove or gate that step in your fork.
 
 ---
 

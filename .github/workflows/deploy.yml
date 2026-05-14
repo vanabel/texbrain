@@ -30,6 +30,19 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # BusyTeX WASM (~175MB) is not in the npm tarball; cache by lockfile so pushes skip re-download when unchanged.
+      - uses: actions/cache@v4
+        id: busytex-cache
+        with:
+          path: static/busytex
+          key: ${{ runner.os }}-texbrain-busytex-${{ hashFiles('pnpm-lock.yaml') }}
+      - name: Download BusyTeX assets
+        if: steps.busytex-cache.outputs.cache-hit != 'true'
+        # Same assets as `pnpm run download-busytex`; :force uses curl + retries (see scripts/download-busytex-retry.mjs).
+        run: pnpm run download-busytex:force
+        timeout-minutes: 25
+        env:
+          BUSYTEX_USE_CURL: '1'
       - run: pnpm build
         env:
           # 仓库 Settings → Variables：自定义部署域名与 GitHub Pages 子路径（见 README「Deploying to GitHub Pages」）
