@@ -35,6 +35,8 @@ jobs:
           # 仓库 Settings → Variables：自定义部署域名与 GitHub Pages 子路径（见 README「Deploying to GitHub Pages」）
           BASE_PATH: ${{ vars.BASE_PATH }}
           PUBLIC_SITE_ORIGIN: ${{ vars.PUBLIC_SITE_ORIGIN }}
+          # Optional: set to `pdfjs` so production uses pdf.js and SyncTeX works in the preview (see README).
+          VITE_PDF_VIEWER: ${{ vars.VITE_PDF_VIEWER }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: build

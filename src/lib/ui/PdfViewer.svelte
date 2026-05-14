@@ -22,9 +22,17 @@ const standardFontDataUrl = standardFontProbeUrl.replace(/[^/]+$/, '');
       }) => void)
     | undefined = undefined;
 
-  // In production static hosting (pm2 serve), some environments hit pdf.js font parsing bugs.
-  // Use the browser's native PDF viewer there as a reliable fallback.
-  const useNativeViewer = import.meta.env.PROD;
+  // Production defaults to the native PDF viewer (iframe): reliable on some NAS/browser combos
+  // where pdf.js can hit font parsing bugs. That mode cannot implement SyncTeX (no access to
+  // click coordinates or page geometry inside the embedded viewer). Set VITE_PDF_VIEWER=pdfjs
+  // at build time to force pdf.js in production and enable SyncTeX in the preview pane.
+  const rawPdfViewer = (import.meta.env.VITE_PDF_VIEWER as string | undefined)?.trim().toLowerCase();
+  const useNativeViewer =
+    rawPdfViewer === 'pdfjs'
+      ? false
+      : rawPdfViewer === 'native'
+        ? true
+        : import.meta.env.PROD;
   let nativePdfUrl = '';
 
   let container: HTMLDivElement;
