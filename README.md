@@ -217,7 +217,21 @@ Without it, SwiftLaTeX still works; classic BibTeX citation resolution needs thi
 
 ### Cloudflare cache purge (BusyTeX)
 
-Use this script after updating BusyTeX assets to purge Cloudflare edge cache for core BusyTeX files:
+**When to purge:** After you deploy new files under `static/busytex/` (WASM / JS / `.data`) and the site is behind **Cloudflare proxy (orange cloud)**, edges may keep serving old objects. After a normal `pnpm build` (SvelteKit `/_app/immutable/…` chunks), aggressive HTML or asset caching can also warrant a targeted purge or waiting for TTL.
+
+**Option A: Dashboard (no scripts)**
+
+1. Open [Cloudflare Dashboard](https://dash.cloudflare.com/) and select your **zone**.
+2. **Caching** → **Configuration**.
+3. Under **Purge Cache**:
+   - **Custom Purge** → **URL**: paste full URLs users hit (including `https://`), e.g. `https://your.domain/busytex/busytex.wasm`, etc.—good for BusyTeX-only updates.
+   - **Purge Everything**: clears the whole zone’s edge cache for that site; simplest but increases origin load briefly and evicts unrelated cached assets.
+
+**Option B: API (CI-friendly)**
+
+- **Zone ID**: **Overview** for the zone, right-hand **API** section.
+- **API Token**: avatar → **My Profile** → **API Tokens** → **Create Token**. Use template **“Cache Purge - Purge”**, or custom: **Zone** → **Cache Purge** → **Edit**.
+- Replace `https://tex.vanabel.cn/...` in the JSON with your **public site origin** (same host users type in the browser). If you also load `busytex_pipeline.js`, `busytex_worker.js`, etc., add those URLs to `files`, or use **purge by prefix** in the dashboard / API `prefixes` (e.g. `https://your.domain/busytex`) to drop everything under that path—confirm exact fields in Cloudflare’s API docs for your plan.
 
 ```bash
 #!/usr/bin/env bash
@@ -240,6 +254,8 @@ curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge
     ]
   }' | jq .
 ```
+
+Expect `"success": true` in the JSON response. Then hard-refresh the site in the browser (⌘+Shift+R / Ctrl+F5).
 
 ## PM2 deployment
 
@@ -283,7 +299,7 @@ TeXbrain on a NAS is usually a **git clone** + **`pnpm build`** + **PM2** servin
 4. **BusyTeX (if you ship it on the NAS):** `pnpm run download-busytex` — only needed when `@vanabel/texlyre-busytex` or upstream assets changed, or if `static/busytex/` is missing on that machine.
 5. **Rebuild:** `pnpm build`
 6. **Restart PM2:** `pnpm pm2:restart` — or `PORT=8080 pnpm pm2:restart` if you override the port; confirm the app name in `ecosystem.config.cjs` if you use raw `pm2 restart <name>`.
-7. **Reverse proxy / CDN:** if you use nginx, Cloudflare, etc., purge cache or bump cache keys if static assets are aggressively cached.
+7. **Reverse proxy / CDN:** if you use Cloudflare and updated BusyTeX, follow [Cloudflare cache purge (BusyTeX)](#cloudflare-cache-purge-busytex); otherwise purge or shorten TTL for static assets as needed.
 8. **Browser:** do a **hard refresh** (e.g. Ctrl+F5 / ⌘+Shift+R) so clients load the new `/_app/immutable/...` chunks and updated `busytex/` URLs if applicable.
 
 No database or server-side migration is required—this app is static files plus optional BusyTeX assets under `static/`.
