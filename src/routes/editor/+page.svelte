@@ -81,6 +81,12 @@
   let pdfPageCount = 1;
   /** Parsed SyncTeX for the last successful local compile (inverse / forward). */
   let synctexModel: PdfSyncObject | undefined;
+  $: synctexStatusLine = pdfData
+    ? synctexModel
+      ? `${E.statusBarSynctexPdfToSource} · ${E.statusBarSynctexEditorToPdf}`
+      : E.statusBarSynctexEditorToPdf
+    : '';
+  $: synctexStatusTitle = E.ttStatusBarSynctex;
   let drawioEditor: DrawioEditor;
 
   function isDrawioFile(name: string): boolean {
@@ -1580,9 +1586,6 @@
               <button class="preview-tab" class:active={$previewTab === 'log'} on:click={() => previewTab.set('log')}>{E.tabLog}</button>
               <button class="preview-tab" class:active={$previewTab === 'steps'} on:click={() => previewTab.set('steps')}>{E.tabSteps}</button>
               <div style="flex:1"></div>
-              {#if pdfData && synctexModel}
-                <span class="synctex-hint" title={E.ttSynctexPdfInverse}>{E.synctexInverseShort}</span>
-              {/if}
               {#if pdfData}
                 <button class="preview-tab save-pdf" on:click={savePdf} title={E.ttSavePdf}>
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M4 7l4 4 4-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12v2h12v-2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1758,6 +1761,8 @@
     {wordCount}
     entryPath={$entryPoint ?? ''}
     compileTarget={currentCompileTarget}
+    synctexLine={synctexStatusLine}
+    synctexTitle={synctexStatusTitle}
   />
 
   <CommandPalette {commands} />
@@ -1856,16 +1861,6 @@
   .preview-tab { padding: 5px 12px; font-size: 11px; font-weight: 500; color: var(--text-muted); }
   .preview-tab:hover { color: var(--text-secondary); }
   .preview-tab.active { color: var(--text-primary); background: var(--bg-hover); }
-  .synctex-hint {
-    font-size: 10px;
-    color: var(--text-muted);
-    padding: 0 8px;
-    max-width: min(200px, 28vw);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex-shrink: 1;
-  }
   .preview-content { flex: 1; overflow: hidden; display: flex; }
 
   .log-content { flex: 1; overflow-y: auto; padding: 8px; font-family: var(--font-editor); font-size: 11px; }

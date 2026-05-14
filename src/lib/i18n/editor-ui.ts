@@ -89,9 +89,6 @@ export type EditorUi = {
   noLogYet: string;
   noStepsYet: string;
   linePrefix: string;
-  /** PDF preview: inverse SyncTeX (Ctrl/Cmd+click). */
-  ttSynctexPdfInverse: string;
-  synctexInverseShort: string;
   toastSynctexNoMatch: string;
   toastSynctexNoTabMatch: string;
   toastSynctexUnavailable: string;
@@ -143,6 +140,12 @@ export type EditorUi = {
   statusCredit: string;
   /** Use {line} and {col} */
   statusLineCol: string;
+  /** Status bar: PDF inverse (shown when SyncTeX is available). */
+  statusBarSynctexPdfToSource: string;
+  /** Status bar: editor forward jump to PDF (double-click). */
+  statusBarSynctexEditorToPdf: string;
+  /** Status bar: native title for the SyncTeX hint strip. */
+  ttStatusBarSynctex: string;
 
   // Collaboration panel
   collabPanelTitle: string;
@@ -261,8 +264,6 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     noLogYet: 'No compilation log yet',
     noStepsYet: 'No compile steps yet',
     linePrefix: 'line',
-    ttSynctexPdfInverse: 'Ctrl+click (⌘+click on Mac): jump from PDF to source (SyncTeX)',
-    synctexInverseShort: 'SyncTeX: Ctrl+click PDF → source',
     toastSynctexNoMatch: 'SyncTeX: no source region near this click',
     toastSynctexNoTabMatch: 'SyncTeX: found source in synctex but no open .tex tab matches that path',
     toastSynctexUnavailable: 'SyncTeX: compile with SyncTeX enabled (e.g. BusyTeX XeLaTeX)',
@@ -313,6 +314,10 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     statusLatex: 'LaTeX',
     statusCredit: 'made with',
     statusLineCol: 'Ln {line}, Col {col}',
+    statusBarSynctexPdfToSource: 'PDF: Ctrl/⌘+click → source',
+    statusBarSynctexEditorToPdf: 'Editor: double-click → PDF',
+    ttStatusBarSynctex:
+      'Forward: double-click the editor pane to scroll the PDF preview (uses SyncTeX when the last compile produced it). Inverse: hold Ctrl (Windows/Linux) or ⌘ (macOS) and click the rendered page in the preview.',
 
     collabPanelTitle: 'Collaboration',
     collabClose: 'Close',
@@ -430,8 +435,6 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     noLogYet: '尚无编译日志',
     noStepsYet: '尚无编译步骤',
     linePrefix: '行',
-    ttSynctexPdfInverse: 'Ctrl+点击（Mac 上 ⌘+点击）：从 PDF 跳转到源码（SyncTeX）',
-    synctexInverseShort: 'SyncTeX：Ctrl+单击 PDF → 源码',
     toastSynctexNoMatch: 'SyncTeX：该点击附近没有可识别的源码区域',
     toastSynctexNoTabMatch: 'SyncTeX：synctex 中有路径，但没有已打开的 .tex 标签与之匹配',
     toastSynctexUnavailable: 'SyncTeX：请使用会生成 .synctex.gz 的方式编译（如 BusyTeX XeLaTeX）',
@@ -481,6 +484,10 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     statusLatex: 'LaTeX',
     statusCredit: '用',
     statusLineCol: '第 {line} 行，第 {col} 列',
+    statusBarSynctexPdfToSource: 'PDF：Ctrl/⌘+单击 → 源码',
+    statusBarSynctexEditorToPdf: '编辑器：双击 → PDF',
+    ttStatusBarSynctex:
+      '正向：在编辑器区域双击可将 PDF 预览滚动到对应位置（最近一次编译若生成 SyncTeX 则优先精确跳转）。反向：在预览 PDF 上按住 Ctrl（Mac 为 ⌘）并单击。',
 
     collabPanelTitle: '协作',
     collabClose: '关闭',

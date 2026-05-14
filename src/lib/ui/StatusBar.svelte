@@ -14,6 +14,10 @@
   export let entryPath = '';
   /** Last resolved compile target .tex path. */
   export let compileTarget = '';
+  /** Compact SyncTeX hints (same row as entry/target); empty hides. */
+  export let synctexLine = '';
+  /** Native tooltip for `synctexLine`. */
+  export let synctexTitle = '';
 
   $: E = editorUi[$locale];
   $: lineCol = expandEditorTemplate(E.statusLineCol, { line: cursorLine, col: cursorCol });
@@ -51,8 +55,16 @@
       {/if}
     </div>
 
-    {#if entryTarget.line}
-      <span class="entry-compact" title={entryTarget.title}>{entryTarget.line}</span>
+    {#if entryTarget.line || synctexLine}
+      <div class="left-meta">
+        {#if entryTarget.line}
+          <span class="entry-compact" title={entryTarget.title}>{entryTarget.line}</span>
+        {/if}
+        {#if synctexLine}
+          {#if entryTarget.line}<span class="meta-sep" aria-hidden="true">·</span>{/if}
+          <span class="synctex-compact" title={synctexTitle}>{synctexLine}</span>
+        {/if}
+      </div>
     {/if}
   </div>
 
@@ -114,8 +126,21 @@
     flex-shrink: 0;
   }
 
-  .entry-compact {
+  .left-meta {
+    display: flex;
+    align-items: center;
     flex: 1;
+    min-width: 0;
+    gap: 6px;
+  }
+
+  .meta-sep {
+    opacity: 0.45;
+    flex-shrink: 0;
+  }
+
+  .entry-compact {
+    flex: 1 1 0;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -128,6 +153,15 @@
     border: none;
     box-shadow: none;
     color: inherit;
+  }
+
+  .synctex-compact {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: 0.92;
   }
 
   .right {
