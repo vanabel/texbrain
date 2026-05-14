@@ -333,17 +333,16 @@ const standardFontDataUrl = standardFontProbeUrl.replace(/[^/]+$/, '');
     const pageEl = t?.closest?.('[data-page]') as HTMLElement | null;
     if (!pageEl?.dataset.page) return;
     const pageNum = parseInt(pageEl.dataset.page, 10);
-    const canvas = pageEl.querySelector('canvas') as HTMLCanvasElement | null;
-    if (!canvas) return;
     const sz = pageSizePts[pageNum - 1];
     if (!sz?.w || !sz?.h) return;
-    const crect = canvas.getBoundingClientRect();
-    const x = e.clientX - crect.left;
-    const y = e.clientY - crect.top;
-    if (x < 0 || y < 0 || x > crect.width || y > crect.height) return;
+    const pr = pageEl.getBoundingClientRect();
+    const x = e.clientX - pr.left;
+    const y = e.clientY - pr.top;
+    if (x < -4 || y < -4 || x > pr.width + 4 || y > pr.height + 4) return;
     e.preventDefault();
-    const xPt = (x / crect.width) * sz.w;
-    const yFromTopPt = (y / crect.height) * sz.h;
+    e.stopPropagation();
+    const xPt = (x / pr.width) * sz.w;
+    const yFromTopPt = (y / pr.height) * sz.h;
     const yFromBottomPt = sz.h - yFromTopPt;
     synctexPdfNavigate({
       page: pageNum,
@@ -418,7 +417,7 @@ const standardFontDataUrl = standardFontProbeUrl.replace(/[^/]+$/, '');
       ></iframe>
     {:else}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div bind:this={container} class="pdf-container" on:wheel={handleWheel} on:pointerdown={handlePdfPointerDown}></div>
+      <div bind:this={container} class="pdf-container" on:wheel={handleWheel} on:pointerdown|capture={handlePdfPointerDown}></div>
     {/if}
   {:else}
     <div class="pdf-empty">

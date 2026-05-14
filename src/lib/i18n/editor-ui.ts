@@ -93,6 +93,7 @@ export type EditorUi = {
   ttSynctexPdfInverse: string;
   synctexInverseShort: string;
   toastSynctexNoMatch: string;
+  toastSynctexNoTabMatch: string;
   toastSynctexUnavailable: string;
 
   // Welcome / clone
@@ -262,7 +263,8 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     linePrefix: 'line',
     ttSynctexPdfInverse: 'Ctrl+click (⌘+click on Mac): jump from PDF to source (SyncTeX)',
     synctexInverseShort: 'SyncTeX: Ctrl+click PDF → source',
-    toastSynctexNoMatch: 'SyncTeX: no source match for this click',
+    toastSynctexNoMatch: 'SyncTeX: no source region near this click',
+    toastSynctexNoTabMatch: 'SyncTeX: found source in synctex but no open .tex tab matches that path',
     toastSynctexUnavailable: 'SyncTeX: compile with SyncTeX enabled (e.g. BusyTeX XeLaTeX)',
 
     welcomeTitle: 'Welcome to TeXbrain',
@@ -430,7 +432,8 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     linePrefix: '行',
     ttSynctexPdfInverse: 'Ctrl+点击（Mac 上 ⌘+点击）：从 PDF 跳转到源码（SyncTeX）',
     synctexInverseShort: 'SyncTeX：Ctrl+单击 PDF → 源码',
-    toastSynctexNoMatch: 'SyncTeX：该位置未匹配到源码',
+    toastSynctexNoMatch: 'SyncTeX：该点击附近没有可识别的源码区域',
+    toastSynctexNoTabMatch: 'SyncTeX：synctex 中有路径，但没有已打开的 .tex 标签与之匹配',
     toastSynctexUnavailable: 'SyncTeX：请使用会生成 .synctex.gz 的方式编译（如 BusyTeX XeLaTeX）',
 
     welcomeTitle: '欢迎使用 TeXbrain',

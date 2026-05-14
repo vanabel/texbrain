@@ -869,7 +869,7 @@
       .map((t) => t.path || t.name);
     const projPath = matchSynctexPathToProject(inv.synctexPath, paths);
     if (!projPath) {
-      addToast(uiMsg().toastSynctexNoMatch, 'info', 2000);
+      addToast(uiMsg().toastSynctexNoTabMatch, 'info', 2800);
       return;
     }
     const existing = get(files).find((f) => (f.path || f.name) === projPath);
