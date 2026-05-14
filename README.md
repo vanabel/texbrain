@@ -39,6 +39,7 @@ I was tired of paying for basics. I wrote a thesis in LaTeX and fought the toolc
 - [About this fork](#about-this-fork)
 - [What it does](#what-it-does)
 - [Features](#features)
+- [SyncTeX (editor ↔ PDF)](#synctex-editor--pdf)
 - [How it works](#how-it-works)
 - [Security & privacy](#security--privacy)
 - [Template repos & Git (user guidance)](#template-repos--git-user-guidance)
@@ -48,6 +49,7 @@ I was tired of paying for basics. I wrote a thesis in LaTeX and fought the toolc
 - [Running locally](#running-locally)
 - [Cloudflare cache purge (BusyTeX)](#cloudflare-cache-purge-busytex)
 - [PM2 deployment](#pm2-deployment)
+- [Updating on a NAS (PM2 static host)](#updating-on-a-nas-pm2-static-host)
 - [Future roadmap (draft)](ROADMAP.md)
 - [Browser support](#browser-support)
 - [License](#license)
@@ -75,6 +77,17 @@ Open a folder, edit, preview PDF, commit, push to GitHub—**from one tab**.
 | **Palette & snippets** | Command palette; searchable math/env snippets. |
 | **Offline** | After load, editing and compilation work without the network. |
 | **Templates** | Article, thesis, beamer, report, CV, letter, minimal. |
+| **SyncTeX** | After a compile that produces `.synctex.gz` (e.g. **BusyTeX XeLaTeX**, or SwiftLaTeX pdfTeX when enabled): **double-click the editor** to scroll the PDF toward the cursor; **Ctrl+click** (Windows/Linux) or **⌘+click** (macOS) on the **pdf.js** preview to jump to the matching `.tex` line. Hints also appear in the **status bar** next to Entry/Target. **Note:** `pnpm build` sets `import.meta.env.PROD`; the hosted preview then uses the **browser’s native PDF viewer** instead of pdf.js, so **SyncTeX-driven** forward/inverse in the preview is **disabled** in that build—use `pnpm dev` (or a non-production preview) to exercise the full feature locally. |
+
+---
+
+## SyncTeX (editor ↔ PDF)
+
+When the compiler returns SyncTeX data, TeXbrain keeps it **in memory** for the current session (no extra disk write). Parsing uses the gzip payload from **BusyTeX** (`result.synctex`) or, on the SwiftLaTeX path, `.synctex.gz` read from the engine MEMFS when present.
+
+- **Forward (source → PDF):** after a successful compile, the preview scrolls using SyncTeX when possible; **double-click** the editor pane to jump again without recompiling.
+- **Inverse (PDF → source):** **Ctrl** or **⌘** + **primary click** on the rendered page (pdf.js path only—see production note in [Features](#features)).
+- **Collaboration:** guests who receive only the remote PDF do **not** receive SyncTeX blobs; inverse/forward from SyncTeX apply to **local** compiles with synctex data.
 
 ---
 
@@ -259,6 +272,21 @@ Enable startup on boot:
 pm2 save
 pm2 startup
 ```
+
+### Updating on a NAS (PM2 static host)
+
+TeXbrain on a NAS is usually a **git clone** + **`pnpm build`** + **PM2** serving the `build/` folder (same as [PM2 deployment](#pm2-deployment)). To roll out a new version (e.g. after merging SyncTeX or other changes):
+
+1. **SSH** into the NAS and `cd` to the project directory (the folder that contains `package.json`).
+2. **Pull** the latest code: `git fetch origin && git checkout main && git pull origin main` (adjust branch if you deploy from another branch).
+3. **Install deps:** `pnpm install`
+4. **BusyTeX (if you ship it on the NAS):** `pnpm run download-busytex` — only needed when `@vanabel/texlyre-busytex` or upstream assets changed, or if `static/busytex/` is missing on that machine.
+5. **Rebuild:** `pnpm build`
+6. **Restart PM2:** `pnpm pm2:restart` — or `PORT=8080 pnpm pm2:restart` if you override the port; confirm the app name in `ecosystem.config.cjs` if you use raw `pm2 restart <name>`.
+7. **Reverse proxy / CDN:** if you use nginx, Cloudflare, etc., purge cache or bump cache keys if static assets are aggressively cached.
+8. **Browser:** do a **hard refresh** (e.g. Ctrl+F5 / ⌘+Shift+R) so clients load the new `/_app/immutable/...` chunks and updated `busytex/` URLs if applicable.
+
+No database or server-side migration is required—this app is static files plus optional BusyTeX assets under `static/`.
 
 ---
 
