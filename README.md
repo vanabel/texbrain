@@ -198,6 +198,8 @@ Open **http://localhost:5173** in Chrome or Edge.
 pnpm run download-busytex
 ```
 
+Large downloads from GitHub may time out. After upgrading `@vanabel/texlyre-busytex`, refresh WASM with `pnpm run download-busytex:force` in a shell where **proxy env vars are already set** (e.g. your zsh `enable_proxy`); when `HTTPS_PROXY` / `ALL_PROXY` / `HTTP_PROXY` is set and `curl` exists, the script uses **curl** (proxy-aware, including SOCKS5). Set `BUSYTEX_USE_CURL=1` to force curl.
+
 Without it, SwiftLaTeX still works; classic BibTeX citation resolution needs this step. `static/busytex/` is gitignored—run locally or in CI before deploy if the hosted site should use BusyTeX.
 
 ### Cloudflare cache purge (BusyTeX)

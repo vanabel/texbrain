@@ -273,6 +273,77 @@ function tryReadMemFSText(eng: any, path: string): string | undefined {
   return undefined;
 }
 
+/** Binary read from SwiftLaTeX MEMFS (best-effort; API varies by engine build). */
+function tryReadMemFSBytes(eng: any, path: string): Uint8Array | undefined {
+  const readers = [
+    () => eng.readBinaryMemFSFile?.(path),
+    () => {
+      const v = eng.readMemFSFile?.(path);
+      if (v instanceof Uint8Array) return v;
+      if (v instanceof ArrayBuffer) return new Uint8Array(v);
+      return undefined;
+    },
+    () => {
+      try {
+        const v = eng.FS?.readFile?.(path);
+        if (v instanceof Uint8Array) return v;
+        if (v instanceof ArrayBuffer) return new Uint8Array(v);
+      } catch {
+        /* ignore */
+      }
+      return undefined;
+    },
+    () => {
+      try {
+        const v = eng.Module?.FS?.readFile?.(path);
+        if (v instanceof Uint8Array) return v;
+        if (v instanceof ArrayBuffer) return new Uint8Array(v);
+      } catch {
+        /* ignore */
+      }
+      return undefined;
+    }
+  ];
+  for (const read of readers) {
+    try {
+      const val = read();
+      if (val instanceof Uint8Array && val.byteLength > 0) return val;
+    } catch {
+      // next reader
+    }
+  }
+  return undefined;
+}
+
+function synctexCandidatePathsForMain(mainFile: string): string[] {
+  const out: string[] = [];
+  out.push(mainFile.replace(/\.tex$/i, '.synctex.gz'));
+  const slash = mainFile.lastIndexOf('/');
+  const base = slash >= 0 ? mainFile.slice(slash + 1) : mainFile;
+  if (base && base !== mainFile) {
+    out.push(base.replace(/\.tex$/i, '.synctex.gz'));
+  }
+  out.push('texput.synctex.gz', '/texput.synctex.gz', './texput.synctex.gz');
+  return [...new Set(out)];
+}
+
+/** Log-only: detect `.synctex.gz` in engine MEMFS after a successful run. */
+function formatSwiftLatexSynctexProbeLog(eng: any, mainFile: string): string {
+  const lines: string[] = ['[TeXbrain] SyncTeX probe (SwiftLaTeX / in-browser pdfTeX):'];
+  const tried = synctexCandidatePathsForMain(mainFile);
+  const hits: string[] = [];
+  for (const p of tried) {
+    const bytes = tryReadMemFSBytes(eng, p);
+    if (bytes) hits.push(`${p} (${bytes.byteLength} bytes)`);
+  }
+  if (hits.length) lines.push(`  found: ${hits.join('; ')}`);
+  else lines.push(`  no .synctex.gz at tried paths: ${tried.join(', ')}`);
+  lines.push(
+    '  note: absence usually means pdfTeX was run without -synctex=1 (not yet wired in this stack).'
+  );
+  return '\n\n' + lines.join('\n');
+}
+
 export async function compileLaTeX(
   projectMainFile: string,
   files: Map<string, string>,
@@ -381,6 +452,10 @@ export async function compileLaTeX(
 
   const bblPath = mainFile.replace(/\.tex$/i, '.bbl');
   const bblContent = tryReadMemFSText(eng, bblPath);
+
+  if (result.status === 0 && result.pdf) {
+    log += formatSwiftLatexSynctexProbeLog(eng, mainFile);
+  }
 
   return {
     pdf: result.pdf,

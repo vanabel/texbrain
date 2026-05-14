@@ -199,6 +199,8 @@ pnpm dev
 pnpm run download-busytex
 ```
 
+大文件从 GitHub 拉取可能超时；升级 `@vanabel/texlyre-busytex` 后需刷新本地 WASM 时，可在**已设置代理的同一终端**执行 `pnpm run download-busytex:force`（脚本在检测到 `HTTPS_PROXY` / `ALL_PROXY` 等且系统有 `curl` 时会用 **curl** 下载，从而走你在 zsh 里配置的 `enable_proxy` 等 SOCKS5）。也可设置 `BUSYTEX_USE_CURL=1` 强制走 curl。
+
 若不执行此步，SwiftLaTeX 仍可编译；经典 BibTeX 引用解析则依赖上述资源。`static/busytex/` 默认已加入 `.gitignore` 以控制仓库体积；若线上站点也需要 BusyTeX，请在本地或 CI 中于构建前执行该命令。
 
 ### Cloudflare 缓存清理（BusyTeX）

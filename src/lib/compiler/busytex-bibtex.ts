@@ -1,4 +1,5 @@
 import { base } from '$app/paths';
+import type { LogEntry } from '@vanabel/texlyre-busytex';
 import { projectUsesBiblatexBibliography } from './biblatex-detect';
 
 /** 仅在这些扩展名里判断 biber / biblatex 载入方式，避免 .cbx/.bbx/.bib/.ipynb 等里的说明文字触发误判。 */
@@ -186,6 +187,84 @@ function collectBusyTexArtifacts(result: any): Array<{ path: string; value: unkn
     }
   }
   return out;
+}
+
+function artifactByteSize(value: unknown): number | undefined {
+  if (value instanceof Uint8Array) return value.byteLength;
+  if (value instanceof ArrayBuffer) return value.byteLength;
+  if (typeof value === 'string') return new TextEncoder().encode(value).length;
+  if (value && typeof value === 'object') {
+    const v = value as any;
+    if (v.content instanceof Uint8Array) return v.content.byteLength;
+    if (v.content instanceof ArrayBuffer) return v.content.byteLength;
+    if (typeof v.content === 'string') return new TextEncoder().encode(v.content).length;
+    if (v.data instanceof Uint8Array) return v.data.byteLength;
+    if (v.data instanceof ArrayBuffer) return v.data.byteLength;
+  }
+  return undefined;
+}
+
+async function synctexPathsFromBusyTexRunner(runner: any): Promise<string[]> {
+  if (typeof runner?.readProjectFiles !== 'function') return [];
+  try {
+    const projectFiles = await runner.readProjectFiles('.');
+    if (!Array.isArray(projectFiles)) return [];
+    const out: string[] = [];
+    for (const f of projectFiles) {
+      const p = String((f as any)?.path || (f as any)?.name || '');
+      if (p && p.toLowerCase().includes('synctex')) out.push(p);
+    }
+    return [...new Set(out)].sort();
+  } catch {
+    return [];
+  }
+}
+
+/** Log-only: list SyncTeX-related artifacts after a successful BusyTeX run. */
+function formatBusyTexSynctexProbeLog(result: any, runnerSynctexPaths: string[]): string {
+  const lines: string[] = ['[TeXbrain] SyncTeX probe (BusyTeX):'];
+  const top = result?.synctex;
+  if (top instanceof Uint8Array && top.byteLength > 0) {
+    lines.push(`  result.synctex: ${top.byteLength} bytes (from BusyTexRunner / worker)`);
+  } else if (top instanceof ArrayBuffer && top.byteLength > 0) {
+    lines.push(`  result.synctex: ${top.byteLength} bytes (ArrayBuffer)`);
+  } else {
+    lines.push(
+      '  result.synctex: (unset or empty — worker returns this when the pipeline emits main.synctex.gz)'
+    );
+  }
+  const arts = collectBusyTexArtifacts(result);
+  const synArts = arts.filter((a) => a.path.toLowerCase().includes('synctex'));
+  if (synArts.length) {
+    const parts = synArts.map((a) => {
+      const n = artifactByteSize(a.value);
+      return n !== undefined ? `${a.path} (${n} bytes)` : a.path;
+    });
+    lines.push(`  artifacts: ${parts.join('; ')}`);
+  } else {
+    lines.push(
+      '  artifacts: (no paths containing "synctex" in outputs/files/artifacts — normal when synctex is only in result.synctex)'
+    );
+  }
+  if (runnerSynctexPaths.length) {
+    lines.push(`  readProjectFiles matches: ${runnerSynctexPaths.join(', ')}`);
+  } else {
+    lines.push('  readProjectFiles matches: (none or API unavailable)');
+  }
+
+  const synctexOk =
+    (top instanceof Uint8Array && top.byteLength > 0) ||
+    (top instanceof ArrayBuffer && top.byteLength > 0);
+  if (synctexOk) {
+    lines.push(
+      '  note: SyncTeX gzip is present in result.synctex; UI integration (editor ↔ PDF) can parse this blob when you wire it up.'
+    );
+  } else {
+    lines.push(
+      '  note: if compile steps show xelatex/pdflatex without -synctex=1, no .synctex.gz is produced; add the flag in @vanabel/texlyre-busytex (WASM pipeline).'
+    );
+  }
+  return '\n\n' + lines.join('\n');
 }
 
 function extractBusyTexBbl(result: any): { path: string; content: string } | undefined {
@@ -379,7 +458,7 @@ export async function compileWithBusyTexBibtex(
     (result.log || '') +
     (result.logs?.length
       ? '\n\n--- steps ---\n' +
-        result.logs.map(l => `[${l.cmd}] exit ${l.exit_code}\n${l.log || l.stdout || ''}`).join('\n')
+        result.logs.map((l: LogEntry) => `[${l.cmd}] exit ${l.exit_code}\n${l.log || l.stdout || ''}`).join('\n')
       : '') +
     artifactNote +
     resultShapeNote;
@@ -394,10 +473,17 @@ export async function compileWithBusyTexBibtex(
     `extracted from result: ${bblFromResult ? `yes (${bblFromResult.path}, ${bblFromResult.content.length} chars)` : 'no'}\n` +
     `runner read candidates: ${(fromRunner.attempted || []).join(', ') || '(skipped)'}\n` +
     `final bbl: ${bbl ? `${bbl.path} (${bbl.content.length} chars)` : '(none)'}`;
+
+  let synctexProbe = '';
+  if (status === 0 && result.pdf) {
+    const runnerSynctex = await synctexPathsFromBusyTexRunner(runner);
+    synctexProbe = formatBusyTexSynctexProbeLog(result, runnerSynctex);
+  }
+
   return {
     pdf: result.pdf,
     status,
-    log: log + bblDiag,
+    log: log + bblDiag + synctexProbe,
     usedBusyTex: true,
     bbl
   };
