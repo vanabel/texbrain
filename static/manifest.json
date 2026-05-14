@@ -3,13 +3,13 @@
   "short_name": "TeXbrain",
   "author": "Braian Plaku",
   "description": "LaTeX editor that runs in your browser. Compile to PDF with live preview, git integration, and real-time collaboration. No account needed.",
-  "start_url": "/editor",
+  "start_url": "editor",
   "display": "standalone",
   "background_color": "#0c0d12",
   "theme_color": "#4a6cf7",
   "icons": [
     {
-      "src": "/favicon.svg",
+      "src": "favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml"
     }

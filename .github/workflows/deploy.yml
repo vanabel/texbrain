@@ -36,13 +36,21 @@ jobs:
         with:
           path: static/busytex
           key: ${{ runner.os }}-texbrain-busytex-${{ hashFiles('pnpm-lock.yaml') }}
-      - name: Download BusyTeX assets
-        if: steps.busytex-cache.outputs.cache-hit != 'true'
-        # Same assets as `pnpm run download-busytex`; :force uses curl + retries (see scripts/download-busytex-retry.mjs).
-        run: pnpm run download-busytex:force
+      # Do not use hashFiles(static/busytex/...) — paths under .gitignore may not match, so the step would always re-download
+      # or never detect a bad cache. Use a plain filesystem check instead.
+      - name: Download BusyTeX assets if missing
+        run: |
+          if [ -f static/busytex/busytex.js ]; then
+            echo "BusyTeX present (restored from cache or repo)."
+          else
+            echo "BusyTeX missing; downloading..."
+            pnpm run download-busytex:force
+          fi
         timeout-minutes: 25
         env:
           BUSYTEX_USE_CURL: '1'
+      - name: Verify BusyTeX before build
+        run: test -f static/busytex/busytex.js
       - run: pnpm build
         env:
           # 仓库 Settings → Variables：自定义部署域名与 GitHub Pages 子路径（见 README「Deploying to GitHub Pages」）

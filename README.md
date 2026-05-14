@@ -114,7 +114,9 @@ The included workflow (`.github/workflows/deploy.yml`) builds and publishes the 
 
 3. Optional: edit `static/sitemap.xml` and `static/robots.txt` so `Sitemap:` and `<loc>` match your public URL.
 
-4. **BusyTeX** (BibTeX in the browser): the workflow **downloads assets before `pnpm build`** (`pnpm run download-busytex:force` with `BUSYTEX_USE_CURL=1` for curl + retries—same files as `download-busytex`), with an **Actions cache** on `static/busytex` keyed by `pnpm-lock.yaml` so unchanged lockfiles skip the ~175 MB download. To ship without BusyTeX, remove or gate that step in your fork.
+4. **BusyTeX** (BibTeX in the browser): the workflow **downloads assets before `pnpm build`** (`pnpm run download-busytex:force` with `BUSYTEX_USE_CURL=1` for curl + retries—same files as `download-busytex`), with an **Actions cache** on `static/busytex` keyed by `pnpm-lock.yaml` so unchanged lockfiles skip the ~175 MB download. A **shell `test -f`** gate (not `hashFiles` on gitignored paths) decides whether to download; the next step **fails the job** if `busytex.js` is still missing. To ship without BusyTeX, remove or gate those steps in your fork.
+
+   **Troubleshooting (project Pages, e.g. `…/texbrain/`):** If the app requests `…/texbrain/busytex/busytex.js` but gets **404**, the deployed `build/` was produced **without** `static/busytex/` on disk—check the Actions log for the download step. Set **`BASE_PATH`** to your repo subpath (e.g. `/texbrain`) so client URLs and output layout match. If Chrome warns about **manifest icon** loading `https://<user>.github.io/favicon.svg`, the manifest must use **relative** `icons[].src` / `start_url` (not leading `/`) so they resolve under the subpath—see `static/manifest.json` in this repo.
 
 ---
 
