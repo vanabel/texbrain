@@ -3,15 +3,26 @@
   import { base } from '$app/paths';
   import { browser } from '$app/environment';
   import { get } from 'svelte/store';
-  import { sidebarOpen, previewOpen, snippetPickerOpen, commandPaletteOpen, compileStatus, compileLog, compileErrors, previewTab, addToast } from '$lib/stores/app';
+  import { sidebarOpen, sidebarPanel, previewOpen, editorOpen, snippetPickerOpen, commandPaletteOpen, compileStatus, compileLog, compileErrors, previewTab, addToast } from '$lib/stores/app';
   import { files, activeFile, activeFileId, updateFileContent, projectHandle, projectTree, entryPoint, openFileTab } from '$lib/project/store';
   import { handleOpenFile, handleSaveFile, handleSaveFileAs, handleDroppedFiles, handleOpenDirectory, handleNewProject, cloneProject, loadBundledBibtexExample, refreshProjectTree } from '$lib/project/manager';
   import { insertAtCursor, createEditor, replaceEditorContent } from '$lib/editor/setup';
-  import type { EditorView } from '@codemirror/view';
+  import { insertCitationKey, insertEquationNumber } from '$lib/editor/citation-insert';
+  import {
+    getProjectTexPaths,
+    recomputeProjectSourcesNow,
+    scheduleRecomputeProjectSources,
+    setDiskBibFiles,
+    setDiskTexFiles
+  } from '$lib/editor/project-sources';
+  import { loadDiskBibFiles } from '$lib/project/bib-file-map';
+  import { loadDiskTexFiles } from '$lib/project/tex-file-map';
+  import { EditorView } from '@codemirror/view';
   import { EditorSelection } from '@codemirror/state';
   import type { Snippet as SnippetDef } from '$lib/snippets/index';
   import { compileLaTeX, getTexliveCacheState, setTexliveProgressReporter } from '$lib/compiler/latex-engine';
   import { resolveCompileMainFile, type CompileMainMode } from '$lib/compiler/compile-main';
+  import { compileRootDirOf, sliceProjectToCompileRoot } from '$lib/compiler/compile-root';
   import {
     busytexAssetsAvailable,
     needsBusyTexForProject,
@@ -34,7 +45,7 @@
   import { locale } from '$lib/i18n/locale';
   import { editorUi, expandEditorTemplate } from '$lib/i18n/editor-ui';
   import TabBar from '$lib/ui/TabBar.svelte';
-  import FileTree from '$lib/ui/FileTree.svelte';
+  import Sidebar from '$lib/ui/Sidebar.svelte';
   import StatusBar from '$lib/ui/StatusBar.svelte';
   import Resizer from '$lib/ui/Resizer.svelte';
   import CommandPalette from '$lib/ui/CommandPalette.svelte';
@@ -55,7 +66,8 @@
     parseSynctexFromBytes,
     synctexForward,
     synctexInverse,
-    matchSynctexPathToProject
+    refineSynctexLine,
+    resolveSynctexProjectPath
   } from '$lib/synctex/query';
 
   let editorView: EditorView | null = null;
@@ -81,12 +93,35 @@
   let pdfPageCount = 1;
   /** Parsed SyncTeX for the last successful local compile (inverse / forward). */
   let synctexModel: PdfSyncObject | undefined;
+  /** Paths / root from the last compile (synctex Input: paths are compile-root-relative). */
+  let lastCompileRootDir = '';
+  let lastCompileMainFile = '';
+  let lastCompileTexPaths: string[] = [];
+
+  function texPathsForSynctexMatch(): string[] {
+    const set = new Set<string>();
+    const add = (p: string | undefined) => {
+      const n = (p || '').trim().replace(/\\/g, '/');
+      if (n && /\.(tex|ltx)$/i.test(n)) set.add(n);
+    };
+    for (const p of getProjectTexPaths()) add(p);
+    for (const p of lastCompileTexPaths) add(p);
+    add(lastCompileMainFile);
+    add(currentCompileTarget);
+    for (const t of get(files)) {
+      if (/\.(tex|ltx)$/i.test(t.name)) add(t.path || t.name);
+    }
+    return [...set];
+  }
   $: synctexStatusLine = pdfData
     ? synctexModel
       ? `${E.statusBarSynctexPdfToSource} · ${E.statusBarSynctexEditorToPdf}`
       : E.statusBarSynctexEditorToPdf
     : '';
   $: synctexStatusTitle = E.ttStatusBarSynctex;
+  $: refsStatusLine =
+    $sidebarOpen && $sidebarPanel === 'references' ? E.statusBarRefsClick : '';
+  $: refsStatusTitle = E.ttStatusBarRefs;
   let drawioEditor: DrawioEditor;
 
   function isDrawioFile(name: string): boolean {
@@ -163,6 +198,35 @@
   let loadingBundledExample = false;
 
   $: isMobile = windowWidth < 900;
+  $: splitLayout = !isMobile && $previewOpen && $editorOpen;
+  $: editorPaneStyle = splitLayout ? `flex:0 0 ${editorWidth}%` : '';
+  $: previewPaneStyle = splitLayout ? `flex:0 0 ${100 - editorWidth}%` : '';
+
+  $: if (editorView) {
+    $previewOpen;
+    $editorOpen;
+    isMobile;
+    void tick().then(() => editorView?.requestMeasure());
+  }
+
+  function togglePreview() {
+    if (!get(editorOpen) && get(previewOpen)) {
+      editorOpen.set(true);
+      previewOpen.set(false);
+      return;
+    }
+    previewOpen.update((v) => !v);
+    if (!get(previewOpen)) editorOpen.set(true);
+  }
+
+  function toggleEditorPane() {
+    if (!get(editorOpen) && get(previewOpen)) {
+      editorOpen.set(true);
+      return;
+    }
+    editorOpen.set(false);
+    previewOpen.set(true);
+  }
 
   function buildEditor() {
     if (!editorContainer) return;
@@ -419,6 +483,16 @@
         `[engine] ${compileEngine}`
       ];
       currentCompileTarget = mainFile;
+      lastCompileMainFile = mainFile;
+      lastCompileRootDir = compileRootDirOf(mainFile);
+      const slicedForSynctex = sliceProjectToCompileRoot(mainFile, projectFiles, binaryFiles);
+      lastCompileTexPaths = [...slicedForSynctex.files.keys()].filter((p) =>
+        /\.(tex|ltx)$/i.test(p)
+      );
+      for (const p of projectFiles.keys()) {
+        if (/\.(tex|ltx)$/i.test(p)) lastCompileTexPaths.push(p);
+      }
+      lastCompileTexPaths = [...new Set(lastCompileTexPaths.map((p) => p.replace(/\\/g, '/')))];
       compileLog.set([`[${ts()}] compiling ${mainFile}...`]);
       if (compileEngine === 'xelatex') {
         compileLog.update(log => [
@@ -814,6 +888,7 @@
   function handleEditorUpdate(content: string) {
     if (!$activeFile) return;
     updateFileContent($activeFile.id, content);
+    scheduleRecomputeProjectSources();
     if (editorView) {
       const pos = editorView.state.selection.main.head;
       const line = editorView.state.doc.lineAt(pos);
@@ -854,12 +929,22 @@
     pdfViewer?.scrollToSourceText(context.trim(), fraction);
   }
 
+  async function texContentAtPath(filePath: string): Promise<string | null> {
+    const tab = get(files).find((f) => (f.path || f.name) === filePath);
+    if (tab?.content != null) return tab.content;
+    const handle = get(projectHandle);
+    if (handle) return await readTextAtProjectPath(handle, filePath);
+    return null;
+  }
+
   async function handleSynctexPdfNavigate(e: {
     page: number;
     xPt: number;
     yFromBottomPt: number;
     pageWidthPt: number;
     pageHeightPt: number;
+    pdfTextBefore?: string;
+    pdfTextAfter?: string;
   }) {
     if (!synctexModel) {
       addToast(uiMsg().toastSynctexUnavailable, 'info', 2200);
@@ -870,40 +955,115 @@
       addToast(uiMsg().toastSynctexNoMatch, 'info', 2000);
       return;
     }
-    const paths = get(files)
-      .filter((t) => t.name.toLowerCase().endsWith('.tex'))
-      .map((t) => t.path || t.name);
-    const projPath = matchSynctexPathToProject(inv.synctexPath, paths);
-    if (!projPath) {
+    const pathPool = texPathsForSynctexMatch();
+    const synctexKeys = synctexModel?.blockNumberLine
+      ? Object.keys(synctexModel.blockNumberLine)
+      : [];
+    let openPath = resolveSynctexProjectPath(inv.synctexPath, pathPool, {
+      compileRootDir: lastCompileRootDir,
+      compileMainFile: lastCompileMainFile || currentCompileTarget
+    });
+    if (!openPath) {
+      for (const key of synctexKeys) {
+        openPath = resolveSynctexProjectPath(key, pathPool, {
+          compileRootDir: lastCompileRootDir,
+          compileMainFile: lastCompileMainFile || currentCompileTarget
+        });
+        if (openPath) break;
+      }
+    }
+    if (!openPath) {
       addToast(uiMsg().toastSynctexNoTabMatch, 'info', 2800);
       return;
     }
-    const existing = get(files).find((f) => (f.path || f.name) === projPath);
-    if (existing) {
-      activeFileId.set(existing.id);
-    } else {
-      const handle = get(projectHandle);
-      if (handle) {
-        const text = await readTextAtProjectPath(handle, projPath);
-        if (text != null) {
-          const name = projPath.split('/').pop() || projPath;
-          openFileTab(name, text, null, projPath);
-        }
+    let line = inv.line;
+    if (e.pdfTextBefore !== undefined || e.pdfTextAfter !== undefined) {
+      const doc = await texContentAtPath(openPath);
+      if (doc) {
+        line = refineSynctexLine(
+          doc,
+          line,
+          e.pdfTextBefore ?? '',
+          e.pdfTextAfter ?? ''
+        );
       }
     }
-    await tick();
-    if (!editorView) return;
-    const ln = Math.max(1, Math.min(inv.line, editorView.state.doc.lines));
-    const pos = editorView.state.doc.line(ln).from;
-    editorView.dispatch({
-      selection: EditorSelection.single(pos),
-      scrollIntoView: true
-    });
+    await gotoEditorLocation(openPath, line);
     previewTab.set('preview');
   }
 
   function handleSnippetInsert(snippet: SnippetDef) {
     if (editorView) insertAtCursor(editorView, snippet.code);
+  }
+
+  function gotoEditorLine(line: number) {
+    if (!editorView) return;
+    const ln = Math.max(1, Math.min(line, editorView.state.doc.lines));
+    const pos = editorView.state.doc.line(ln).from;
+    editorView.dispatch({
+      selection: EditorSelection.single(pos),
+      effects: EditorView.scrollIntoView(pos, { y: 'start', yMargin: 0 })
+    });
+    editorView.focus();
+  }
+
+  function handleInsertCitation(key: string) {
+    if (editorView) insertCitationKey(editorView, key);
+  }
+
+  function handleInsertEquation(number: string) {
+    if (editorView) insertEquationNumber(editorView, number);
+  }
+
+  let projectDiskKey = '';
+  let lastRefsTabSig = '';
+
+  $: {
+    const key = $projectHandle?.name ?? '';
+    if (key !== projectDiskKey) {
+      projectDiskKey = key;
+      void refreshProjectDiskSources($projectHandle);
+    }
+  }
+
+  $: {
+    const sig = $files.map((f) => `${f.id}:${f.path}`).join('|');
+    if (sig !== lastRefsTabSig) {
+      lastRefsTabSig = sig;
+      scheduleRecomputeProjectSources(150);
+    }
+  }
+
+  $: $entryPoint, recomputeProjectSourcesNow();
+
+  async function refreshProjectDiskSources(handle: FileSystemDirectoryHandle | null) {
+    const [tex, bib] = await Promise.all([loadDiskTexFiles(handle), loadDiskBibFiles(handle)]);
+    setDiskTexFiles(tex);
+    setDiskBibFiles(bib);
+    recomputeProjectSourcesNow();
+  }
+
+  async function gotoEditorLocation(filePath: string, line: number) {
+    const prevId = get(activeFile)?.id;
+    const existing = get(files).find((f) => (f.path || f.name) === filePath);
+    if (existing) {
+      activeFileId.set(existing.id);
+    } else {
+      const handle = get(projectHandle);
+      if (handle) {
+        const text = await readTextAtProjectPath(handle, filePath);
+        if (text != null) {
+          const name = filePath.split('/').pop() || filePath;
+          openFileTab(name, text, null, filePath);
+        }
+      }
+    }
+    await tick();
+    if (get(activeFile)?.id !== prevId) {
+      await tick();
+      editorView?.requestMeasure();
+    }
+    gotoEditorLine(line);
   }
 
   let resizing = false;
@@ -1061,6 +1221,7 @@
       const existing = get(files).find(f => (f.path || f.name) === relPath);
       if (existing) {
         updateFileContent(existing.id, bbl.content);
+        recomputeProjectSourcesNow();
       }
       await refreshProjectTree();
     } catch (e) {
@@ -1076,7 +1237,8 @@
     { id: 'saveas', label: E.cmdSaveAs, shortcut: 'Ctrl+Shift+S', action: handleSaveFileAs, category: 'file' },
     { id: 'compile', label: E.cmdCompile, shortcut: 'Ctrl+Enter', action: compilePreview, category: 'compile' },
     { id: 'sidebar', label: E.cmdToggleSidebar, shortcut: 'Ctrl+B', action: () => sidebarOpen.update(v => !v), category: 'view' },
-    { id: 'togglepreview', label: E.cmdTogglePreview, shortcut: 'Ctrl+P', action: () => previewOpen.update(v => !v), category: 'view' },
+    { id: 'togglepreview', label: E.cmdTogglePreview, shortcut: 'Ctrl+P', action: togglePreview, category: 'view' },
+    { id: 'toggleeditor', label: E.cmdToggleEditor, shortcut: 'Ctrl+Shift+P', action: toggleEditorPane, category: 'view' },
     { id: 'snippet', label: E.cmdInsertSnippet, shortcut: 'Ctrl+/', action: () => snippetPickerOpen.set(true), category: 'edit' },
     { id: 'preview', label: E.cmdShowPreview, shortcut: '', action: () => previewTab.set('preview'), category: 'view' },
     { id: 'log', label: E.cmdShowLog, shortcut: '', action: () => previewTab.set('log'), category: 'view' },
@@ -1094,7 +1256,8 @@
     else if (mod && e.key === 'b') { e.preventDefault(); sidebarOpen.update(v => !v); }
     else if (mod && e.key === '/') { e.preventDefault(); snippetPickerOpen.update(v => !v); }
     else if (mod && e.key === 'g') { e.preventDefault(); if (get(projectHandle)) gitPanelOpen.update(v => !v); }
-    else if (mod && e.key === 'p') { e.preventDefault(); previewOpen.update(v => !v); }
+    else if (mod && e.key === 'p' && e.shiftKey) { e.preventDefault(); toggleEditorPane(); }
+    else if (mod && e.key === 'p') { e.preventDefault(); togglePreview(); }
     else if (e.key === 'Escape') { commandPaletteOpen.set(false); snippetPickerOpen.set(false); showEngineHelp = false; }
   }
 
@@ -1532,7 +1695,7 @@
         <kbd style="margin-left:4px">Ctrl+K</kbd>
       </button>
       <div class="tool-sep"></div>
-      <button class="tool-btn" class:active={$previewOpen} on:click={() => previewOpen.update(v => !v)} title={E.ttPreview}>
+      <button class="tool-btn" class:active={$previewOpen} on:click={togglePreview} title={E.ttPreview}>
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2.5" width="13" height="11" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M10.5 2.5v11" stroke="currentColor" stroke-width="1.2"/></svg>
       </button>
     </div>
@@ -1541,15 +1704,19 @@
   <div class="main-area">
     {#if $sidebarOpen && !isMobile}
       <aside class="sidebar">
-        <FileTree />
+        <Sidebar
+          onTocNavigate={gotoEditorLocation}
+          onInsertCitation={handleInsertCitation}
+          onInsertEquation={handleInsertEquation}
+        />
       </aside>
     {/if}
 
     <div class="workspace">
       <TabBar />
       <div class="editor-area">
-        {#if $activeFile && activeIsDrawio}
-          <div class="editor-pane" style={!isMobile && $previewOpen ? `width:${editorWidth}%` : ''}>
+        {#if $activeFile && activeIsDrawio && $editorOpen}
+          <div class="editor-pane" style={editorPaneStyle}>
             <DrawioEditor
               bind:this={drawioEditor}
               content={$activeFile.content}
@@ -1559,16 +1726,18 @@
               onExported={handleDrawioExport}
             />
           </div>
-        {:else if $activeFile}
+        {:else if $activeFile && $editorOpen}
           <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div class="editor-pane" style={!isMobile && $previewOpen ? `width:${editorWidth}%` : ''} on:dblclick={handleEditorDblClick}>
+          <div class="editor-pane" style={editorPaneStyle} on:dblclick={handleEditorDblClick}>
             <div class="cm-wrapper" use:initEditor></div>
           </div>
         {/if}
 
         {#if $activeFile && $previewOpen && !isMobile}
-          <Resizer on:resize={(e) => handleResizeDelta(e.detail.delta)} on:resizestart={handleResizeStart} on:resizeend={handleResizeEnd} />
-          <div class="preview-pane" style="width:{100 - editorWidth}%">
+          {#if splitLayout}
+            <Resizer on:resize={(e) => handleResizeDelta(e.detail.delta)} on:resizestart={handleResizeStart} on:resizeend={handleResizeEnd} />
+          {/if}
+          <div class="preview-pane" class:preview-full={!splitLayout} style={previewPaneStyle}>
             <div class="preview-header">
               <button class="preview-tab" class:active={$previewTab === 'preview'} on:click={() => previewTab.set('preview')}>{E.tabPreview}</button>
               <button class="preview-tab" class:active={$previewTab === 'errors'} on:click={() => previewTab.set('errors')}>
@@ -1763,6 +1932,8 @@
     compileTarget={currentCompileTarget}
     synctexLine={synctexStatusLine}
     synctexTitle={synctexStatusTitle}
+    refsLine={refsStatusLine}
+    refsTitle={refsStatusTitle}
   />
 
   <CommandPalette {commands} />
@@ -1850,13 +2021,14 @@
   .main-area { flex: 1; display: flex; overflow: hidden; min-height: 0; }
   .sidebar { width: var(--sidebar-w); background: var(--bg-surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
   .workspace { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
-  .editor-area { flex: 1; display: flex; overflow: hidden; min-height: 0; position: relative; }
-  .editor-pane { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+  .editor-area { flex: 1; display: flex; overflow: hidden; min-height: 0; position: relative; background: var(--bg-deep); }
+  .editor-pane { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+  .preview-pane.preview-full { flex: 1; min-width: 0; width: auto; }
   .resize-overlay { position: absolute; inset: 0; z-index: 10; cursor: col-resize; }
   .cm-wrapper { flex: 1; overflow: hidden; }
   .cm-wrapper :global(.cm-editor) { height: 100%; }
 
-  .preview-pane { display: flex; flex-direction: column; min-width: 280px; overflow: hidden; background: var(--bg-elevated); }
+  .preview-pane { display: flex; flex-direction: column; flex: 1; min-width: 280px; overflow: hidden; background: var(--bg-elevated); }
   .preview-header { display: flex; align-items: center; height: 32px; border-bottom: 1px solid var(--border); padding: 0 3px; flex-shrink: 0; }
   .preview-tab { padding: 5px 12px; font-size: 11px; font-weight: 500; color: var(--text-muted); }
   .preview-tab:hover { color: var(--text-secondary); }
@@ -1916,7 +2088,6 @@
     user-select: none;
   }
   .clone-checkbox-row input { margin-top: 2px; flex-shrink: 0; }
-  .clone-checkbox-row code { font-size: 10.5px; background: var(--bg-elevated); padding: 0 4px; border-radius: 3px; }
   .clone-actions { display: flex; gap: 6px; margin-top: 4px; }
   .clone-actions .welcome-btn { flex: 1; justify-content: center; }
   .clone-hint { font-size: 10.5px; color: var(--text-muted); line-height: 1.5; text-align: center; margin-top: 4px; }

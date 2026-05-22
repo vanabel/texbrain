@@ -19,6 +19,7 @@ export type EditorUi = {
   cmdCompile: string;
   cmdToggleSidebar: string;
   cmdTogglePreview: string;
+  cmdToggleEditor: string;
   cmdInsertSnippet: string;
   cmdShowPreview: string;
   cmdShowLog: string;
@@ -71,6 +72,24 @@ export type EditorUi = {
   snippetsLabel: string;
   ttCommandPalette: string;
   ttPreview: string;
+  ttEditorOnly: string;
+
+  // Sidebar
+  sidebarTabFiles: string;
+  sidebarTabOutline: string;
+  sidebarTabReferences: string;
+  refsCitations: string;
+  refsEquations: string;
+  refsNoProject: string;
+  refsNoBib: string;
+  refsNoEquations: string;
+  refsFilterCitations: string;
+  refsFilterEquations: string;
+  tocNoFile: string;
+  tocNotTex: string;
+  tocEmpty: string;
+  tocExpand: string;
+  tocCollapse: string;
 
   // Preview pane
   tabPreview: string;
@@ -92,6 +111,16 @@ export type EditorUi = {
   toastSynctexNoMatch: string;
   toastSynctexNoTabMatch: string;
   toastSynctexUnavailable: string;
+  pdfZoomFitPage: string;
+  pdfZoomFitWidth: string;
+  pdfZoomActual: string;
+  pdfZoomIn: string;
+  pdfZoomOut: string;
+  ttPdfZoomFitPage: string;
+  ttPdfZoomFitWidth: string;
+  ttPdfZoomActual: string;
+  ttPdfZoomIn: string;
+  ttPdfZoomOut: string;
 
   // Welcome / clone
   welcomeTitle: string;
@@ -144,6 +173,10 @@ export type EditorUi = {
   statusBarSynctexPdfToSource: string;
   /** Status bar: editor forward jump to PDF (double-click). */
   statusBarSynctexEditorToPdf: string;
+  /** Status bar: references panel click / modifier-click. */
+  statusBarRefsClick: string;
+  /** Tooltip for references status bar line. */
+  ttStatusBarRefs: string;
   /** Status bar: native title for the SyncTeX hint strip. */
   ttStatusBarSynctex: string;
 
@@ -198,6 +231,7 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     cmdCompile: 'Compile',
     cmdToggleSidebar: 'Toggle Sidebar',
     cmdTogglePreview: 'Toggle Preview',
+    cmdToggleEditor: 'Toggle Source Editor',
     cmdInsertSnippet: 'Insert Snippet',
     cmdShowPreview: 'Show Preview',
     cmdShowLog: 'Show Log',
@@ -247,6 +281,23 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     snippetsLabel: 'Snippets',
     ttCommandPalette: 'Command Palette (Ctrl+K)',
     ttPreview: 'Toggle Preview (Ctrl+P)',
+    ttEditorOnly: 'Toggle source editor — PDF only (Ctrl+Shift+P)',
+
+    sidebarTabFiles: 'Files',
+    sidebarTabOutline: 'Outline',
+    sidebarTabReferences: 'Refs',
+    refsCitations: 'Citations',
+    refsEquations: 'Equations',
+    refsNoProject: 'Open a project to list references',
+    refsNoBib: 'No keys in .bib or .bbl yet',
+    refsNoEquations: 'No numbered equations found',
+    refsFilterCitations: 'Filter citation keys…',
+    refsFilterEquations: 'Filter by number or label…',
+    tocNoFile: 'Open a file to see its outline',
+    tocNotTex: 'Outline is available for .tex files only',
+    tocEmpty: 'No \\section, \\chapter, etc. in this file',
+    tocExpand: 'Expand section',
+    tocCollapse: 'Collapse section',
 
     tabPreview: 'Preview',
     tabErrors: 'Errors',
@@ -265,8 +316,19 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     noStepsYet: 'No compile steps yet',
     linePrefix: 'line',
     toastSynctexNoMatch: 'SyncTeX: no source region near this click',
-    toastSynctexNoTabMatch: 'SyncTeX: found source in synctex but no open .tex tab matches that path',
+    toastSynctexNoTabMatch:
+      'SyncTeX: found a source path in synctex, but no .tex file in this project matches it (re-open the project folder and recompile)',
     toastSynctexUnavailable: 'SyncTeX: compile with SyncTeX enabled (e.g. BusyTeX XeLaTeX)',
+    pdfZoomFitPage: 'Page',
+    pdfZoomFitWidth: 'Width',
+    pdfZoomActual: '100%',
+    pdfZoomIn: '+',
+    pdfZoomOut: '−',
+    ttPdfZoomFitPage: 'Fit page in window',
+    ttPdfZoomFitWidth: 'Fit page width',
+    ttPdfZoomActual: 'Actual size (100%)',
+    ttPdfZoomIn: 'Zoom in',
+    ttPdfZoomOut: 'Zoom out',
 
     welcomeTitle: 'Welcome to TeXbrain',
     welcomeDesc: 'Open a project folder or create a new one to get started',
@@ -316,8 +378,11 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     statusLineCol: 'Ln {line}, Col {col}',
     statusBarSynctexPdfToSource: 'PDF: Ctrl/⌘+click → source',
     statusBarSynctexEditorToPdf: 'Editor: double-click → PDF',
+    statusBarRefsClick: 'Refs: click → jump · Ctrl/⌘+click → insert',
     ttStatusBarSynctex:
       'Forward: double-click the editor pane to scroll the PDF preview (uses SyncTeX when the last compile produced it). Inverse: hold Ctrl (Windows/Linux) or ⌘ (macOS) and click the rendered page in the preview.',
+    ttStatusBarRefs:
+      'In the sidebar References list: click a citation key or equation number to jump to its source line. Hold Ctrl (Windows/Linux) or ⌘ (macOS) and click to insert \\cite{key} or \\eq{number} at the editor cursor.',
 
     collabPanelTitle: 'Collaboration',
     collabClose: 'Close',
@@ -369,6 +434,7 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     cmdCompile: '编译',
     cmdToggleSidebar: '切换侧栏',
     cmdTogglePreview: '切换预览',
+    cmdToggleEditor: '切换源码编辑区',
     cmdInsertSnippet: '插入片段',
     cmdShowPreview: '显示 PDF 预览',
     cmdShowLog: '显示编译日志',
@@ -418,6 +484,23 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     snippetsLabel: '片段',
     ttCommandPalette: '命令面板 (Ctrl+K)',
     ttPreview: '切换预览 (Ctrl+P)',
+    ttEditorOnly: '切换源码编辑区，仅显示 PDF (Ctrl+Shift+P)',
+
+    sidebarTabFiles: '文件',
+    sidebarTabOutline: '大纲',
+    sidebarTabReferences: '引用',
+    refsCitations: '文献',
+    refsEquations: '公式',
+    refsNoProject: '打开工程后可查看引用列表',
+    refsNoBib: '尚未在 .bib 或 .bbl 中发现文献键',
+    refsNoEquations: '未找到带编号的公式',
+    refsFilterCitations: '筛选文献键…',
+    refsFilterEquations: '按编号或 label 筛选…',
+    tocNoFile: '打开文件后可查看大纲',
+    tocNotTex: '大纲仅适用于 .tex 文件',
+    tocEmpty: '当前文件中没有 \\section、\\chapter 等标题',
+    tocExpand: '展开子章节',
+    tocCollapse: '折叠子章节',
 
     tabPreview: '预览',
     tabErrors: '错误',
@@ -436,8 +519,19 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     noStepsYet: '尚无编译步骤',
     linePrefix: '行',
     toastSynctexNoMatch: 'SyncTeX：该点击附近没有可识别的源码区域',
-    toastSynctexNoTabMatch: 'SyncTeX：synctex 中有路径，但没有已打开的 .tex 标签与之匹配',
+    toastSynctexNoTabMatch:
+      'SyncTeX：synctex 中有源文件路径，但当前工程里没有能与之匹配的 .tex（请重新打开项目文件夹并重新编译）',
     toastSynctexUnavailable: 'SyncTeX：请使用会生成 .synctex.gz 的方式编译（如 BusyTeX XeLaTeX）',
+    pdfZoomFitPage: '整页',
+    pdfZoomFitWidth: '宽度',
+    pdfZoomActual: '100%',
+    pdfZoomIn: '+',
+    pdfZoomOut: '−',
+    ttPdfZoomFitPage: '适应窗口（整页可见）',
+    ttPdfZoomFitWidth: '适应宽度',
+    ttPdfZoomActual: '实际大小 (100%)',
+    ttPdfZoomIn: '放大',
+    ttPdfZoomOut: '缩小',
 
     welcomeTitle: '欢迎使用 TeXbrain',
     welcomeDesc: '打开工程文件夹或新建工程以开始',
@@ -486,8 +580,11 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     statusLineCol: '第 {line} 行，第 {col} 列',
     statusBarSynctexPdfToSource: 'PDF：Ctrl/⌘+单击 → 源码',
     statusBarSynctexEditorToPdf: '编辑器：双击 → PDF',
+    statusBarRefsClick: '引用：单击跳转 · Ctrl/⌘+单击插入',
     ttStatusBarSynctex:
       '正向：在编辑器区域双击可将 PDF 预览滚动到对应位置（最近一次编译若生成 SyncTeX 则优先精确跳转）。反向：在预览 PDF 上按住 Ctrl（Mac 为 ⌘）并单击。',
+    ttStatusBarRefs:
+      '侧栏「引用」列表：单击文献键或公式编号可跳转到源码行；按住 Ctrl（Windows/Linux）或 Mac 上的 ⌘ 并单击，可在编辑器光标处插入 \\cite{键名} 或 \\eq{编号}。',
 
     collabPanelTitle: '协作',
     collabClose: '关闭',

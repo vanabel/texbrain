@@ -3,6 +3,13 @@ function dirNameOf(p: string): string {
   return i < 0 ? '' : p.slice(0, i);
 }
 
+/** 工程内主 .tex 路径 → 编译根目录（与 sliceProjectToCompileRoot 一致）。 */
+export function compileRootDirOf(mainFile: string): string {
+  const norm = mainFile.replace(/\\/g, '/').replace(/^\/+/, '');
+  const slash = norm.lastIndexOf('/');
+  return slash < 0 ? '' : norm.slice(0, slash);
+}
+
 /** 从 compile root 向上一层一层到仓库根，用于拾取祖先目录里的类文件。 */
 function ancestorDirsForCompileRoot(compileRootDir: string): string[] {
   const dirs: string[] = [];

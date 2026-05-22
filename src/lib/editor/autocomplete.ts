@@ -1,4 +1,5 @@
 import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
+import { citeKeyCompletions, equationCompletions } from './project-autocomplete';
 
 const latexCommands = [
   { label: '\\textbf', detail: 'Bold text', apply: '\\textbf{$}' },
@@ -11,6 +12,7 @@ const latexCommands = [
   { label: '\\chapter', detail: 'Chapter heading', apply: '\\chapter{$}' },
   { label: '\\paragraph', detail: 'Paragraph heading', apply: '\\paragraph{$}' },
   { label: '\\cite', detail: 'Citation', apply: '\\cite{$}' },
+  { label: '\\eq', detail: 'Equation ref (display number)', apply: '\\eq{$}' },
   { label: '\\ref', detail: 'Reference', apply: '\\ref{$}' },
   { label: '\\label', detail: 'Label', apply: '\\label{$}' },
   { label: '\\footnote', detail: 'Footnote', apply: '\\footnote{$}' },
@@ -111,7 +113,8 @@ function latexCompletions(context: CompletionContext): CompletionResult | null {
 }
 
 export const latexAutocomplete = autocompletion({
-  override: [latexCompletions],
+  override: [citeKeyCompletions, equationCompletions, latexCompletions],
   icons: false,
-  activateOnTyping: true
+  activateOnTyping: true,
+  defaultKeymap: true
 });

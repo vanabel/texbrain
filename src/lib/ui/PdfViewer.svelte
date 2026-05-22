@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onDestroy, tick } from 'svelte';
+  import { locale } from '$lib/i18n/locale';
+  import { editorUi } from '$lib/i18n/editor-ui';
   import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
   import 'pdfjs-dist/web/pdf_viewer.css';
   import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.mjs?url';
@@ -90,6 +92,14 @@
     return defaultCdnStandardFontBaseUrl();
   }
 
+  $: E = editorUi[$locale];
+
+  /** CSS pixels per PDF point at “100%” (72 pt → 96 px). */
+  const ACTUAL_SCALE = 96 / 72;
+  const PDF_PAD = 24;
+
+  type PdfZoomMode = 'page-fit' | 'width-fit' | 'actual' | 'custom';
+
   export let pdfData: Uint8Array | undefined = undefined;
   /** Ctrl/Cmd+click on the rendered page: PDF coordinates in points (origin bottom-left). */
   export let synctexPdfNavigate:
@@ -99,6 +109,8 @@
         yFromBottomPt: number;
         pageWidthPt: number;
         pageHeightPt: number;
+        pdfTextBefore?: string;
+        pdfTextAfter?: string;
       }) => void)
     | undefined = undefined;
 
@@ -127,13 +139,27 @@
     height: number;
   } | null = null;
   let scale = 1;
+  let zoomMode: PdfZoomMode = 'width-fit';
   let pdfDoc: any = null;
   let rendering = false;
-  let userZoomed = false;
+  let resizeObserver: ResizeObserver | null = null;
+  let resizeDebounce: ReturnType<typeof setTimeout> | null = null;
+  /** Native iframe zoom % when mode is custom. */
+  let customZoomPct = 100;
+
+  $: zoomPercentLabel =
+    useNativeViewer && zoomMode === 'custom'
+      ? `${customZoomPct}%`
+      : `${Math.round((scale / ACTUAL_SCALE) * 100)}%`;
+
+  $: nativeViewerSrc =
+    nativePdfUrl && useNativeViewer
+      ? `${nativePdfUrl}${nativeViewHash(zoomMode)}`
+      : '';
 
   let pageTextCache: Array<{
     text: string;
-    items: Array<{ str: string; transform: number[] }>;
+    items: Array<{ str: string; transform: number[]; width?: number; height?: number }>;
     viewportHeight: number;
   }> = [];
 
@@ -177,6 +203,82 @@
   $: if (pdfData && useNativeViewer) {
     if (nativePdfUrl) URL.revokeObjectURL(nativePdfUrl);
     nativePdfUrl = URL.createObjectURL(new Blob([new Uint8Array(pdfData)], { type: 'application/pdf' }));
+    zoomMode = 'width-fit';
+    customZoomPct = 100;
+  }
+
+  function nativeViewHash(mode: PdfZoomMode): string {
+    switch (mode) {
+      case 'width-fit':
+        return '#view=FitH';
+      case 'page-fit':
+        return '#view=Fit';
+      case 'actual':
+        return '#zoom=100';
+      case 'custom':
+        return `#zoom=${customZoomPct}`;
+      default:
+        return '#view=FitH';
+    }
+  }
+
+  function computeAutoScale(
+    mode: 'page-fit' | 'width-fit' | 'actual',
+    pageW: number,
+    pageH: number,
+    el: HTMLElement
+  ): number {
+    if (mode === 'actual') return ACTUAL_SCALE;
+    const cw = Math.max(1, el.clientWidth - PDF_PAD);
+    const ch = Math.max(1, el.clientHeight - PDF_PAD);
+    const wScale = cw / pageW;
+    const scaleForMode =
+      mode === 'width-fit' ? wScale : Math.min(wScale, ch / pageH);
+    return Math.max(0.25, Math.min(4, scaleForMode));
+  }
+
+  function setZoomMode(mode: PdfZoomMode) {
+    if (zoomMode === mode && mode !== 'custom') return;
+    zoomMode = mode;
+    if (useNativeViewer) return;
+    if (pdfDoc && !rendering) void rerender();
+  }
+
+  function zoomBy(factor: number) {
+    zoomMode = 'custom';
+    if (useNativeViewer) {
+      const next = Math.round(Math.max(25, Math.min(400, customZoomPct * factor)));
+      if (next === customZoomPct) return;
+      customZoomPct = next;
+      scale = ACTUAL_SCALE * (customZoomPct / 100);
+      return;
+    }
+    const next = Math.max(0.25, Math.min(4, scale * factor));
+    if (next === scale) return;
+    scale = next;
+    if (pdfDoc && !rendering) void rerender();
+  }
+
+  function bindContainer(el: HTMLDivElement) {
+    container = el;
+    resizeObserver?.disconnect();
+    resizeObserver = new ResizeObserver(() => {
+      if (!pdfDoc || useNativeViewer || zoomMode === 'custom') return;
+      if (resizeDebounce) clearTimeout(resizeDebounce);
+      resizeDebounce = setTimeout(() => {
+        resizeDebounce = null;
+        if (!rendering) void rerender();
+      }, 120);
+    });
+    resizeObserver.observe(el);
+    return {
+      destroy() {
+        resizeObserver?.disconnect();
+        resizeObserver = null;
+        if (resizeDebounce) clearTimeout(resizeDebounce);
+        resizeDebounce = null;
+      }
+    };
   }
 
   $: if (!pdfData && nativePdfUrl) {
@@ -185,12 +287,16 @@
   }
 
   onDestroy(() => {
+    resizeObserver?.disconnect();
+    if (resizeDebounce) clearTimeout(resizeDebounce);
     if (nativePdfUrl) URL.revokeObjectURL(nativePdfUrl);
   });
 
   async function handleNewPdf(data: Uint8Array) {
     if (rendering) return;
     rendering = true;
+    zoomMode = 'width-fit';
+    customZoomPct = 100;
 
     try {
       const synTarget = pendingSynctex;
@@ -246,8 +352,9 @@
 
     const page1 = await doc.getPage(1);
     const baseVp = page1.getViewport({ scale: 1 });
-    const fitScale = (container.clientWidth - 32) / baseVp.width;
-    if (!userZoomed) scale = Math.max(0.3, fitScale);
+    if (zoomMode !== 'custom') {
+      scale = computeAutoScale(zoomMode, baseVp.width, baseVp.height, container);
+    }
 
     for (let i = 1; i <= doc.numPages; i++) {
       const page = i === 1 ? page1 : await doc.getPage(i);
@@ -298,7 +405,14 @@
 
       pageTextCache.push({
         text: textContent.items.map((it: any) => it.str || '').join(' '),
-        items: textContent.items.filter((it: any) => it.str && it.transform),
+        items: textContent.items
+          .filter((it: any) => it.str && it.transform)
+          .map((it: any) => ({
+            str: it.str as string,
+            transform: it.transform as number[],
+            width: it.width as number | undefined,
+            height: it.height as number | undefined
+          })),
         viewportHeight: viewport.height
       });
     }
@@ -420,6 +534,49 @@
     scrollToPagePosition(pageNum, yWithin);
   }
 
+  /** Plain text around a PDF click (for inverse SyncTeX line refinement). */
+  function getPdfTextAroundPoint(
+    pageNum: number,
+    xPt: number,
+    yFromBottomPt: number
+  ): { before: string; after: string } | null {
+    const cached = pageTextCache[pageNum - 1];
+    if (!cached?.items.length) return null;
+
+    let hit = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < cached.items.length; i++) {
+      const it = cached.items[i];
+      const t = it.transform;
+      const w = it.width ?? Math.max(4, (it.str?.length ?? 1) * Math.abs(t[0] ?? 10) * 0.55);
+      const h = Math.abs(it.height ?? t[3] ?? t[0] ?? 12);
+      const left = t[4];
+      const right = t[4] + w;
+      const bottom = t[5] - h * 0.25;
+      const top = t[5] + h * 0.15;
+      const cx = (left + right) / 2;
+      const cy = (bottom + top) / 2;
+      const d = Math.hypot(xPt - cx, yFromBottomPt - cy);
+      if (d < bestDist) {
+        bestDist = d;
+        hit = i;
+      }
+    }
+
+    let pos = 0;
+    const parts: string[] = [];
+    for (let i = 0; i < cached.items.length; i++) {
+      if (i === hit) pos = parts.join(' ').length + (parts.length ? 1 : 0);
+      parts.push(cached.items[i].str || '');
+    }
+    const full = parts.join(' ');
+    if (!full) return null;
+    return {
+      before: full.slice(Math.max(0, pos - 100), pos),
+      after: full.slice(pos, pos + 100)
+    };
+  }
+
   function handlePdfPointerDown(e: PointerEvent) {
     if (useNativeViewer || !synctexPdfNavigate || !container) return;
     if (!(e.ctrlKey || e.metaKey) || e.button !== 0) return;
@@ -438,12 +595,15 @@
     const xPt = (x / pr.width) * sz.w;
     const yFromTopPt = (y / pr.height) * sz.h;
     const yFromBottomPt = sz.h - yFromTopPt;
+    const pdfText = getPdfTextAroundPoint(pageNum, xPt, yFromBottomPt);
     synctexPdfNavigate({
       page: pageNum,
       xPt,
       yFromBottomPt,
       pageWidthPt: sz.w,
-      pageHeightPt: sz.h
+      pageHeightPt: sz.h,
+      pdfTextBefore: pdfText?.before,
+      pdfTextAfter: pdfText?.after
     });
   }
 
@@ -451,10 +611,10 @@
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       const delta = e.deltaY > 0 ? -0.15 : 0.15;
-      const newScale = Math.max(0.5, Math.min(4, scale + delta));
+      const newScale = Math.max(0.25, Math.min(4, scale + delta));
       if (newScale !== scale) {
         scale = newScale;
-        userZoomed = true;
+        zoomMode = 'custom';
         if (pdfDoc && !rendering) rerender();
       }
     }
@@ -503,15 +663,42 @@
 
 <div class="pdf-wrap">
   {#if pdfData}
+    <div class="pdf-toolbar" role="toolbar" aria-label="PDF zoom">
+      <button
+        type="button"
+        class="pdf-zoom-btn"
+        class:active={zoomMode === 'page-fit'}
+        title={E.ttPdfZoomFitPage}
+        on:click={() => setZoomMode('page-fit')}
+      >{E.pdfZoomFitPage}</button>
+      <button
+        type="button"
+        class="pdf-zoom-btn"
+        class:active={zoomMode === 'width-fit'}
+        title={E.ttPdfZoomFitWidth}
+        on:click={() => setZoomMode('width-fit')}
+      >{E.pdfZoomFitWidth}</button>
+      <button
+        type="button"
+        class="pdf-zoom-btn"
+        class:active={zoomMode === 'actual'}
+        title={E.ttPdfZoomActual}
+        on:click={() => setZoomMode('actual')}
+      >{E.pdfZoomActual}</button>
+      <span class="pdf-zoom-sep"></span>
+      <button type="button" class="pdf-zoom-btn icon" title={E.ttPdfZoomOut} on:click={() => zoomBy(0.9)} aria-label={E.ttPdfZoomOut}>{E.pdfZoomOut}</button>
+      <span class="pdf-zoom-pct" title={zoomPercentLabel}>{zoomPercentLabel}</span>
+      <button type="button" class="pdf-zoom-btn icon" title={E.ttPdfZoomIn} on:click={() => zoomBy(1.1)} aria-label={E.ttPdfZoomIn}>{E.pdfZoomIn}</button>
+    </div>
     {#if useNativeViewer}
       <iframe
         class="pdf-native"
-        src={nativePdfUrl}
+        src={nativeViewerSrc}
         title="PDF Preview"
       ></iframe>
     {:else}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div bind:this={container} class="pdf-container" on:wheel={handleWheel} on:pointerdown|capture={handlePdfPointerDown}></div>
+      <div use:bindContainer class="pdf-container" on:wheel={handleWheel} on:pointerdown|capture={handlePdfPointerDown}></div>
     {/if}
   {:else}
     <div class="pdf-empty">
@@ -524,11 +711,65 @@
   .pdf-wrap {
     flex: 1;
     display: flex;
+    flex-direction: column;
     overflow: hidden;
+    min-height: 0;
+  }
+
+  .pdf-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-surface);
+  }
+
+  .pdf-zoom-btn {
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+    border-radius: 3px;
+  }
+
+  .pdf-zoom-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
+
+  .pdf-zoom-btn.active {
+    color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  .pdf-zoom-btn.icon {
+    min-width: 26px;
+    font-size: 14px;
+    line-height: 1;
+    padding: 2px 6px;
+  }
+
+  .pdf-zoom-sep {
+    width: 1px;
+    height: 14px;
+    background: var(--border);
+    margin: 0 4px;
+  }
+
+  .pdf-zoom-pct {
+    min-width: 40px;
+    text-align: center;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
+    font-family: var(--font-editor);
   }
 
   .pdf-container {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     overflow-x: auto;
     display: flex;

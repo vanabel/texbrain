@@ -18,6 +18,9 @@
   export let synctexLine = '';
   /** Native tooltip for `synctexLine`. */
   export let synctexTitle = '';
+  /** References panel shortcuts; empty hides. */
+  export let refsLine = '';
+  export let refsTitle = '';
 
   $: E = editorUi[$locale];
   $: lineCol = expandEditorTemplate(E.statusLineCol, { line: cursorLine, col: cursorCol });
@@ -55,14 +58,18 @@
       {/if}
     </div>
 
-    {#if entryTarget.line || synctexLine}
+    {#if entryTarget.line || synctexLine || refsLine}
       <div class="left-meta">
         {#if entryTarget.line}
           <span class="entry-compact" title={entryTarget.title}>{entryTarget.line}</span>
         {/if}
         {#if synctexLine}
           {#if entryTarget.line}<span class="meta-sep" aria-hidden="true">·</span>{/if}
-          <span class="synctex-compact" title={synctexTitle}>{synctexLine}</span>
+          <span class="meta-hint" title={synctexTitle}>{synctexLine}</span>
+        {/if}
+        {#if refsLine}
+          {#if entryTarget.line || synctexLine}<span class="meta-sep" aria-hidden="true">·</span>{/if}
+          <span class="meta-hint" title={refsTitle}>{refsLine}</span>
         {/if}
       </div>
     {/if}
@@ -155,8 +162,8 @@
     color: inherit;
   }
 
-  .synctex-compact {
-    flex: 1 1 0;
+  .meta-hint {
+    flex: 0 1 auto;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;

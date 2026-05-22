@@ -449,7 +449,9 @@ export async function compileWithBusyTexBibtex(
       input: withBusyTexMarker(mainContent),
       bibtex,
       additionalFiles,
-      verbose: 'silent'
+      verbose: 'silent',
+      // Keep texlive-extra mounted (ctexart, fontspec, …); upstream fallback can drop it otherwise.
+      dataPackagesJs: [BUSYTEX_TEXLIVE_BASIC, BUSYTEX_TEXLIVE_EXTRA]
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

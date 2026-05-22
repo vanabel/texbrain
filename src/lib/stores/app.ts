@@ -1,7 +1,10 @@
 import { writable, derived } from 'svelte/store';
 
 export const sidebarOpen = writable(true);
+export const sidebarPanel = writable<'files' | 'outline' | 'references'>('files');
 export const previewOpen = writable(true);
+/** When false with preview open, only the PDF pane is shown (editor hidden). */
+export const editorOpen = writable(true);
 export const snippetPickerOpen = writable(false);
 export const commandPaletteOpen = writable(false);
 export const previewTab = writable<'preview' | 'errors' | 'warnings' | 'log' | 'steps'>('preview');

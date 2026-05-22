@@ -217,6 +217,7 @@
 
 <svelte:window on:click={closeContextMenu} />
 
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="file-tree" on:contextmenu={handleRootContextMenu}>
   {#if $projectTree.length > 0}
     <div class="tree-header">
@@ -242,6 +243,7 @@
             class:drop-target={dropTargetPath === entry.path}
             style="padding-left: {8 + depth * 16}px"
             on:click={() => toggleDir(entry.path)}
+            on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleDir(entry.path); } }}
             on:contextmenu|stopPropagation={(e) => handleContextMenu(e, entry)}
             on:dragover={(e) => handleDirDragOver(e, entry)}
             on:dragleave={(e) => handleDirDragLeave(e, entry)}
@@ -258,7 +260,7 @@
             <span class="entry-name">{entry.name}</span>
           </div>
         {:else}
-          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
           <div
             class="tree-item file"
             class:active={isFileActive(entry.path)}
@@ -267,6 +269,7 @@
             style="padding-left: {22 + depth * 16}px"
             draggable="true"
             on:click={() => handleFileClick(entry)}
+            on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFileClick(entry); } }}
             on:contextmenu|stopPropagation={(e) => handleContextMenu(e, entry)}
             on:dragstart={(e) => handleDragStart(e, entry)}
             on:dragend={handleDragEnd}
