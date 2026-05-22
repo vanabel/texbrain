@@ -20,14 +20,17 @@
     "download-busytex": "texlyre-busytex download-assets ./static && node scripts/patch-busytex-crossref.mjs",
     "download-busytex:force": "node scripts/download-busytex-retry.mjs",
     "serve:prod": "serve -s build -l ${PORT:-4173}",
+    "serve:cors-proxy": "cors-proxy run -p ${GIT_CORS_PROXY_PORT:-9999}",
     "pm2:start": "pm2 start ecosystem.config.cjs",
-    "pm2:restart": "pm2 restart texbrain --update-env",
-    "pm2:stop": "pm2 stop texbrain",
-    "pm2:delete": "pm2 delete texbrain",
-    "pm2:logs": "pm2 logs texbrain"
+    "pm2:restart": "pm2 restart ecosystem.config.cjs --update-env",
+    "pm2:stop": "pm2 stop ecosystem.config.cjs",
+    "pm2:delete": "pm2 delete ecosystem.config.cjs",
+    "pm2:logs": "pm2 logs texbrain",
+    "pm2:logs:cors": "pm2 logs texbrain-cors-proxy"
   },
   "type": "module",
   "devDependencies": {
+    "@isomorphic-git/cors-proxy": "^3.0.1",
     "@sveltejs/adapter-static": "^3.0.8",
     "@sveltejs/kit": "^2.16.0",
     "@sveltejs/vite-plugin-svelte": "^5.0.3",

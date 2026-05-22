@@ -77,6 +77,55 @@ pnpm pm2:delete
 
 预览栏 **SyncTeX** 需先 `VITE_PDF_VIEWER=pdfjs pnpm build`（见 [常见问题](faq.md#synctex编辑器--pdf)）。
 
+`pnpm pm2:start` 会同时启动 **静态站点**（`texbrain`，默认端口 `4173`）与 **Git CORS 代理**（`texbrain-cors-proxy`，默认端口 `9999`）。若不需要浏览器内 Push/Pull，可在 `ecosystem.config.cjs` 中删除 `texbrain-cors-proxy` 条目，或 `pm2 delete texbrain-cors-proxy`。
+
+### 可选：自建 Git CORS 代理（浏览器 Push/Pull）
+
+浏览器里的 Git（isomorphic-git）无法直接访问 GitHub，需要 CORS 代理。公共地址 `https://cors.isomorphic-git.org` 在部分网络不可用；本仓库已包含 [`@isomorphic-git/cors-proxy`](https://github.com/isomorphic-git/cors-proxy)（`devDependencies`），可由 PM2 在 NAS 上同机运行。
+
+**架构示例（cloudflared + 自家域名）：**
+
+| 服务 | 本机端口 | 公网 URL（示例） |
+| --- | --- | --- |
+| TeXbrain 静态站 | `4173` | `https://tex.vanabel.cn` |
+| Git CORS 代理 | `9999` | `https://git-cors.vanabel.cn` |
+
+1. **安装依赖并构建**（与上文 PM2 部署相同）：`pnpm install`、`pnpm build`。
+
+2. **环境变量（可选，覆盖 `ecosystem.config.cjs` 默认值）：**
+
+   ```bash
+   export GIT_CORS_ALLOW_ORIGIN=https://tex.vanabel.cn   # 与浏览器地址栏 origin 完全一致
+   export GIT_CORS_PROXY_PORT=9999
+   pnpm pm2:start
+   ```
+
+   `GIT_CORS_ALLOW_ORIGIN` 必须等于用户打开 TeXbrain 的 **协议 + 主机 + 端口**（无末尾 `/`）。本地调试可设为 `http://localhost:5173`。PM2 使用前台命令 `cors-proxy run`（勿用 `start`，后者会再 fork 守护进程）。
+
+3. **cloudflared（或反向代理）** 为 CORS 代理增加一条公网入口，将 `git-cors.vanabel.cn`（示例）指到 NAS `127.0.0.1:9999`。TeXbrain 主站 `tex.vanabel.cn` 仍指到 `4173`（或你现有的 ingress）。
+
+4. **在 TeXbrain 界面配置：** 打开 `https://tex.vanabel.cn` → **Git** → **Remote** → **CORS Proxy** 填 `https://git-cors.vanabel.cn`（**不要**末尾斜杠）。同时配置 remote URL 与 GitHub PAT（公开库 push 建议 `public_repo` scope）。
+
+5. **自检：**
+
+   ```bash
+   pnpm pm2:logs:cors
+   curl -sS -o /dev/null -w "%{http_code}\n" \
+     "https://git-cors.vanabel.cn/github.com/octocat/Hello-World.git/info/refs?service=git-upload-pack"
+   ```
+
+   返回非 `000` 即说明隧道与代理大致可达（`401` 等亦可能表示代理在工作）。
+
+**仅本地试跑代理（不用 PM2）：**
+
+```bash
+ALLOW_ORIGIN=http://localhost:5173 pnpm run serve:cors-proxy
+```
+
+然后在 TeXbrain **Remote → CORS Proxy** 填 `http://127.0.0.1:9999`。
+
+**安全：** 勿将 `ALLOW_ORIGIN` 设为 `*`；代理仅应服务于你自己的 TeXbrain 站点。PAT 仍只存在浏览器 `localStorage`。
+
 ---
 
 ## 在 NAS 上更新部署
@@ -88,7 +137,7 @@ pnpm pm2:delete
 3. `pnpm install`
 4. 需要 BusyTeX 且资源有变或缺失时：`pnpm run download-busytex`
 5. `pnpm build`；要预览 SyncTeX 用 `VITE_PDF_VIEWER=pdfjs pnpm build`
-6. `pnpm pm2:restart`（或 `PORT=8080 pnpm pm2:restart`）
+6. `pnpm pm2:restart`（会重启静态站与 CORS 代理；或 `PORT=8080 pnpm pm2:restart` 仅影响 `texbrain` 端口）
 7. 若走 Cloudflare 且更新了 BusyTeX：见下文 [Cloudflare 缓存清理](#cloudflare-缓存清理busytex)
 8. 浏览器 **强制刷新**
 

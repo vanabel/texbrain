@@ -86,6 +86,26 @@ pm2 startup
 
 For **SyncTeX in the PDF preview**, build with `VITE_PDF_VIEWER=pdfjs pnpm build` before `pnpm pm2:start` (see [FAQ](faq.md#synctex-editor--pdf)).
 
+`pnpm pm2:start` starts both the **static site** (`texbrain`, default port `4173`) and the **Git CORS proxy** (`texbrain-cors-proxy`, default port `9999`). Remove the `texbrain-cors-proxy` app from `ecosystem.config.cjs` if you do not need in-browser push/pull.
+
+### Optional: self-hosted Git CORS proxy
+
+Browser Git (isomorphic-git) cannot talk to GitHub directly; it needs a CORS proxy. This repo ships [`@isomorphic-git/cors-proxy`](https://github.com/isomorphic-git/cors-proxy) as a devDependency and runs it via PM2.
+
+Example (cloudflared + custom domain):
+
+| Service | Local port | Public URL (example) |
+| --- | --- | --- |
+| TeXbrain static | `4173` | `https://tex.vanabel.cn` |
+| CORS proxy | `9999` | `https://git-cors.vanabel.cn` |
+
+1. `pnpm install`, `pnpm build`, then `pnpm pm2:start`.
+2. Optional overrides before start: `GIT_CORS_ALLOW_ORIGIN=https://tex.vanabel.cn`, `GIT_CORS_PROXY_PORT=9999` (must match the browser origin where users open TeXbrain).
+3. Point a second tunnel/ingress (e.g. `git-cors.vanabel.cn`) at `127.0.0.1:9999`.
+4. In TeXbrain: **Git → Remote → CORS Proxy** = `https://git-cors.vanabel.cn` (no trailing slash).
+
+Local test: `ALLOW_ORIGIN=http://localhost:5173 pnpm run serve:cors-proxy`, then set CORS Proxy to `http://127.0.0.1:9999`.
+
 ---
 
 ## Updating on a NAS (PM2 static host)

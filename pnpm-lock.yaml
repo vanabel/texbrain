@@ -75,6 +75,9 @@ importers:
         specifier: ^13.6.30
         version: 13.6.30
     devDependencies:
+      '@isomorphic-git/cors-proxy':
+        specifier: ^3.0.1
+        version: 3.0.1
       '@sveltejs/adapter-static':
         specifier: ^3.0.8
         version: 3.0.10(@sveltejs/kit@2.57.0(@sveltejs/vite-plugin-svelte@5.1.1(svelte@5.55.2)(vite@6.4.2(@types/node@22.19.17)(jiti@2.6.1)(lightningcss@1.32.0)))(svelte@5.55.2)(typescript@5.9.3)(vite@6.4.2(@types/node@22.19.17)(jiti@2.6.1)(lightningcss@1.32.0)))
@@ -297,6 +300,10 @@ packages:
   '@isaacs/cliui@8.0.2':
     resolution: {integrity: sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA==}
     engines: {node: '>=12'}
+
+  '@isomorphic-git/cors-proxy@3.0.1':
+    resolution: {integrity: sha512-pFVLH7Hu+EX51FI3uBTZbkmLT2RwWA0ieGd3AwEemj6L4CUkfGEWXKiictgNIpambHw3faQ5MZegrUTIEfIQzA==}
+    hasBin: true
 
   '@isomorphic-git/idb-keyval@3.3.2':
     resolution: {integrity: sha512-r8/AdpiS0/WJCNR/t/gsgL+M8NMVj/ek7s60uz3LmpCaTF2mEVlZJlB01ZzalgYzRLXwSPC92o+pdzjM7PN/pA==}
@@ -2276,6 +2283,8 @@ snapshots:
       strip-ansi-cjs: strip-ansi@6.0.1
       wrap-ansi: 8.1.0
       wrap-ansi-cjs: wrap-ansi@7.0.0
+
+  '@isomorphic-git/cors-proxy@3.0.1': {}
 
   '@isomorphic-git/idb-keyval@3.3.2': {}
 
