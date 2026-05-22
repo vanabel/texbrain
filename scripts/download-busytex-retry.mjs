@@ -167,6 +167,10 @@ if (shouldUseCurl()) {
 }
 
 if (ok) {
+  spawnSync(process.execPath, ['scripts/patch-busytex-crossref.mjs'], {
+    cwd: root,
+    stdio: 'inherit'
+  });
   console.log('[download-busytex] done');
   process.exit(0);
 }

@@ -386,8 +386,12 @@ async function tryReadBblFromRunner(
 }
 
 /**
- * 使用 @vanabel/texlyre-busytex 的 PdfLaTeX + bibtex8 编译（多轮 pdflatex/bibtex）。
+ * 使用 @vanabel/texlyre-busytex 的 PdfLaTeX / XeLaTeX + bibtex8 编译。
  * 主稿在 BusyTeX 虚拟文件系统中固定为 `main.tex`，内容由入口文件内容提供。
+ *
+ * 流水线（`static/busytex/busytex_pipeline.js`，经 `scripts/patch-busytex-crossref.mjs` 修正）：
+ * - 需要文献：`xelatex` → `bibtex8` → `xelatex` ×2 → `xdvipdfmx`（**不是 biber**；WASM 无 biber）
+ * - 无文献：至少 `xelatex` ×2 → `xdvipdfmx`，以满足交叉引用
  */
 export async function compileWithBusyTexBibtex(
   mainFile: string,
