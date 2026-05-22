@@ -48,6 +48,7 @@ TeXbrain 应用由 [Braian Plaku](https://swimmingbrain.dev) 开创并推广。*
 - [部署到 GitHub Pages](#部署到-github-pages)
 - [本地运行](#本地运行)
 - [Cloudflare 缓存清理（BusyTeX）](#cloudflare-缓存清理busytex)
+- [BusyTeX：`ctex` 与 Adobe OTF 字体](#busytexctex-与-adobe-otf-字体)
 - [BusyTeX 字体覆盖（以 SWUThesis 为例）](#busytex-字体覆盖以-swuthesis-为例)
 - [PM2 部署](#pm2-部署)
 - [在 NAS 上更新部署](#在-nas-上更新部署)
@@ -275,6 +276,46 @@ curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge
 ```
 
 成功时 API 返回 JSON 里 `"success": true`。清完后建议浏览器对该站做一次 **强制刷新**（⌘+Shift+R / Ctrl+F5）。
+
+### BusyTeX：`ctex` 与 Adobe OTF 字体
+
+在 **BusyTeX（XeLaTeX）** 路径下，若不想使用 `ctex` 自带的 `fontset`（如 `fandol`），可关闭预设并自行指定本地 **Adobe OTF**。将字体文件放在主 `.tex` **同目录**（或通过 `Path` 指向专用目录），在导言区加入：
+
+```tex
+\documentclass[11pt,a4paper,fontset=none]{ctexart}
+
+% --- 宋体（正文）---
+\setCJKmainfont[
+  BoldFont       = AdobeHeitiStd-Regular.otf,
+  ItalicFont     = AdobeKaitiStd-Regular.otf,
+  BoldItalicFont = AdobeHeitiStd-Regular.otf
+]{AdobeSongStd-Light.otf}
+
+% --- 黑体（无衬线）---
+\setCJKsansfont{AdobeHeitiStd-Regular.otf}
+
+% --- 仿宋（等宽）---
+\setCJKmonofont{AdobeFangsongStd-Regular.otf}
+```
+
+说明：
+
+- **`fontset=none`**：不加载 `ctex` 默认中文字体集，避免与 `\setCJKmainfont` 等冲突。
+- **文件名**：与磁盘上的 OTF 文件名一致；也可用绝对路径，例如 `/home/user/fonts/AdobeSongStd-Light.otf`。
+- **粗斜体**：示例用黑体作 `BoldItalicFont` 回退；可按需要改成其他字体。
+- **字体目录**：若字体集中在单独文件夹，可为各 `\setCJK…font` 增加 `Path`（目录末尾建议带 `/`）：
+
+```tex
+\setCJKmainfont[
+  Path           = /home/vanabel/fonts/,
+  BoldFont       = AdobeHeitiStd-Regular.otf,
+  ItalicFont     = AdobeKaitiStd-Regular.otf,
+  BoldItalicFont = AdobeHeitiStd-Regular.otf
+]{AdobeSongStd-Light.otf}
+```
+
+- **编译**：需走 **BusyTeX / XeLaTeX**；默认 SwiftLaTeX（pdfTeX）路径不适用上述 `fontspec`/`xeCJK` 配置。
+- **TeXbrain**：把 `.otf` 放进当前工程目录（或子目录并写好 `Path`），与 `.tex` 一并被编译器读入；无需在服务器安装系统字体。
 
 ### BusyTeX 字体覆盖（以 SWUThesis 为例）
 

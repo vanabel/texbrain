@@ -48,6 +48,8 @@ I was tired of paying for basics. I wrote a thesis in LaTeX and fought the toolc
 - [Deploying to GitHub Pages](#deploying-to-github-pages)
 - [Running locally](#running-locally)
 - [Cloudflare cache purge (BusyTeX)](#cloudflare-cache-purge-busytex)
+- [BusyTeX: `ctex` with Adobe OTF fonts](#busytex-ctex-with-adobe-otf-fonts)
+- [BusyTeX font override (SWUThesis example)](#busytex-font-override-swuthesis-example)
 - [PM2 deployment](#pm2-deployment)
 - [Updating on a NAS (PM2 static host)](#updating-on-a-nas-pm2-static-host)
 - [Future roadmap (draft)](ROADMAP.md)
@@ -274,6 +276,66 @@ curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge
 ```
 
 Expect `"success": true` in the JSON response. Then hard-refresh the site in the browser (⌘+Shift+R / Ctrl+F5).
+
+### BusyTeX: `ctex` with Adobe OTF fonts
+
+On the **BusyTeX (XeLaTeX)** path, you can disable `ctex`’s bundled `fontset` (e.g. `fandol`) and point at local **Adobe OTF** files. Place the fonts next to your main `.tex` (or set `Path` to a dedicated folder) and add to the preamble:
+
+```tex
+\documentclass[11pt,a4paper,fontset=none]{ctexart}
+
+% --- Serif (Songti, body) ---
+\setCJKmainfont[
+  BoldFont       = AdobeHeitiStd-Regular.otf,
+  ItalicFont     = AdobeKaitiStd-Regular.otf,
+  BoldItalicFont = AdobeHeitiStd-Regular.otf
+]{AdobeSongStd-Light.otf}
+
+% --- Sans (Heiti) ---
+\setCJKsansfont{AdobeHeitiStd-Regular.otf}
+
+% --- Monospace (Fangsong) ---
+\setCJKmonofont{AdobeFangsongStd-Regular.otf}
+```
+
+Notes:
+
+- **`fontset=none`** — skips `ctex`’s default CJK font bundle so `\setCJKmainfont` / `\setCJKsansfont` / `\setCJKmonofont` take effect.
+- **File names** — must match the OTF on disk; absolute paths work (e.g. `/home/user/fonts/AdobeSongStd-Light.otf`).
+- **Bold italic** — the sample uses Heiti as a fallback for `BoldItalicFont`; adjust as needed.
+- **Font directory** — when fonts live in one folder, add `Path` (trailing `/` recommended):
+
+```tex
+\setCJKmainfont[
+  Path           = /home/vanabel/fonts/,
+  BoldFont       = AdobeHeitiStd-Regular.otf,
+  ItalicFont     = AdobeKaitiStd-Regular.otf,
+  BoldItalicFont = AdobeHeitiStd-Regular.otf
+]{AdobeSongStd-Light.otf}
+```
+
+- **Engine** — requires **BusyTeX / XeLaTeX**; the default SwiftLaTeX (pdfTeX) path does not use this `fontspec` / `xeCJK` setup.
+- **TeXbrain** — copy `.otf` files into the project (or a subfolder with `Path`); the compiler reads them from the workspace—no server-side font install.
+
+### BusyTeX font override (SWUThesis example)
+
+If a template already defines `\youyuan` (or similar), `\newCJKfontfamily\youyuan` may fail with *already defined*; `\renewCJKfontfamily` may be missing in some runs. Register a new family and remap the command instead.
+
+With `YouYuan.ttf` beside the main file (e.g. `swuthesis-main.tex`):
+
+```tex
+\usepackage{xeCJK}
+\IfFileExists{YouYuan.ttf}{
+  \setCJKfamilyfont{yy}{YouYuan.ttf}
+  \renewcommand{\youyuan}{\CJKfamily{yy}}
+}{
+  \typeout{[FONT] YouYuan.ttf not found, keep default \string\youyuan}
+}
+```
+
+- Does not change `ctex` main fonts—only `\youyuan`.
+- Compile with **XeLaTeX**.
+- For `fonts/YouYuan.ttf`: `\setCJKfamilyfont{yy}[Path=./fonts/,Extension=.ttf]{YouYuan}`.
 
 ## PM2 deployment
 
