@@ -15,6 +15,14 @@ This document is used to:
 
 ## Current priorities (2026)
 
+### Recently shipped (editor)
+
+- Tabbed sidebar: **Files**, **Outline** (section tree + `\input` / `\include`), **References** (citation keys + numbered equations)
+- Click-to-jump and Ctrl/⌘+click-to-insert for cites and equations; project-wide `\cite{…}` / `\eqref{…}` autocomplete
+- BusyTeX: second XeLaTeX pass for cross-references; SyncTeX / PDF viewer robustness improvements in the same release line
+
+Still open: `\label` / `\ref` browsing, rename/refactor across files, and error-list linkage.
+
 ### P0: Stability and predictability
 
 - compile-target consistency in multi-main-file projects (Active Tab / Entry Point)
@@ -27,13 +35,13 @@ This document is used to:
 - improve capability boundaries and hints for BibTeX / biblatex / biber
 - incremental compile and caching strategy for larger projects
 - stronger templates/scaffolds (thesis, journal, Chinese writing)
-- label/ref/cite navigation and safer rename flow for `\input` / `\include`
+- `\label` / `\ref` navigation and safer rename flow for `\input` / `\include` (cite/equation browse + jump largely covered by the sidebar **References** tab)
 
 ### P2: Editing experience enhancements
 
 - Vim mode (start with core behavior, then move toward vimtex-like workflows)
 - more configurable command palette and keybindings
-- structure-aware navigation (outline, symbols, error linkage)
+- structure-aware navigation beyond the shipped **Outline** tab (symbols, `\ref` targets, error linkage)
 - extensible snippets and completion patterns
 
 ## Mid-/long-term exploration
@@ -70,7 +78,7 @@ Expected to be iterative work over multiple months.
 ## Suggested rolling milestones
 
 - M1 (~1-2 months): stabilize compile target behavior, improve observability
-- M2 (~2-3 months): stronger editing workflows (navigation/ref/template)
+- M2 (~2-3 months): stronger editing workflows (remaining ref/label tooling, templates)
 - M3 (~3-6 months): Vim phase 1 + better collaboration capabilities
 - M4 (long term): extensibility/plugin ecosystem
 

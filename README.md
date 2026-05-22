@@ -39,21 +39,11 @@ I was tired of paying for basics. I wrote a thesis in LaTeX and fought the toolc
 - [About this fork](#about-this-fork)
 - [What it does](#what-it-does)
 - [Features](#features)
-- [SyncTeX (editor ↔ PDF)](#synctex-editor--pdf)
-- [How it works](#how-it-works)
-- [Security & privacy](#security--privacy)
-- [Template repos & Git (user guidance)](#template-repos--git-user-guidance)
-- [Tech stack](#tech-stack)
-- [BibTeX example (English / Chinese)](#bibtex-example-english--chinese)
-- [Deploying to GitHub Pages](#deploying-to-github-pages)
-- [Running locally](#running-locally)
-- [Cloudflare cache purge (BusyTeX)](#cloudflare-cache-purge-busytex)
-- [BusyTeX: `ctex` with Adobe OTF fonts](#busytex-ctex-with-adobe-otf-fonts)
-- [BusyTeX font override (SWUThesis example)](#busytex-font-override-swuthesis-example)
-- [PM2 deployment](#pm2-deployment)
-- [Updating on a NAS (PM2 static host)](#updating-on-a-nas-pm2-static-host)
-- [Future roadmap (draft)](ROADMAP.md)
-- [Browser support](#browser-support)
+- [Editor sidebar](#editor-sidebar-files-outline-references)
+- [SyncTeX](#synctex-editor--pdf)
+- [BibTeX example](#bibtex-example-english--chinese)
+- [Documentation](#documentation)
+- [Quick start (local)](#quick-start-local)
 - [License](#license)
 
 ---
@@ -70,148 +60,62 @@ Open a folder, edit, preview PDF, commit, push to GitHub—**from one tab**.
 
 | | |
 | --- | --- |
-| **Compile in-browser** | WebAssembly TeX. Default: [SwiftLaTeX](https://github.com/SwiftLaTeX/SwiftLaTeX) pdfTeX. Optional [BusyTeX](https://github.com/TeXlyre/texlyre-busytex) (`texlyre-busytex`) for real **BibTeX** when your project uses classic `\bibliography` / `\bibliographystyle` or biblatex with `backend=bibtex`. **Important:** TeXLive cache warmup applies to the SwiftLaTeX (pdfTeX) path, not the BusyTeX XeLaTeX path. |
-| **PDF preview** | **Dev:** [pdf.js](https://mozilla.github.io/pdf.js/) (multi-page, zoom, selection). **Default production build:** native browser PDF in an `<iframe>` (stable on some static hosts). **Optional:** set **`VITE_PDF_VIEWER=pdfjs`** at **build time** to use pdf.js in production too (needed for **SyncTeX** in the preview pane). With that flag, **production** loads pdf.js **CMap** and **standard 14 fonts** from **[jsDelivr](https://www.jsdelivr.com/)** (same `pdfjs-dist` version as the bundled worker) so CJK and **`pnpm preview`** match **`pnpm dev`** without depending on MIME rules for hashed `.bcmap` under `/_app/immutable/`. **Air-gapped:** set **`VITE_PDFJS_LOCAL_PDF_ASSETS=1`** at build time to keep those files bundled. See [PDF.js production preview](#pdfjs-production-preview) below. |
+| **Compile in-browser** | WebAssembly TeX. Default: [SwiftLaTeX](https://github.com/SwiftLaTeX/SwiftLaTeX) pdfTeX. Optional [BusyTeX](https://github.com/TeXlyre/texlyre-busytex) for real **BibTeX** when your project uses classic `\bibliography` / `\bibliographystyle` or biblatex with `backend=bibtex`. |
+| **PDF preview** | **Dev:** [pdf.js](https://mozilla.github.io/pdf.js/). **Default production:** native browser PDF. Optional **`VITE_PDF_VIEWER=pdfjs`** at build time for pdf.js + **SyncTeX** in the preview. Details: [FAQ — SyncTeX & PDF.js](docs/en/faq.md#synctex-editor--pdf). |
 | **Git** | Clone, branch, stage, commit, push, pull, merge via [isomorphic-git](https://isomorphic-git.org/)—no CLI. |
 | **Local files** | [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API) on Chromium—read/write your disk folder. |
 | **Projects** | Tree, tabs, drag-and-drop; `.tex`, `.bib`, `.sty`, `.cls`, and more. |
-| **Editor** | CodeMirror 6—highlighting, 70+ command completions, folding, snippets, themes. |
+| **Sidebar** | **Files**, **Outline** (sections + `\input` / `\include`), **References** (cites + numbered equations). **Ctrl+B** toggles the sidebar. |
+| **Editor** | CodeMirror 6—highlighting, completions, folding, snippets, themes. Project-wide `\cite{…}` / `\eqref{…}` completion from `.bib` / `.bbl` and equation labels. |
 | **Palette & snippets** | Command palette; searchable math/env snippets. |
 | **Offline** | After load, editing and compilation work without the network. |
 | **Templates** | Article, thesis, beamer, report, CV, letter, minimal. |
-| **SyncTeX** | After a compile that produces `.synctex.gz` (e.g. **BusyTeX XeLaTeX**, or SwiftLaTeX pdfTeX when enabled): **double-click the editor** to scroll the PDF toward the cursor; **Ctrl+click** (Windows/Linux) or **⌘+click** (macOS) on the **pdf.js** preview to jump to the matching `.tex` line. Hints also appear in the **status bar** next to Entry/Target. **Why native PDF has no SyncTeX:** the built-in viewer runs inside an opaque plugin surface—TeXbrain cannot read click positions or scroll to a SyncTeX box there. **Default production** uses that native viewer, so preview SyncTeX is off unless you rebuild with **`VITE_PDF_VIEWER=pdfjs`** (same as `pnpm dev` behavior for the preview). |
+| **SyncTeX** | Double-click editor → PDF; Ctrl/⌘+click PDF → source (**pdf.js** preview). See [FAQ](docs/en/faq.md#synctex-editor--pdf). |
+
+---
+
+## Editor sidebar (files, outline, references)
+
+The left sidebar has three tabs (**Ctrl+B**):
+
+| Tab | What it shows |
+| --- | --- |
+| **Files** | Project file tree. |
+| **Outline** | `\part` … `\subparagraph` from the **active** `.tex`, including `\input` / `\include`. Click to jump. |
+| **References** | Citation keys (`.bib` / `.bbl`) and numbered equations (from **entry** `.tex` + includes; skipped when the project has more than 120 `.tex` paths). |
+
+- **Click** a key or equation number → jump to source.
+- **Ctrl+click** / **⌘+click** → insert `\cite{key}` or `\eq{number}`.
 
 ---
 
 ## SyncTeX (editor ↔ PDF)
 
-When the compiler returns SyncTeX data, TeXbrain keeps it **in memory** for the current session (no extra disk write). Parsing uses the gzip payload from **BusyTeX** (`result.synctex`) or, on the SwiftLaTeX path, `.synctex.gz` read from the engine MEMFS when present.
+**Double-click** the editor to scroll the PDF toward the cursor; **Ctrl+click** (Windows/Linux) or **⌘+click** (macOS) on the **pdf.js** preview to open the matching `.tex` line. Default production builds use the native PDF viewer, so preview SyncTeX needs **`VITE_PDF_VIEWER=pdfjs`** at build time.
 
-- **Forward (source → PDF):** after a successful compile, the preview scrolls using SyncTeX when possible; **double-click** the editor pane to jump again without recompiling.
-- **Inverse (PDF → source):** **Ctrl** or **⌘** + **primary click** on the rendered page (**pdf.js** path only).
-- **Hosted sites:** run **`VITE_PDF_VIEWER=pdfjs pnpm build`** (and redeploy). For GitHub Actions, set repository variable **`VITE_PDF_VIEWER`** to `pdfjs` (see `.github/workflows/deploy.yml`).
-- **Collaboration:** guests who receive only the remote PDF do **not** receive SyncTeX blobs; inverse/forward from SyncTeX apply to **local** compiles with synctex data.
-
-### PDF.js production preview
-
-When you build with **`VITE_PDF_VIEWER=pdfjs`**, the preview pane uses pdf.js in **production** the same way as in dev. CMap and standard-font files are loaded from **jsDelivr** (`pdfjs-dist@<same version as your lockfile>`), which avoids broken CJK / `translateFont` issues that can appear with **`pnpm preview`** or some static hosts when those binaries are served only from hashed `/_app/immutable/assets/*.bcmap` (e.g. empty `Content-Type`).
-
-- **Sanity check:** `VITE_PDF_VIEWER=pdfjs pnpm build` then **`pnpm preview`** — Chinese and other CID fonts should render if the browser can reach **cdn.jsdelivr.net**.
-- **Offline / air-gapped:** set **`VITE_PDFJS_LOCAL_PDF_ASSETS=1`** (or `true` / `yes`) at **build time** to bundle cmap/pfb from `pdfjs-dist` and load them from your origin instead.
-- **Optional overrides:** **`VITE_PDFJS_CMAP_URL`**, **`VITE_PDFJS_STANDARD_FONT_URL`** — base directories for cmap / `standard_fonts` (trailing slash optional; resolved against the page URL when relative).
-- **Optional:** **`VITE_PDF_DISABLE_FONT_FACE=true`** — force pdf.js’s non–`FontFace` canvas path (only if you hit a rare host/browser font issue).
+Full details, env vars, and hosting notes: **[FAQ — SyncTeX](docs/en/faq.md#synctex-editor--pdf)**.
 
 ---
 
 ## BibTeX example (English / Chinese)
 
-This repo includes a small **bilingual BibTeX + MetaPost** layout under [`examples/bibtex-metapost-english-chinese/`](examples/bibtex-metapost-english-chinese/README.md) (e.g. `gbt7714` vs `amsrefs` / `amsrn.bst`, plus a MetaPost sample). **In the web app:** welcome screen → **Clone Repository** → **Use official TeXbrain repo (BibTeX EN/ZH example)** — or paste `https://github.com/vanabel/texbrain.git`. After clone, open the `.tex` you want under `examples/bibtex-metapost-english-chinese/English-bibtex/` or `.../Chinese-bibtex/` and compile (**Active tab** or set **Entry** to that file). Classic BibTeX needs **BusyTeX** on the deployment (`pnpm run download-busytex`). Details: [examples/bibtex-metapost-english-chinese/README.md](examples/bibtex-metapost-english-chinese/README.md).
-
-> Known issue: in some BusyTeX runs, `cleveref` (`\cref` / `\Cref`) may fail with errors like `Extra \endcsname`.
-> The `Chinese-biblatex` example includes a BusyTeX-only fallback: when `\BUSYTEX` is defined, it maps `\cref/\Cref` to `\autoref`; local TeX keeps native `cleveref`.
-> For `biblatex` with `backend=bibtex` (BusyTeX bibtex8 path), please provide `sortname` for non-Latin author names to avoid unstable name hash/initial generation. Example: `author = {{周志华}}, sortname = {Zhou, Zhihua}`.
+Sample project: [`examples/bibtex-metapost-english-chinese/`](examples/bibtex-metapost-english-chinese/README.md). In the app: welcome screen → **Clone Repository** → **Use official TeXbrain repo (BibTeX EN/ZH example)**. Classic BibTeX needs **BusyTeX** on the host (`pnpm run download-busytex`). Known issues (`cleveref`, `sortname`): **[FAQ — BibTeX](docs/en/faq.md#bibtex--bibliographies)**.
 
 ---
 
-## Deploying to GitHub Pages
+## Documentation
 
-The included workflow (`.github/workflows/deploy.yml`) builds and publishes the `build/` folder. **Do this first:** enable Pages and choose **GitHub Actions** as the source, or the deploy job fails with **404 / Not Found** when creating the deployment.
-
-1. **Pages (required):** Repository **Settings → Pages → Build and deployment → Source: GitHub Actions**. Save. If you previously used **Deploy from a branch**, switch to **GitHub Actions** (only one source applies). Then re-run the workflow (Actions tab → failed run → **Re-run all jobs**, or use **workflow_dispatch** if available).
-
-2. **GitHub repository → Settings → Secrets and variables → Actions → Variables** (or **Repository variables**) — optional but recommended so canonical URLs match your site:
-   - **`PUBLIC_SITE_ORIGIN`** — Scheme + host only, **no trailing slash**, e.g. `https://yourname.github.io` for GitHub-hosted sites, or `https://tex.example.com` for a custom domain at the site root.
-   - **`BASE_PATH`** — If the app is served under a subpath (typical GitHub **project** Pages: `https://yourname.github.io/repo-name/`), set `BASE_PATH` to `/repo-name` (leading slash). For a **user/org** site at the domain root or a custom domain with no subpath, leave **`BASE_PATH` unset** or empty.
-   - **`VITE_PDF_VIEWER`** (optional) — Set to `pdfjs` if you want the production preview to use pdf.js (SyncTeX in the preview pane); omit for the default native PDF viewer.
-   - **`VITE_PDFJS_LOCAL_PDF_ASSETS`** (optional) — Set to `1` / `true` / `yes` if the build must **not** fetch cmap / standard fonts from jsDelivr (offline or strict CSP). Omit for the default (jsDelivr in production when `VITE_PDF_VIEWER=pdfjs`).
-   - **`VITE_PDFJS_CMAP_URL`** / **`VITE_PDFJS_STANDARD_FONT_URL`** (optional) — Override cmap / standard-font base URLs (see [PDF.js production preview](#pdfjs-production-preview)).
-   - **`VITE_PDF_DISABLE_FONT_FACE`** (optional) — Set to `true` to force pdf.js’s non–`FontFace` rendering path.
-
-   **Where to define them:** The workflow’s **build** job uses `${{ vars.* }}` but does **not** attach to the `github-pages` **environment**, so these values must live under **Actions → Variables** at **repository** (or organization) scope. Variables defined **only** under **Settings → Environments → github-pages** are **not** visible to `pnpm build`. The workflow reads `PUBLIC_SITE_ORIGIN` from **`vars` only** (not `secrets`); use a **repository variable** for that public URL—avoid duplicating the same name as both a secret and a variable.
-
-3. Optional: edit `static/sitemap.xml` and `static/robots.txt` so `Sitemap:` and `<loc>` match your public URL.
-
-4. **BusyTeX** (BibTeX in the browser): the workflow **downloads assets before `pnpm build`** (`pnpm run download-busytex:force` with `BUSYTEX_USE_CURL=1` for curl + retries—same files as `download-busytex`), with an **Actions cache** on `static/busytex` keyed by `pnpm-lock.yaml` so unchanged lockfiles skip the ~175 MB download. A **shell `test -f`** gate (not `hashFiles` on gitignored paths) decides whether to download; the next step **fails the job** if `busytex.js` is still missing. To ship without BusyTeX, remove or gate those steps in your fork.
-
-   **Troubleshooting (project Pages, e.g. `…/texbrain/`):** If the app requests `…/texbrain/busytex/busytex.js` but gets **404**, the deployed `build/` was produced **without** `static/busytex/` on disk—check the Actions log for the download step. Set **`BASE_PATH`** to your repo subpath (e.g. `/texbrain`) so client URLs and output layout match. If Chrome warns about **manifest icon** loading `https://<user>.github.io/favicon.svg`, the manifest must use **relative** `icons[].src` / `start_url` (not leading `/`) so they resolve under the subpath—see `static/manifest.json` in this repo.
+| Guide | English | 中文 |
+| --- | --- | --- |
+| Index | [docs/README.md](docs/README.md) | [docs/README.zh-CN.md](docs/README.zh-CN.md) |
+| Technical (architecture, stack, privacy) | [docs/en/technical.md](docs/en/technical.md) | [docs/zh-CN/technical.md](docs/zh-CN/technical.md) |
+| Deployment (local, Pages, PM2, NAS, CDN) | [docs/en/deployment.md](docs/en/deployment.md) | [docs/zh-CN/deployment.md](docs/zh-CN/deployment.md) |
+| FAQ (SyncTeX, BusyTeX, fonts, troubleshooting) | [docs/en/faq.md](docs/en/faq.md) | [docs/zh-CN/faq.md](docs/zh-CN/faq.md) |
+| Roadmap | [ROADMAP.md](ROADMAP.md) | [ROADMAP.zh-CN.md](ROADMAP.zh-CN.md) |
 
 ---
 
-## How it works
-
-**Editor.** [CodeMirror 6](https://codemirror.net/) + custom LaTeX grammar (Lezer), autocomplete, themes. Tabs sync with the local folder and the in-memory git tree.
-
-**Compiler—two backends, auto-selected:**
-
-1. **[SwiftLaTeX](https://github.com/SwiftLaTeX/SwiftLaTeX)** pdfTeX (WASM) — default. MEMFS for project files; TexLive cache from static assets on first compile; preprocessor for unsupported bits. Biblatex + **Biber** (typical default) stays here with a small bibliography workaround.
-
-2. **[BusyTeX](https://github.com/TeXlyre/texlyre-busytex)** ([`texlyre-busytex`](https://www.npmjs.com/package/texlyre-busytex)) — when BibTeX is required **and** `static/busytex/` is present. PdfLaTeX + bibtex8 pipeline. NPM ships only the JS API; large WASM assets are downloaded separately (upstream design).
-
-**Cache/download behavior at a glance:**
-
-- **SwiftLaTeX path (`pdfLaTeX`)** uses TeXLive cache (IndexedDB). First run may be slow; later runs are faster when cache persists.
-- **BusyTeX path (`XeLaTeX` / BusyTeX BibTeX pipeline)** does not use TeXbrain's TeXLive cache warmup path.
-- In browser **incognito/private mode**, storage is temporary, so large runtime downloads may repeat each session.
-
-**Compile target mode (top bar `Compile`).**
-
-- `Active Tab`: compile the currently focused `.tex` tab first, then fallback to entry point.
-- `Entry Point`: always compile the project entry file (`Entry: ...`).
-- The last resolved target is shown as `Target: ...` in the top bar.
-
-**Git.** [isomorphic-git](https://isomorphic-git.org/) + [LightningFS](https://github.com/isomorphic-git/lightning-fs) / IndexedDB. Remotes use a CORS proxy (browsers cannot speak git natively).
-
-**PDF.** [pdf.js](https://mozilla.github.io/pdf.js/).
-
-**Filesystem.** File System Access API on Chromium; **OPFS** fallback elsewhere.
-
-**App shell.** [SvelteKit](https://kit.svelte.dev/) static adapter + [Tailwind CSS 4](https://tailwindcss.com/)—static deploy (e.g. GitHub Pages), no SSR API.
-
----
-
-## Security & privacy
-
-Everything runs in your browser unless **you** push to a remote.
-
-- No telemetry, analytics, or tracking  
-- No accounts or cookies  
-- Git tokens: `localStorage` only—never a server we control  
-- LaTeX in WASM—no shell `pdflatex`, no `exec` / `spawn`  
-- Git is a JS library—no shell injection  
-- Default git CORS proxy: `cors.isomorphic-git.org` (replaceable)  
-- TeX/LaTeX are FOSS; this repo does not redistribute TeX sources  
-
----
-
-## Template repos & Git (user guidance)
-
-You can paste the following into your README / group announcement. It explains **what TeXbrain does and does not do**, and the **recommended workflow** (matter-of-fact, not alarmist):
-
-TeXbrain is **not** a “live-sync to the cloud” editor: your edits are saved to the **local project folder you picked** by default. Unless you configure credentials and explicitly **push**, your changes will **not** affect the template repository on GitHub.
-
-Do not treat the **upstream template** as your day-to-day working repo: **fork** it to your account and work on the fork; keep upstream read-only and pull updates when needed.
-
-If you must connect TeXbrain to GitHub in the browser: use a **read-only** token, or a **least-privilege** token; do not grant write access to a shared template repository.
-
-For thesis/class templates: prefer the maintainer’s **`online-texbrain`** branch for browser/TeXbrain compatibility (paths/resources are maintained against that branch). In TeXbrain, use the **SWUThesis** clone preset, or set **Branch** to `online-texbrain`.
-
----
-
-## Tech stack
-
-| Layer | Stack |
-| --- | --- |
-| UI | Svelte 5 + SvelteKit (static) |
-| Editor | CodeMirror 6 + LaTeX tooling |
-| Compile | SwiftLaTeX WASM; optional BusyTeX for BibTeX |
-| Git | isomorphic-git + LightningFS |
-| PDF | pdf.js |
-| Style | Tailwind CSS 4 |
-| Lang | TypeScript |
-
----
-
-## Running locally
+## Quick start (local)
 
 ```bash
 git clone https://github.com/vanabel/texbrain.git
@@ -221,174 +125,7 @@ pnpm exec svelte-kit sync
 pnpm dev
 ```
 
-Open **http://localhost:5173** in Chrome or Edge.
-
-### Optional: BusyTeX assets (BibTeX)
-
-`pnpm install` adds the **npm package** only. The **~175 MB** WASM / TeX Live bundle is **not** in the tarball—it is downloaded from [texlyre-busytex releases](https://github.com/TeXlyre/texlyre-busytex) into `static/busytex/`:
-
-```bash
-pnpm run download-busytex
-```
-
-Large downloads from GitHub may time out. After upgrading `@vanabel/texlyre-busytex`, refresh WASM with `pnpm run download-busytex:force` in a shell where **proxy env vars are already set** (e.g. your zsh `enable_proxy`); when `HTTPS_PROXY` / `ALL_PROXY` / `HTTP_PROXY` is set and `curl` exists, the script uses **curl** (proxy-aware, including SOCKS5). Set `BUSYTEX_USE_CURL=1` to force curl.
-
-Without it, SwiftLaTeX still works; classic BibTeX citation resolution needs this step. `static/busytex/` is gitignored—run locally or in CI before deploy if the hosted site should use BusyTeX.
-
-### Cloudflare cache purge (BusyTeX)
-
-**When to purge:** After you deploy new files under `static/busytex/` (WASM / JS / `.data`) and the site is behind **Cloudflare proxy (orange cloud)**, edges may keep serving old objects. After a normal `pnpm build` (SvelteKit `/_app/immutable/…` chunks), aggressive HTML or asset caching can also warrant a targeted purge or waiting for TTL.
-
-**Option A: Dashboard (no scripts)**
-
-1. Open [Cloudflare Dashboard](https://dash.cloudflare.com/) and select your **zone**.
-2. **Caching** → **Configuration**.
-3. Under **Purge Cache**:
-   - **Custom Purge** → **URL**: paste full URLs users hit (including `https://`), e.g. `https://your.domain/busytex/busytex.wasm`, etc.—good for BusyTeX-only updates.
-   - **Purge Everything**: clears the whole zone’s edge cache for that site; simplest but increases origin load briefly and evicts unrelated cached assets.
-
-**Option B: API (CI-friendly)**
-
-- **Zone ID**: **Overview** for the zone, right-hand **API** section.
-- **API Token**: avatar → **My Profile** → **API Tokens** → **Create Token**. Use template **“Cache Purge - Purge”**, or custom: **Zone** → **Cache Purge** → **Edit**.
-- Replace `https://tex.vanabel.cn/...` in the JSON with your **public site origin** (same host users type in the browser). If you also load `busytex_pipeline.js`, `busytex_worker.js`, etc., add those URLs to `files`, or use **purge by prefix** in the dashboard / API `prefixes` (e.g. `https://your.domain/busytex`) to drop everything under that path—confirm exact fields in Cloudflare’s API docs for your plan.
-
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-: "${CF_API_TOKEN:?need CF_API_TOKEN}"
-: "${CF_ZONE_ID:?need CF_ZONE_ID}"
-
-curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache" \
-  -H "Authorization: Bearer ${CF_API_TOKEN}" \
-  -H "Content-Type: application/json" \
-  --data '{
-    "files": [
-      "https://tex.vanabel.cn/busytex/busytex.js",
-      "https://tex.vanabel.cn/busytex/busytex.wasm",
-      "https://tex.vanabel.cn/busytex/texlive-basic.js",
-      "https://tex.vanabel.cn/busytex/texlive-basic.data",
-      "https://tex.vanabel.cn/busytex/texlive-extra.js",
-      "https://tex.vanabel.cn/busytex/texlive-extra.data"
-    ]
-  }' | jq .
-```
-
-Expect `"success": true` in the JSON response. Then hard-refresh the site in the browser (⌘+Shift+R / Ctrl+F5).
-
-### BusyTeX: `ctex` with Adobe OTF fonts
-
-On the **BusyTeX (XeLaTeX)** path, you can disable `ctex`’s bundled `fontset` (e.g. `fandol`) and point at local **Adobe OTF** files. Place the fonts next to your main `.tex` (or set `Path` to a dedicated folder) and add to the preamble:
-
-```tex
-\documentclass[11pt,a4paper,fontset=none]{ctexart}
-
-% --- Serif (Songti, body) ---
-\setCJKmainfont[
-  BoldFont       = AdobeHeitiStd-Regular.otf,
-  ItalicFont     = AdobeKaitiStd-Regular.otf,
-  BoldItalicFont = AdobeHeitiStd-Regular.otf
-]{AdobeSongStd-Light.otf}
-
-% --- Sans (Heiti) ---
-\setCJKsansfont{AdobeHeitiStd-Regular.otf}
-
-% --- Monospace (Fangsong) ---
-\setCJKmonofont{AdobeFangsongStd-Regular.otf}
-```
-
-Notes:
-
-- **`fontset=none`** — skips `ctex`’s default CJK font bundle so `\setCJKmainfont` / `\setCJKsansfont` / `\setCJKmonofont` take effect.
-- **File names** — must match the OTF on disk; absolute paths work (e.g. `/home/user/fonts/AdobeSongStd-Light.otf`).
-- **Bold italic** — the sample uses Heiti as a fallback for `BoldItalicFont`; adjust as needed.
-- **Font directory** — when fonts live in one folder, add `Path` (trailing `/` recommended):
-
-```tex
-\setCJKmainfont[
-  Path           = /home/vanabel/fonts/,
-  BoldFont       = AdobeHeitiStd-Regular.otf,
-  ItalicFont     = AdobeKaitiStd-Regular.otf,
-  BoldItalicFont = AdobeHeitiStd-Regular.otf
-]{AdobeSongStd-Light.otf}
-```
-
-- **Engine** — requires **BusyTeX / XeLaTeX**; the default SwiftLaTeX (pdfTeX) path does not use this `fontspec` / `xeCJK` setup.
-- **TeXbrain** — copy `.otf` files into the project (or a subfolder with `Path`); the compiler reads them from the workspace—no server-side font install.
-
-### BusyTeX font override (SWUThesis example)
-
-If a template already defines `\youyuan` (or similar), `\newCJKfontfamily\youyuan` may fail with *already defined*; `\renewCJKfontfamily` may be missing in some runs. Register a new family and remap the command instead.
-
-With `YouYuan.ttf` beside the main file (e.g. `swuthesis-main.tex`):
-
-```tex
-\usepackage{xeCJK}
-\IfFileExists{YouYuan.ttf}{
-  \setCJKfamilyfont{yy}{YouYuan.ttf}
-  \renewcommand{\youyuan}{\CJKfamily{yy}}
-}{
-  \typeout{[FONT] YouYuan.ttf not found, keep default \string\youyuan}
-}
-```
-
-- Does not change `ctex` main fonts—only `\youyuan`.
-- Compile with **XeLaTeX**.
-- For `fonts/YouYuan.ttf`: `\setCJKfamilyfont{yy}[Path=./fonts/,Extension=.ttf]{YouYuan}`.
-
-## PM2 deployment
-
-Use PM2 to host the static build with automatic restarts:
-
-```bash
-pnpm build
-pnpm pm2:start
-```
-
-`serve` is already included in this repo (`devDependencies`), so you **do not** need to run `pnpm add -D serve ...` on deployment machines. Just run `pnpm install` first.
-
-Default port is `4173` (from `ecosystem.config.cjs`). To change it per machine/user:
-
-```bash
-PORT=8080 pnpm pm2:restart
-```
-
-Useful commands:
-
-```bash
-pnpm pm2:logs
-pnpm pm2:stop
-pnpm pm2:delete
-```
-
-Enable startup on boot:
-
-```bash
-pm2 save
-pm2 startup
-```
-
-### Updating on a NAS (PM2 static host)
-
-TeXbrain on a NAS is usually a **git clone** + **`pnpm build`** + **PM2** serving the `build/` folder (same as [PM2 deployment](#pm2-deployment)). To roll out a new version (e.g. after merging SyncTeX or other changes):
-
-1. **SSH** into the NAS and `cd` to the project directory (the folder that contains `package.json`).
-2. **Pull** the latest code: `git fetch origin && git checkout main && git pull origin main` (adjust branch if you deploy from another branch).
-3. **Install deps:** `pnpm install`
-4. **BusyTeX (if you ship it on the NAS):** `pnpm run download-busytex` — only needed when `@vanabel/texlyre-busytex` or upstream assets changed, or if `static/busytex/` is missing on that machine.
-5. **Rebuild:** `pnpm build` — for **SyncTeX in the PDF preview** on this host, use `VITE_PDF_VIEWER=pdfjs pnpm build` instead (native iframe viewer cannot drive SyncTeX).
-6. **Restart PM2:** `pnpm pm2:restart` — or `PORT=8080 pnpm pm2:restart` if you override the port; confirm the app name in `ecosystem.config.cjs` if you use raw `pm2 restart <name>`.
-7. **Reverse proxy / CDN:** if you use Cloudflare and updated BusyTeX, follow [Cloudflare cache purge (BusyTeX)](#cloudflare-cache-purge-busytex); otherwise purge or shorten TTL for static assets as needed.
-8. **Browser:** do a **hard refresh** (e.g. Ctrl+F5 / ⌘+Shift+R) so clients load the new `/_app/immutable/...` chunks and updated `busytex/` URLs if applicable.
-
-No database or server-side migration is required—this app is static files plus optional BusyTeX assets under `static/`.
-
----
-
-## Browser support
-
-Full folder read/write needs the **File System Access API** (Chrome, Edge, Arc, Brave, Opera). Firefox and Safari can use the editor with a virtual FS fallback but not direct folder pickers.
+Open **http://localhost:5173** in Chrome or Edge. Optional BusyTeX: `pnpm run download-busytex`. Deploying to GitHub Pages, PM2, or a NAS: **[Deployment guide](docs/en/deployment.md)**.
 
 ---
 
