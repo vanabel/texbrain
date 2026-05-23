@@ -15,11 +15,11 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/bundle-bibtex-example-zip.mjs && vite dev",
-    "build": "node scripts/bundle-bibtex-example-zip.mjs && vite build",
+    "build": "node scripts/bundle-bibtex-example-zip.mjs && VITE_PDF_VIEWER=pdfjs vite build",
     "preview": "vite preview",
     "download-busytex": "texlyre-busytex download-assets ./static && node scripts/patch-busytex-crossref.mjs",
     "download-busytex:force": "node scripts/download-busytex-retry.mjs",
-    "serve:prod": "serve -s build -l ${PORT:-4173}",
+    "serve:prod": "serve -s build -l ${PORT:-19903}",
     "serve:cors-proxy": "cors-proxy run -p ${GIT_CORS_PROXY_PORT:-9999}",
     "pm2:start": "pm2 start ecosystem.config.cjs",
     "pm2:restart": "pm2 restart ecosystem.config.cjs --update-env",
