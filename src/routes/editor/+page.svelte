@@ -60,6 +60,10 @@
     SWUTHESIS_DEFAULT_BRANCH,
     SWUTHESIS_GITHUB_CLONE_URL
   } from '$lib/constants/swuthesis-repo';
+  import {
+    TEXBRAIN_ELEGANTBOOK_DEFAULT_PROJECT_NAME,
+    TEXBRAIN_ELEGANTBOOK_GITHUB_CLONE_URL
+  } from '$lib/constants/elegantbook-repo';
   import { readTextAtProjectPath, writeTextAtProjectPath } from '$lib/fs/project-path';
   import type { PdfSyncObject } from '$lib/synctex/parse-synctex';
   import {
@@ -1393,6 +1397,13 @@
     cloneExamplesOnly = false;
   }
 
+  function fillElegantbookClone() {
+    cloneUrl = TEXBRAIN_ELEGANTBOOK_GITHUB_CLONE_URL;
+    cloneName = TEXBRAIN_ELEGANTBOOK_DEFAULT_PROJECT_NAME;
+    cloneBranch = '';
+    cloneExamplesOnly = false;
+  }
+
   async function handleLoadBundledBibtexExample() {
     const name = prompt(uiMsg().promptFolderName, 'bibtex-metapost-english-chinese');
     if (!name?.trim()) return;
@@ -1855,6 +1866,7 @@
                     <div class="clone-preset-list">
                       <button type="button" class="clone-preset-btn" on:click={fillTexbrainCloneForExamples}>{E.clonePresetExamples}</button>
                       <button type="button" class="clone-preset-btn" on:click={fillSwuthesisClone}>{E.clonePresetSwuthesis}</button>
+                      <button type="button" class="clone-preset-btn" on:click={fillElegantbookClone}>{E.clonePresetElegantbook}</button>
                     </div>
                   </div>
                   <div class="clone-field">

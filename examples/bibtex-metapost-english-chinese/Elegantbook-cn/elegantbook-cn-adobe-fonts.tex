@@ -1,0 +1,50 @@
+% Shared Adobe OTF setup for ElegantBook (cn + nofont).
+% Place the four Adobe *.otf files next to the main .tex (or under ./fonts/).
+% Do NOT bundle tex-gyre-termes.*.otf here: elegantbook already selects
+% TeXGyreTermesX (BusyTeX / TeX Live). Those legacy filenames are ignored.
+
+\providecommand{\ElegantbookCnFontPath}{}
+\IfFileExists{./fonts/AdobeSongStd-Light.otf}{%
+  \renewcommand{\ElegantbookCnFontPath}{./fonts/}%
+}{%
+  \IfFileExists{fonts/AdobeSongStd-Light.otf}{%
+    \renewcommand{\ElegantbookCnFontPath}{fonts/}%
+  }{}%
+}
+
+\newcommand{\ElegantbookCnRequireAdobe}{%
+  \IfFileExists{\ElegantbookCnFontPath AdobeSongStd-Light.otf}{%
+    \setCJKmainfont[
+      Path=\ElegantbookCnFontPath,
+      BoldFont=AdobeHeitiStd-Regular.otf,
+      ItalicFont=AdobeKaitiStd-Regular.otf,
+      BoldItalicFont=AdobeHeitiStd-Regular.otf
+    ]{AdobeSongStd-Light.otf}
+    \setCJKsansfont[Path=\ElegantbookCnFontPath]{AdobeHeitiStd-Regular.otf}
+    \setCJKmonofont[Path=\ElegantbookCnFontPath]{AdobeFangsongStd-Regular.otf}
+    \setCJKfamilyfont{zhsong}[
+      Path=\ElegantbookCnFontPath,
+      BoldFont=AdobeHeitiStd-Regular.otf,
+      ItalicFont=AdobeKaitiStd-Regular.otf
+    ]{AdobeSongStd-Light.otf}
+    \setCJKfamilyfont{zhhei}[Path=\ElegantbookCnFontPath]{AdobeHeitiStd-Regular.otf}
+    \setCJKfamilyfont{zhkai}[
+      Path=\ElegantbookCnFontPath,
+      BoldFont=AdobeHeitiStd-Regular.otf
+    ]{AdobeKaitiStd-Regular.otf}
+    \setCJKfamilyfont{zhfs}[
+      Path=\ElegantbookCnFontPath,
+      BoldFont=AdobeHeitiStd-Regular.otf
+    ]{AdobeFangsongStd-Regular.otf}
+    \newcommand*{\songti}{\CJKfamily{zhsong}}
+    \newcommand*{\heiti}{\CJKfamily{zhhei}}
+    \newcommand*{\kaishu}{\CJKfamily{zhkai}}
+    \newcommand*{\fangsong}{\CJKfamily{zhfs}}
+  }{%
+    \PackageError{elegantbook-cn}{%
+      Adobe OTF fonts not found. Copy AdobeSongStd-Light.otf, AdobeHeitiStd-Regular.otf,%
+      AdobeKaitiStd-Regular.otf, and AdobeFangsongStd-Regular.otf into the project%
+      directory or ./fonts/. See Elegantbook-cn/fonts/README.md.}{}%
+  }%
+}
+\ElegantbookCnRequireAdobe

@@ -2,6 +2,7 @@
 #   make pdf              # default: English-bibtex
 #   make pdf MODE=chinese # Chinese-bibtex
 #   make pdf MODE=chinese-biblatex # Chinese-biblatex
+#   make pdf MODE=elegantbook-cn   # Elegantbook-cn (XeLaTeX)
 #
 # Or: make switch MODE=chinese && cd active && latexmk -pdf ...
 
@@ -16,14 +17,21 @@ else ifeq ($(MODE),chinese-biblatex)
 else ifeq ($(MODE),english)
   BIB_DIR := English-bibtex
   MAIN ?= test-arxiv.tex
+else ifeq ($(MODE),elegantbook-cn)
+  BIB_DIR := Elegantbook-cn
+  MAIN ?= elegantbook-cn-adobe.tex
 else
-  $(error MODE must be "english", "chinese", or "chinese-biblatex", got "$(MODE)")
+  $(error MODE must be "english", "chinese", "chinese-biblatex", or "elegantbook-cn", got "$(MODE)")
 endif
 
 .PHONY: pdf clean switch
 
 pdf:
+ifeq ($(MODE),elegantbook-cn)
+	cd "$(BIB_DIR)" && latexmk -xelatex -interaction=nonstopmode "$(MAIN)"
+else
 	cd "$(BIB_DIR)" && latexmk -pdf -interaction=nonstopmode "$(MAIN)"
+endif
 
 clean:
 	cd "$(BIB_DIR)" && latexmk -c 2>/dev/null || true

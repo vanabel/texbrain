@@ -135,6 +135,7 @@ export type EditorUi = {
   labelRepoUrl: string;
   clonePresetExamples: string;
   clonePresetSwuthesis: string;
+  clonePresetElegantbook: string;
   labelCloneBranch: string;
   cloneBranchPlaceholder: string;
   labelProjectName: string;
@@ -343,6 +344,7 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     labelRepoUrl: 'Repository URL',
     clonePresetExamples: 'Use official TeXbrain repo (BibTeX + MetaPost EN/ZH example)',
     clonePresetSwuthesis: 'Use SWUThesis (branch online-texbrain)',
+    clonePresetElegantbook: 'Use texbrain-elegantbook (ElegantBook CN + BusyTeX fonts)',
     labelCloneBranch: 'Branch or tag (optional)',
     cloneBranchPlaceholder: 'e.g. main, online-texbrain — leave empty for default',
     labelProjectName: 'Project Name',
@@ -545,6 +547,7 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     labelRepoUrl: '仓库地址',
     clonePresetExamples: '使用官方 TeXbrain 仓库（中英 BibTeX + MetaPost 示例）',
     clonePresetSwuthesis: '使用 SWUThesis（分支 online-texbrain）',
+    clonePresetElegantbook: '使用 texbrain-elegantbook（ElegantBook 中文 + BusyTeX 字体）',
     labelCloneBranch: '分支或标签（可选）',
     cloneBranchPlaceholder: '如 main、online-texbrain — 留空则使用默认分支',
     labelProjectName: '工程名称',

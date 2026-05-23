@@ -1,0 +1,25 @@
+% !TeX program = xelatex
+% Smoke test: ElegantBook + cn without local Adobe fonts (Fandol via ctexfont).
+% Use this in CI / when OTF files are not copied yet.
+
+\documentclass[11pt,a4paper,cn,ctexfont]{elegantbook}
+
+\usepackage{hyperref}
+\usepackage{cleveref}
+
+\ifdefined\BUSYTEX
+  \AtBeginDocument{%
+    \let\cref\autoref
+    \let\Cref\autoref
+  }
+\fi
+
+\title{ElegantBook 中文冒烟测试}
+\author{TeXbrain}
+\date{\today}
+
+\begin{document}
+\maketitle
+\chapter{测试}
+中文正文与公式 $E=mc^2$ 应能正常输出。
+\end{document}

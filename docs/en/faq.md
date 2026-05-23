@@ -78,6 +78,8 @@ Notes:
 - **Engine** — requires **BusyTeX / XeLaTeX**; SwiftLaTeX (pdfTeX) does not use this `fontspec` / `xeCJK` setup.
 - **TeXbrain** — copy `.otf` files into the project; no server-side font install.
 
+**ElegantBook sample:** [`Elegantbook-cn/`](../../examples/bibtex-metapost-english-chinese/Elegantbook-cn/) — use `\documentclass[...,cn,nofont,bibtex]{elegantbook}`, `\input{elegantbook-cn-adobe-fonts.tex}`, **XeLaTeX**. BusyTeX WASM often lacks **TeXGyreTermesX** from `newtx`; run `./setup-fonts.sh --latin` into `fonts/` (from system paths such as `.../newtx` and `.../tex-gyre`). Adobe CJK: `./setup-fonts.sh --adobe`. Avoid the `newtx` math class option. Test: `pnpm run test:elegantbook-cn`.
+
 ---
 
 ## BusyTeX font override (SWUThesis example)

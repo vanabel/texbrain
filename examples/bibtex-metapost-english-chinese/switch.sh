@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Link ./active -> Chinese-bibtex / Chinese-biblatex / English-bibtex.
-# Usage: ./switch.sh chinese | ./switch.sh chinese-biblatex | ./switch.sh english
+# Usage: ./switch.sh chinese | ./switch.sh chinese-biblatex | ./switch.sh english | ./switch.sh elegantbook-cn
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT"
@@ -16,8 +16,11 @@ case "$mode" in
   english|en)
     target="English-bibtex"
     ;;
+  elegantbook-cn|elegantbook)
+    target="Elegantbook-cn"
+    ;;
   *)
-    echo "Usage: $0 {chinese|chinese-biblatex|english}" >&2
+    echo "Usage: $0 {chinese|chinese-biblatex|english|elegantbook-cn}" >&2
     exit 1
     ;;
 esac

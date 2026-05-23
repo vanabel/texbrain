@@ -1,0 +1,63 @@
+%%
+%% This is file `uornementsadf.fd',
+%% generated with the docstrip utility.
+%%
+%% The original source files were:
+%%
+%% adforn.dtx  (with options: `fd')
+%% 
+%% Copyright (C) 2024 Clea F. Rees.
+%% 
+%% This work may be distributed and/or modified under the
+%% conditions of the LaTeX Project Public License, either version 1.3c
+%% of this license or (at your option) any later version.
+%% The latest version of this license is in
+%%   https://www.latex-project.org/lppl.txt
+%% and version 1.3c or later is part of all distributions of LaTeX
+%% version 2008-05-04 or later.
+%% 
+%% This work has the LPPL maintenance status `maintained'.
+%% 
+%% The Current Maintainer of this work is Clea F. Rees.
+%% 
+%% This file may only be distributed together with a copy of the package
+%% fontscripts. You may however distribute the package fontscripts without
+%% such generated files.
+%% 
+%% This work consists of all files listed in manifest.txt.
+%% 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\ProvidesFile{uornements.fd}[v1.2 2024/09/29 font definitions for U/OrnementsADF.]
+  \expandafter\ifx\csname adforn@scale\endcsname\relax
+    \let\adforn@@scale\@empty
+  \else
+    \edef\adforn@@scale{s*[\csname adforn@scale\endcsname]}%
+  \fi
+\DeclareFontFamily{U}{OrnementsADF}{}
+\DeclareFontShape{U}{OrnementsADF}{m}{n}{
+  <-> \adforn@@scale OrnementsADF
+}{}
+\DeclareFontShape{U}{OrnementsADF}{m}{sc}{<->ssub * OrnementsADF/m/n}{}
+\DeclareFontShape{U}{OrnementsADF}{m}{it}{<->ssub * OrnementsADF/m/sc}{}
+\DeclareFontShape{U}{OrnementsADF}{m}{sl}{<->ssub * OrnementsADF/m/it}{}
+\DeclareFontShape{U}{OrnementsADF}{m}{si}{<->ssub * OrnementsADF/m/sl}{}
+\DeclareFontShape{U}{OrnementsADF}{m}{scit}{<->ssub * OrnementsADF/m/si}{}
+\DeclareFontShape{U}{OrnementsADF}{m}{scsl}{<->ssub * OrnementsADF/m/scit}{}
+\DeclareFontShape{U}{OrnementsADF}{b}{n}{<->ssub * OrnementsADF/m/scsl}{}
+\DeclareFontShape{U}{OrnementsADF}{b}{sc}{<->ssub * OrnementsADF/b/n}{}
+\DeclareFontShape{U}{OrnementsADF}{b}{it}{<->ssub * OrnementsADF/b/sc}{}
+\DeclareFontShape{U}{OrnementsADF}{b}{sl}{<->ssub * OrnementsADF/b/it}{}
+\DeclareFontShape{U}{OrnementsADF}{b}{si}{<->ssub * OrnementsADF/b/sl}{}
+\DeclareFontShape{U}{OrnementsADF}{b}{scit}{<->ssub * OrnementsADF/b/si}{}
+\DeclareFontShape{U}{OrnementsADF}{b}{scsl}{<->ssub * OrnementsADF/b/scit}{}
+\DeclareFontShape{U}{OrnementsADF}{bx}{n}{<->ssub * OrnementsADF/b/scsl}{}
+\DeclareFontShape{U}{OrnementsADF}{bx}{sc}{<->ssub * OrnementsADF/bx/n}{}
+\DeclareFontShape{U}{OrnementsADF}{bx}{it}{<->ssub * OrnementsADF/bx/sc}{}
+\DeclareFontShape{U}{OrnementsADF}{bx}{sl}{<->ssub * OrnementsADF/bx/it}{}
+\DeclareFontShape{U}{OrnementsADF}{bx}{si}{<->ssub * OrnementsADF/bx/sl}{}
+\DeclareFontShape{U}{OrnementsADF}{bx}{scit}{<->ssub * OrnementsADF/bx/si}{}
+\DeclareFontShape{U}{OrnementsADF}{bx}{scsl}{<->ssub * OrnementsADF/bx/scit}{}
+\endinput
+%%
+%% End of file `uornementsadf.fd'.

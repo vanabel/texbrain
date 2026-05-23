@@ -71,6 +71,8 @@
 - 仅 **BusyTeX / XeLaTeX**；SwiftLaTeX（pdfTeX）不适用。
 - 将 `.otf` 放入工程目录即可，无需服务器装字体。
 
+**ElegantBook 示例：** [`Elegantbook-cn/`](../../examples/bibtex-metapost-english-chinese/Elegantbook-cn/) — 使用 `\documentclass[...,cn,nofont,bibtex]{elegantbook}`（勿在类选项里写 `fontset=none`），并 `\input{elegantbook-cn-adobe-fonts.tex}`，编译器选 **XeLaTeX**。BusyTeX 的 WASM TeX Live **常不含** `newtx` 的 **TeXGyreTermesX**，需在工程 `fonts/` 放入西文 OTF：在 `Elegantbook-cn/` 运行 `./setup-fonts.sh --latin`（从系统 TeX Live 的 `newtx/` 与 `tex-gyre/` 复制，例如 NAS 上 `NEWTX_SRC=/usr/share/texmf/fonts/opentype/public/newtx`、`TEXGYRE_SRC=.../tex-gyre`）。中文 Adobe 字体另用 `./setup-fonts.sh --adobe`。勿使用 `newtx` 数学选项。本地测试：`pnpm run test:elegantbook-cn`。
+
 ---
 
 ## BusyTeX 字体覆盖（SWUThesis 示例）

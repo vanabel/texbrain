@@ -1,0 +1,61 @@
+% !TeX program = xelatex
+% ElegantBook + 中文 + 本地 Adobe OTF（XeLaTeX / BusyTeX）
+%
+% 要点：
+% - 使用 elegantbook 的 nofont（不是把 fontset=none 传给 book）
+% - 勿使用 newtx 数学字体选项（与 XeLaTeX + fontspec 的 TeXGyreTermesX 冲突）
+% - 西文 TeXGyreTermesX / texgyreheros 在 ./fonts/（BusyTeX 需本地 OTF；见 setup-fonts.sh --latin）
+
+\documentclass[11pt,a4paper,cn,nofont,math=cm,bibtex]{elegantbook}
+
+\input{elegantbook-cn-adobe-fonts.tex}
+\addbibresource{references.bib}
+
+\usepackage{mathtools}
+\usepackage{cleveref}
+
+\ifdefined\BUSYTEX
+  \AtBeginDocument{%
+    \let\cref\autoref
+    \let\Cref\autoref
+  }
+\fi
+
+\AtBeginDocument{%
+  \hypersetup{colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue}%
+}
+
+\newcommand{\Ric}{\operatorname{Ric}}
+\newcommand{\Rm}{\operatorname{Rm}}
+\newcommand{\tr}{\operatorname{tr}}
+
+\title{ElegantBook 中文 + Adobe 字体示例}
+\author{TeXbrain Example}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\chapter{简介}
+
+本示例演示在 \textbf{XeLaTeX / BusyTeX} 下用 \texttt{elegantbook} 排版中文，并用手头 Adobe OTF 作为正文字体。
+
+\section{字体说明}
+
+\begin{itemize}
+  \item 中文：Adobe 宋 / 黑 / 楷 / 仿宋（见 \texttt{elegantbook-cn-adobe-fonts.tex}）。
+  \item 西文：\texttt{elegantbook.cls} 优先从 \texttt{./fonts/} 加载 \texttt{TeXGyreTermesX}（见 \texttt{setup-fonts.sh --latin}）。
+  \item 数学：\texttt{math=cm}（默认），避免 \texttt{newtx} 选项加载 \texttt{newtxmath} 与
+        \texttt{fontspec} 冲突。
+\end{itemize}
+
+\section{公式与引用}
+
+Ricci 曲率张量记为 $\Ric$，标量曲率 $R$。见定义~\ref{def:ricci} 与文献~\cite{Hamilton1982}。
+
+\begin{definition}[Ricci 曲率]\label{def:ricci}
+  对黎曼流形 $(M,g)$，$\Ric(X,Y)=\tr(\Rm(\cdot,X)Y)$。
+\end{definition}
+
+\printbibliography
+\end{document}
