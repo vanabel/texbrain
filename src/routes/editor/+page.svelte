@@ -20,15 +20,9 @@
   import { EditorView } from '@codemirror/view';
   import { EditorSelection } from '@codemirror/state';
   import type { Snippet as SnippetDef } from '$lib/snippets/index';
-  import { compileLaTeX, getTexliveCacheState, setTexliveProgressReporter } from '$lib/compiler/latex-engine';
+  import type { CompileEngine } from '$lib/compiler/busytex-bibtex';
   import { resolveCompileMainFile, type CompileMainMode } from '$lib/compiler/compile-main';
   import { compileRootDirOf, sliceProjectToCompileRoot } from '$lib/compiler/compile-root';
-  import {
-    busytexAssetsAvailable,
-    needsBusyTexForProject,
-    warmupBusyTexForProject,
-    type CompileEngine
-  } from '$lib/compiler/busytex-bibtex';
   import { yCollab } from 'y-codemirror.next';
   import { collabActive, collabPanelOpen, collabPeers, collabConnected } from '$lib/collab/store';
   import { createRoom, joinRoom, leaveRoom, getYTextWithUndo, getAwareness, setCurrentFile, getSharedFileList, getSharedEntryPoint, isHost, requestCompile, setCompileStatus, setCompileResult, observeCompileState, readCompileState, collectFilesFromYjs } from '$lib/collab/provider';
@@ -38,7 +32,7 @@
     initFs as gitInitFs, initRepo as gitInitRepo, syncFilesToGit,
     writeFileToGit, checkAndLoadGit, refreshGitState,
     readAllFilesFromGit, stageAll as gitStageAll, commit as gitCommit
-  } from '$lib/git/engine';
+  } from '$lib/git/load-engine';
 
   import Logo from '$lib/ui/Logo.svelte';
   import LanguageSwitch from '$lib/ui/LanguageSwitch.svelte';
@@ -51,10 +45,8 @@
   import CommandPalette from '$lib/ui/CommandPalette.svelte';
   import SnippetPicker from '$lib/ui/SnippetPicker.svelte';
   import EntryPointPicker from '$lib/ui/EntryPointPicker.svelte';
-  import PdfViewer from '$lib/ui/PdfViewer.svelte';
-  import CollabPanel from '$lib/ui/CollabPanel.svelte';
-  import GitPanel from '$lib/ui/GitPanel.svelte';
-  import DrawioEditor from '$lib/ui/DrawioEditor.svelte';
+  import type PdfViewerComponent from '$lib/ui/PdfViewer.svelte';
+  import type DrawioEditorComponent from '$lib/ui/DrawioEditor.svelte';
   import { TEXBRAIN_GITHUB_CLONE_URL } from '$lib/constants/texbrain-repo';
   import {
     SWUTHESIS_DEFAULT_BRANCH,
@@ -77,7 +69,7 @@
   let editorView: EditorView | null = null;
   let pdfData: Uint8Array | undefined = undefined;
   let bblFile: { path: string; content: string } | undefined = undefined;
-  let pdfViewer: PdfViewer;
+  let pdfViewer: PdfViewerComponent | undefined;
   let compiling = false;
   /** True while BusyTeX worker/WASM is loading before actual TeX run (compile button shows dedicated label). */
   let busytexWarming = false;
@@ -126,7 +118,10 @@
   $: refsStatusLine =
     $sidebarOpen && $sidebarPanel === 'references' ? E.statusBarRefsClick : '';
   $: refsStatusTitle = E.ttStatusBarRefs;
-  let drawioEditor: DrawioEditor;
+  let drawioEditor: DrawioEditorComponent | undefined;
+  let pdfViewerLoaded = false;
+  let gitPanelLoaded = false;
+  let collabPanelLoaded = false;
 
   function isDrawioFile(name: string): boolean {
     return name.toLowerCase().endsWith('.drawio');
@@ -498,6 +493,15 @@
       }
       lastCompileTexPaths = [...new Set(lastCompileTexPaths.map((p) => p.replace(/\\/g, '/')))];
       compileLog.set([`[${ts()}] compiling ${mainFile}...`]);
+
+      const [
+        { compileLaTeX, getTexliveCacheState, setTexliveProgressReporter },
+        { busytexAssetsAvailable, needsBusyTexForProject, warmupBusyTexForProject }
+      ] = await Promise.all([
+        import('$lib/compiler/latex-engine'),
+        import('$lib/compiler/busytex-bibtex')
+      ]);
+
       if (compileEngine === 'xelatex') {
         compileLog.update(log => [
           ...log,
@@ -1558,6 +1562,10 @@
     })();
   }
 
+  $: if ($previewOpen || pdfData) pdfViewerLoaded = true;
+  $: if ($gitPanelOpen) gitPanelLoaded = true;
+  $: if ($collabPanelOpen) collabPanelLoaded = true;
+
   onMount(() => {
     const savedEngine = localStorage.getItem('texbrain.compile.engine');
     if (savedEngine === 'pdflatex' || savedEngine === 'xelatex') {
@@ -1568,7 +1576,9 @@
       compileMainMode = savedMainMode;
     }
     if (compileEngine === 'xelatex') {
-      void warmupBusyTexForProject('xelatex', new Map());
+      void import('$lib/compiler/busytex-bibtex').then((m) =>
+        m.warmupBusyTexForProject('xelatex', new Map())
+      );
     }
     function onBeforeUnload(e: BeforeUnloadEvent) {
       if ($files.some(f => f.dirty)) { e.preventDefault(); e.returnValue = ''; }
@@ -1728,14 +1738,16 @@
       <div class="editor-area">
         {#if $activeFile && activeIsDrawio && $editorOpen}
           <div class="editor-pane" style={editorPaneStyle}>
-            <DrawioEditor
-              bind:this={drawioEditor}
-              content={$activeFile.content}
-              fileName={$activeFile.name}
-              fileId={$activeFile.id}
-              onSave={handleDrawioSave}
-              onExported={handleDrawioExport}
-            />
+            {#await import('$lib/ui/DrawioEditor.svelte') then { default: DrawioEditor }}
+              <DrawioEditor
+                bind:this={drawioEditor}
+                content={$activeFile.content}
+                fileName={$activeFile.name}
+                fileId={$activeFile.id}
+                onSave={handleDrawioSave}
+                onExported={handleDrawioExport}
+              />
+            {/await}
           </div>
         {:else if $activeFile && $editorOpen}
           <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -1787,7 +1799,11 @@
             </div>
             {#if $previewTab === 'preview'}
               <div class="preview-content">
-                <PdfViewer bind:this={pdfViewer} {pdfData} synctexPdfNavigate={handleSynctexPdfNavigate} />
+                {#if pdfViewerLoaded}
+                  {#await import('$lib/ui/PdfViewer.svelte') then { default: PdfViewer }}
+                    <PdfViewer bind:this={pdfViewer} {pdfData} synctexPdfNavigate={handleSynctexPdfNavigate} />
+                  {/await}
+                {/if}
               </div>
             {:else if $previewTab === 'errors'}
               <div class="errors-content">
@@ -1951,12 +1967,20 @@
   <CommandPalette {commands} />
   <SnippetPicker onInsert={handleSnippetInsert} />
   <EntryPointPicker />
-  <GitPanel onBranchSwitch={handleGitBranchSwitch} onInitRepo={handleGitInit} />
-  <CollabPanel
-    onCreateRoom={handleCreateCollabRoom}
-    onJoinRoom={handleJoinCollabRoom}
-    onLeaveRoom={handleLeaveCollab}
-  />
+  {#if gitPanelLoaded}
+    {#await import('$lib/ui/GitPanel.svelte') then { default: GitPanel }}
+      <GitPanel onBranchSwitch={handleGitBranchSwitch} onInitRepo={handleGitInit} />
+    {/await}
+  {/if}
+  {#if collabPanelLoaded}
+    {#await import('$lib/ui/CollabPanel.svelte') then { default: CollabPanel }}
+      <CollabPanel
+        onCreateRoom={handleCreateCollabRoom}
+        onJoinRoom={handleJoinCollabRoom}
+        onLeaveRoom={handleLeaveCollab}
+      />
+    {/await}
+  {/if}
 </div>
 
 <style>

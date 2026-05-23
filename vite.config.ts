@@ -85,6 +85,41 @@ export default defineConfig({
   preview: {
     proxy: { ...texbrainCodeloadProxy }
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+          if (id.includes('pdfjs-dist')) return 'vendor-pdfjs';
+          if (id.includes('isomorphic-git') || id.includes('@isomorphic-git')) return 'vendor-git';
+          if (id.includes('@codemirror') || id.includes('@lezer') || id.includes('codemirror')) {
+            return 'vendor-codemirror';
+          }
+          if (
+            id.includes('/yjs/') ||
+            id.includes('y-codemirror') ||
+            id.includes('y-webrtc') ||
+            id.includes('/lib0/')
+          ) {
+            return 'vendor-collab';
+          }
+          if (id.includes('@vanabel/texlyre-busytex') || id.includes('texlyre-busytex')) {
+            return 'vendor-busytex';
+          }
+          if (
+            id.includes('browserify') ||
+            id.includes('crypto-browserify') ||
+            id.includes('create-ecdh') ||
+            id.includes('diffie-hellman') ||
+            id.includes('public-encrypt') ||
+            id.includes('vm-browserify')
+          ) {
+            return 'vendor-crypto';
+          }
+        }
+      }
+    }
+  },
   optimizeDeps: {
     include: ['isomorphic-git', 'buffer', 'process'],
     esbuildOptions: {
