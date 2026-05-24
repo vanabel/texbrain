@@ -435,6 +435,8 @@
       return;
     }
 
+    let latexEngineMod: typeof import('$lib/compiler/latex-engine') | null = null;
+
     try {
       compiling = true;
       compileStuckTimer = Date.now();
@@ -494,13 +496,13 @@
       lastCompileTexPaths = [...new Set(lastCompileTexPaths.map((p) => p.replace(/\\/g, '/')))];
       compileLog.set([`[${ts()}] compiling ${mainFile}...`]);
 
-      const [
-        { compileLaTeX, getTexliveCacheState, setTexliveProgressReporter },
-        { busytexAssetsAvailable, needsBusyTexForProject, warmupBusyTexForProject }
-      ] = await Promise.all([
+      const [latexMod, busytexMod] = await Promise.all([
         import('$lib/compiler/latex-engine'),
         import('$lib/compiler/busytex-bibtex')
       ]);
+      latexEngineMod = latexMod;
+      const { compileLaTeX, getTexliveCacheState, setTexliveProgressReporter } = latexMod;
+      const { busytexAssetsAvailable, needsBusyTexForProject, warmupBusyTexForProject } = busytexMod;
 
       if (compileEngine === 'xelatex') {
         compileLog.update(log => [
@@ -631,7 +633,7 @@
         setCompileResult({ status: 'error', pdf: null, log: [`[error] ${err.message || String(err)}`], errors: [{ type: 'error', message: err.message || String(err) }], pageCount: 0 });
       }
     } finally {
-      setTexliveProgressReporter(null);
+      latexEngineMod?.setTexliveProgressReporter(null);
       busytexWarming = false;
       compiling = false;
       compileStuckTimer = 0;
