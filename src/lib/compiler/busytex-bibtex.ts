@@ -392,6 +392,7 @@ async function tryReadBblFromRunner(
  * 流水线（`static/busytex/busytex_pipeline.js`，经 `scripts/patch-busytex-crossref.mjs` 修正）：
  * - 需要文献：`xelatex` → `bibtex8` → `xelatex` ×2 → `xdvipdfmx`（**不是 biber**；WASM 无 biber）
  * - 无文献：至少 `xelatex` ×2 → `xdvipdfmx`，以满足交叉引用
+ * - 空 `.bbl` 不再跳过后续 XeLaTeX；若 `.log` 仍有 undefined citation/reference，最多再跑 2 遍 LaTeX（+ xdvipdfmx）
  */
 export async function compileWithBusyTexBibtex(
   mainFile: string,
