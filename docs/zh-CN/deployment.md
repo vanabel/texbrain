@@ -168,7 +168,9 @@ location ^~ /__texbrain_ctan_ustc/ { ... }
 location ^~ /__texbrain_ctan_tsinghua/ { ... }
 ```
 
-**cloudflared 直连 PM2 端口时：** tunnel 指向的进程必须是 `serve:prod`（含 CTAN 代理），**不要**单独用 `serve:prod:spa-only`（即 `serve -s`）。若 tunnel → `19003` Nginx → `19903` PM2，则 Nginx 与 PM2 至少一侧要提供 CTAN 路径（二选一，避免重复代理）。
+**cloudflared 直连 PM2 端口时：** tunnel 指向的进程必须是 `serve:prod`（`serve-prod-ctan.mjs`，含 CTAN 代理且为 `.mjs` 设置 `text/javascript`），**不要**单独用 `serve:prod:spa-only`（即 `serve -s`）。若 tunnel → `19003` Nginx → `19903` PM2，则 Nginx 与 PM2 至少一侧要提供 CTAN 路径（二选一，避免重复代理）。
+
+**pdf.js 预览：** 若控制台报 `pdf.worker.*.mjs` 的 MIME 为 `application/octet-stream`，说明静态服务器未把 `.mjs` 当 JavaScript 提供；请使用当前仓库的 `serve:prod` 或 Nginx `types { application/javascript mjs; }`。
 
 本机 `pnpm dev` / `pnpm preview` 由 Vite 自动提供上述路径，无需 Nginx。说明见 [常见问题 — CTAN 自动拉包](faq.md#ctan-自动拉包缺-sty--cls)。
 

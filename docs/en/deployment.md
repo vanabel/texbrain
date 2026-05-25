@@ -177,7 +177,9 @@ location ^~ /__texbrain_ctan_ustc/ { ... }
 location ^~ /__texbrain_ctan_tsinghua/ { ... }
 ```
 
-**cloudflared → PM2 directly:** the tunnel must target `serve:prod`, not `serve:prod:spa-only` (`serve -s`). **cloudflared → Nginx :19003 → PM2 :19903:** configure CTAN on Nginx **or** on PM2, not both in conflicting ways.
+**cloudflared → PM2 directly:** the tunnel must target `serve:prod` (`serve-prod-ctan.mjs`, CTAN proxy + correct `.mjs` MIME), not `serve:prod:spa-only` (`serve -s`). **cloudflared → Nginx :19003 → PM2 :19903:** configure CTAN on Nginx **or** on PM2, not both in conflicting ways.
+
+**pdf.js preview:** if the console reports `pdf.worker.*.mjs` with MIME `application/octet-stream`, the static host is not serving `.mjs` as JavaScript — use this repo’s `serve:prod` or add Nginx `types { application/javascript mjs; }`.
 
 `pnpm dev` / `pnpm preview` on localhost use Vite’s built-in proxies. See [FAQ — CTAN auto-fetch](faq.md#ctan-auto-fetch-missing-packages).
 
