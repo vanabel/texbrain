@@ -42,6 +42,8 @@ TeXbrain 是**纯静态** [SvelteKit](https://kit.svelte.dev/) 应用：编辑�
 
 [isomorphic-git](https://isomorphic-git.org/) + [LightningFS](https://github.com/isomorphic-git/lightning-fs) / IndexedDB；远程经 **CORS 代理**（浏览器无法直接使用 git 协议）。默认代理：`cors.isomorphic-git.org`（可在界面替换）。
 
+打开本地目录**不会**导入磁盘 `.git`；师生以 GitHub 协作为主流程见 **[多人协作流程](collaboration-workflow.md)**。
+
 ### PDF 预览
 
 开发与 `VITE_PDF_VIEWER=pdfjs` 构建时使用 [pdf.js](https://mozilla.github.io/pdf.js/)。**默认生产构建**为 `<iframe>` 内置 PDF。详见 [常见问题 — SyncTeX 与 PDF.js](faq.md#synctex编辑器--pdf)。
@@ -89,4 +91,5 @@ SvelteKit **静态适配器** + [Tailwind CSS 4](https://tailwindcss.com/)，可
 
 - [部署](deployment.md) — 本地开发、GitHub Pages、PM2、NAS、Cloudflare
 - [常见问题](faq.md) — SyncTeX、构建变量、BusyTeX 字体、排错
+- [多人协作流程](collaboration-workflow.md) — GitHub 课程协作与 Collab 房间
 - [主 README](../../README.zh-CN.md) — 功能概览与快速上手

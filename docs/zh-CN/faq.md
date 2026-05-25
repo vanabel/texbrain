@@ -101,6 +101,8 @@ TeXbrain 克隆请用 **SWUThesis** 预设或分支 **`online-texbrain`**（见�
 
 ## 模板仓库与 Git
 
+**多人协作（GitHub + 课堂 Collab）分步说明：** [多人协作流程](collaboration-workflow.md)。
+
 TeXbrain **不会**自动把编辑同步到 GitHub 模板仓库；默认只写本机所选目录，需自行配置凭据并 **push** 才会影响远端。
 
 请 **Fork** 模板到自己的账号再改；上游保持只读并适时拉取更新。
@@ -121,6 +123,7 @@ TeXbrain **不会**自动把编辑同步到 GitHub 模板仓库；默认只写�
 
 ## 相关文档
 
+- [多人协作流程](collaboration-workflow.md)
 - [技术说明](technical.md)
 - [部署](deployment.md)
 - [主 README](../../README.zh-CN.md)

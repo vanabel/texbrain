@@ -7,6 +7,7 @@
 | **技术说明** | [en/technical.md](en/technical.md) | [zh-CN/technical.md](zh-CN/technical.md) |
 | **部署** | [en/deployment.md](en/deployment.md) | [zh-CN/deployment.md](zh-CN/deployment.md) |
 | **常见问题** | [en/faq.md](en/faq.md) | [zh-CN/faq.md](zh-CN/faq.md) |
+| **多人协作流程** | [en/collaboration-workflow.md](en/collaboration-workflow.md) | [zh-CN/collaboration-workflow.md](zh-CN/collaboration-workflow.md) |
 
 **路线图：** [ROADMAP.zh-CN.md](../ROADMAP.zh-CN.md) · [ROADMAP.md](../ROADMAP.md)
 

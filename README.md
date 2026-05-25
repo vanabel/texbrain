@@ -111,6 +111,7 @@ Sample project: [`examples/bibtex-metapost-english-chinese/`](examples/bibtex-me
 | Technical (architecture, stack, privacy) | [docs/en/technical.md](docs/en/technical.md) | [docs/zh-CN/technical.md](docs/zh-CN/technical.md) |
 | Deployment (local, Pages, PM2, NAS, CDN) | [docs/en/deployment.md](docs/en/deployment.md) | [docs/zh-CN/deployment.md](docs/zh-CN/deployment.md) |
 | FAQ (SyncTeX, BusyTeX, fonts, troubleshooting) | [docs/en/faq.md](docs/en/faq.md) | [docs/zh-CN/faq.md](docs/zh-CN/faq.md) |
+| Collaboration workflow (GitHub, Collab) | [docs/en/collaboration-workflow.md](docs/en/collaboration-workflow.md) | [docs/zh-CN/collaboration-workflow.md](docs/zh-CN/collaboration-workflow.md) |
 | Roadmap | [ROADMAP.md](ROADMAP.md) | [ROADMAP.zh-CN.md](ROADMAP.zh-CN.md) |
 
 ---

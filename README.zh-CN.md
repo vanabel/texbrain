@@ -109,6 +109,7 @@ TeXbrain 在**浏览器里**把 `.tex` 编译成 **PDF**，编辑器、编译器
 | 技术说明（架构、技术栈、隐私） | [docs/en/technical.md](docs/en/technical.md) | [docs/zh-CN/technical.md](docs/zh-CN/technical.md) |
 | 部署（本地、Pages、PM2、NAS、CDN） | [docs/en/deployment.md](docs/en/deployment.md) | [docs/zh-CN/deployment.md](docs/zh-CN/deployment.md) |
 | 常见问题（SyncTeX、BusyTeX、字体、排错） | [docs/en/faq.md](docs/en/faq.md) | [docs/zh-CN/faq.md](docs/zh-CN/faq.md) |
+| 多人协作流程（GitHub、Collab） | [docs/en/collaboration-workflow.md](docs/en/collaboration-workflow.md) | [docs/zh-CN/collaboration-workflow.md](docs/zh-CN/collaboration-workflow.md) |
 | 路线图 | [ROADMAP.md](ROADMAP.md) | [ROADMAP.zh-CN.md](ROADMAP.zh-CN.md) |
 
 ---

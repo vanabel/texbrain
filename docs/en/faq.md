@@ -112,6 +112,8 @@ Full folder read/write needs the **File System Access API** (Chrome, Edge, Arc, 
 
 ## Template repos & Git
 
+**Step-by-step multi-user workflow (GitHub + Collab):** [Collaboration workflow](collaboration-workflow.md).
+
 Copy-friendly guidance for thesis/class template maintainers:
 
 TeXbrain is **not** a “live-sync to the cloud” editor: edits are saved to the **local project folder you picked** by default. Unless you configure credentials and explicitly **push**, your changes will **not** affect the template repository on GitHub.
@@ -134,6 +136,7 @@ For thesis/class templates: prefer the maintainer’s **`online-texbrain`** bran
 
 ## Related docs
 
+- [Collaboration workflow](collaboration-workflow.md)
 - [Technical guide](technical.md)
 - [Deployment](deployment.md)
 - [Main README](../../README.md)

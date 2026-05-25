@@ -42,6 +42,8 @@ See the main [README — Editor sidebar](../../README.md#editor-sidebar-files-ou
 
 [isomorphic-git](https://isomorphic-git.org/) + [LightningFS](https://github.com/isomorphic-git/lightning-fs) / IndexedDB. Remotes require a **CORS proxy** (browsers cannot speak git natively). Default proxy: `cors.isomorphic-git.org` (replaceable in the UI).
 
+**Open Folder** does not import a disk `.git`. For course-style GitHub collaboration, see **[Collaboration workflow](collaboration-workflow.md)**.
+
 ### PDF preview
 
 [pdf.js](https://mozilla.github.io/pdf.js/) in **dev** and when built with `VITE_PDF_VIEWER=pdfjs`. Default **production** builds use the browser’s native PDF viewer in an `<iframe>`. See [FAQ — SyncTeX & PDF.js](faq.md#synctex-editor--pdf).
@@ -89,4 +91,5 @@ Everything runs in your browser unless **you** push to a remote.
 
 - [Deployment](deployment.md) — local dev, GitHub Pages, PM2, NAS, Cloudflare
 - [FAQ](faq.md) — SyncTeX, build env vars, BusyTeX fonts, troubleshooting
+- [Collaboration workflow](collaboration-workflow.md) — GitHub + Collab for classes
 - [Main README](../../README.md) — features and quick start
