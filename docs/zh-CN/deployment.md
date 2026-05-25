@@ -123,19 +123,19 @@ server {
   listen 19003;
   server_name _;
 
-  location /__texbrain_ctan_json/ {
+  location ^~ /__texbrain_ctan_json/ {
     proxy_pass https://www.ctan.org/;
     proxy_ssl_server_name on;
     proxy_set_header Host www.ctan.org;
   }
 
-  location /__texbrain_ctan_ustc/ {
+  location ^~ /__texbrain_ctan_ustc/ {
     proxy_pass https://mirrors.ustc.edu.cn/;
     proxy_ssl_server_name on;
     proxy_set_header Host mirrors.ustc.edu.cn;
   }
 
-  location /__texbrain_ctan_tsinghua/ {
+  location ^~ /__texbrain_ctan_tsinghua/ {
     proxy_pass https://mirrors.tuna.tsinghua.edu.cn/;
     proxy_ssl_server_name on;
     proxy_set_header Host mirrors.tuna.tsinghua.edu.cn;
@@ -151,14 +151,24 @@ server {
 
 **不要**把 `https://tex.vanabel.cn/__texbrain_ctan_*` 指到 `git-cors` 子域；Git 代理仅用于 Push/Pull。
 
-**自检（在 NAS 或任意能访问公网的环境）：**
+**自检（必须看响应体，不能只看状态码）：**
 
 ```bash
-curl -sS -o /dev/null -w "%{http_code}\n" \
-  "https://tex.vanabel.cn/__texbrain_ctan_json/json/2.0/pkg/extarrows"
+curl -sS "https://tex.vanabel.cn/__texbrain_ctan_json/json/2.0/pkg/extarrows" | head -c 120
 ```
 
-应返回 **`200`**（JSON 包元数据）。若已是 `200`，反代已就绪；部署含 CTAN 修复的 TeXbrain 构建后，浏览器编译时应请求 `https://tex.vanabel.cn/__texbrain_ctan_json/...`，而非 `git-cors.../www.ctan.org/...`。
+应看到 **`{"id":"extarrows"`** 等 JSON。若出现 **`<!doctype html>`**，说明请求落到了 TeXbrain 的 SPA 回退（常见于仅用 `serve -s` 且无 Nginx CTAN 路由）。处理：
+
+- **推荐：** `pnpm pm2:restart` 使用本仓库默认的 `serve:prod`（`scripts/serve-prod-ctan.mjs`，内置 CTAN 代理）；或
+- 在 Nginx 上对 CTAN 路径使用 **`^~`** 优先匹配（见下），再 `proxy_pass` 到上游。
+
+```nginx
+location ^~ /__texbrain_ctan_json/ { ... }
+location ^~ /__texbrain_ctan_ustc/ { ... }
+location ^~ /__texbrain_ctan_tsinghua/ { ... }
+```
+
+**cloudflared 直连 PM2 端口时：** tunnel 指向的进程必须是 `serve:prod`（含 CTAN 代理），**不要**单独用 `serve:prod:spa-only`（即 `serve -s`）。若 tunnel → `19003` Nginx → `19903` PM2，则 Nginx 与 PM2 至少一侧要提供 CTAN 路径（二选一，避免重复代理）。
 
 本机 `pnpm dev` / `pnpm preview` 由 Vite 自动提供上述路径，无需 Nginx。说明见 [常见问题 — CTAN 自动拉包](faq.md#ctan-自动拉包缺-sty--cls)。
 

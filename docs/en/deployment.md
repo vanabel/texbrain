@@ -132,19 +132,19 @@ server {
   listen 19003;
   server_name _;
 
-  location /__texbrain_ctan_json/ {
+  location ^~ /__texbrain_ctan_json/ {
     proxy_pass https://www.ctan.org/;
     proxy_ssl_server_name on;
     proxy_set_header Host www.ctan.org;
   }
 
-  location /__texbrain_ctan_ustc/ {
+  location ^~ /__texbrain_ctan_ustc/ {
     proxy_pass https://mirrors.ustc.edu.cn/;
     proxy_ssl_server_name on;
     proxy_set_header Host mirrors.ustc.edu.cn;
   }
 
-  location /__texbrain_ctan_tsinghua/ {
+  location ^~ /__texbrain_ctan_tsinghua/ {
     proxy_pass https://mirrors.tuna.tsinghua.edu.cn/;
     proxy_ssl_server_name on;
     proxy_set_header Host mirrors.tuna.tsinghua.edu.cn;
@@ -160,14 +160,24 @@ server {
 
 Do **not** point `https://tex.vanabel.cn/__texbrain_ctan_*` at the `git-cors` host; that proxy is git-only.
 
-**Smoke test:**
+**Smoke test (check the body, not only the status code):**
 
 ```bash
-curl -sS -o /dev/null -w "%{http_code}\n" \
-  "https://tex.vanabel.cn/__texbrain_ctan_json/json/2.0/pkg/extarrows"
+curl -sS "https://tex.vanabel.cn/__texbrain_ctan_json/json/2.0/pkg/extarrows" | head -c 120
 ```
 
-Expect **`200`**. If you already get `200`, the reverse proxy is fine — deploy a TeXbrain build with the CTAN client fix and hard-refresh the browser so fetches use `https://tex.vanabel.cn/__texbrain_ctan_json/...` instead of `git-cors.../www.ctan.org/...`.
+Expect JSON starting with **`{"id":"extarrows"`**. If you see **`<!doctype html>`**, the request hit the TeXbrain SPA fallback (`serve -s` without CTAN routes). Fix:
+
+- **Recommended:** `pnpm pm2:restart` so PM2 runs `serve:prod` (`scripts/serve-prod-ctan.mjs`, built-in CTAN proxy), or
+- Use Nginx **`^~`** locations for CTAN paths (below) before the static `location /`.
+
+```nginx
+location ^~ /__texbrain_ctan_json/ { ... }
+location ^~ /__texbrain_ctan_ustc/ { ... }
+location ^~ /__texbrain_ctan_tsinghua/ { ... }
+```
+
+**cloudflared → PM2 directly:** the tunnel must target `serve:prod`, not `serve:prod:spa-only` (`serve -s`). **cloudflared → Nginx :19003 → PM2 :19903:** configure CTAN on Nginx **or** on PM2, not both in conflicting ways.
 
 `pnpm dev` / `pnpm preview` on localhost use Vite’s built-in proxies. See [FAQ — CTAN auto-fetch](faq.md#ctan-auto-fetch-missing-packages).
 

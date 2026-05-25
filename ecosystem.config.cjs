@@ -1,4 +1,4 @@
-/** PM2: static TeXbrain site + optional isomorphic-git CORS proxy for browser Git push/pull. */
+/** PM2: static TeXbrain site (serve-prod-ctan.mjs: CTAN same-origin paths) + optional Git CORS proxy. */
 const corsPort = process.env.GIT_CORS_PROXY_PORT || '9999';
 const corsAllowOrigin = process.env.GIT_CORS_ALLOW_ORIGIN || 'https://tex.vanabel.cn';
 

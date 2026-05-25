@@ -117,10 +117,14 @@ function buildFetchAttempts(url: string, corsProxy: string): string[] {
   return attempts;
 }
 
+function looksLikeHtmlText(text: string): boolean {
+  const t = text.trimStart().toLowerCase();
+  return t.startsWith('<!doctype') || t.startsWith('<html') || t.includes('<title>redirecting');
+}
+
 function looksLikeHtmlBuffer(buf: ArrayBuffer): boolean {
   const head = utf8Decoder.decode(new Uint8Array(buf, 0, Math.min(256, buf.byteLength)));
-  const t = head.trimStart().toLowerCase();
-  return t.startsWith('<!doctype') || t.startsWith('<html') || t.includes('<title>redirecting');
+  return looksLikeHtmlText(head);
 }
 
 async function fetchBytes(
@@ -186,20 +190,17 @@ async function fetchFirstBytesFromUrls(
 }
 
 async function fetchJson<T>(url: string, corsProxy: string): Promise<T | null> {
-  let lastErr: unknown;
   for (const u of buildFetchAttempts(url, corsProxy)) {
     try {
-      const res = await fetch(u);
-      if (!res.ok) {
-        lastErr = new Error(`HTTP ${res.status}`);
-        continue;
-      }
-      return (await res.json()) as T;
-    } catch (e) {
-      lastErr = e;
+      const res = await fetch(u, { signal: AbortSignal.timeout(CTAN_FETCH_ATTEMPT_MS) });
+      if (!res.ok) continue;
+      const text = await res.text();
+      if (!text.trim() || looksLikeHtmlText(text)) continue;
+      return JSON.parse(text) as T;
+    } catch {
+      /* try next URL */
     }
   }
-  void lastErr;
   return null;
 }
 
@@ -455,7 +456,10 @@ export async function fetchMissingTexFromCtan(
     const first = [...names][0];
     const resolved = await resolveCtanPackageKey(first, corsProxy);
     if (!resolved) {
-      logLines.push(`[CTAN] no package found for ${pkgGuess} (${[...names].join(', ')})`);
+      logLines.push(
+        `[CTAN] no package found for ${pkgGuess} (${[...names].join(', ')}); ` +
+          'same-origin /__texbrain_ctan_json must return JSON (not TeXbrain index.html) — see docs deployment'
+      );
       continue;
     }
     logLines.push(`[CTAN] resolved ${[...names].join(', ')} → pkg/${resolved.key}`);
@@ -463,7 +467,7 @@ export async function fetchMissingTexFromCtan(
     if (files.size === 0) {
       const p = resolved.meta.ctan?.path ?? '?';
       logLines.push(
-        `[CTAN] download failed for pkg/${resolved.key} (${p}); on NAS/static hosts configure same-origin CTAN routes (/__texbrain_ctan_json, /__texbrain_ctan_ustc, …) — see docs deployment, or use pnpm dev`
+        `[CTAN] download failed for pkg/${resolved.key} (${p}); ensure /__texbrain_ctan_json returns JSON (not index.html): use pnpm serve:prod or nginx ^~ locations — see docs deployment`
       );
       continue;
     }
