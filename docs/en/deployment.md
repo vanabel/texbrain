@@ -102,7 +102,7 @@ Example (cloudflared + custom domain):
 1. `pnpm install`, `pnpm build`, then `pnpm pm2:start`.
 2. Optional overrides before start: `GIT_CORS_ALLOW_ORIGIN=https://tex.vanabel.cn`, `GIT_CORS_PROXY_PORT=9999` (must match the browser origin where users open TeXbrain).
 3. Point a second tunnel/ingress (e.g. `git-cors.vanabel.cn`) at `127.0.0.1:9999`.
-4. In TeXbrain: **Git → Remote → CORS Proxy** = `https://git-cors.vanabel.cn` (no trailing slash).
+4. In TeXbrain: **Git → Remote → CORS Proxy** = `https://git-cors.vanabel.cn` (no trailing slash). The same proxy is used for **CTAN auto-fetch** when a compile reports missing `.sty` / `.cls` ([FAQ](faq.md#ctan-auto-fetch-missing-packages)).
 
 Local test: `ALLOW_ORIGIN=http://localhost:5173 pnpm run serve:cors-proxy`, then set CORS Proxy to `http://127.0.0.1:9999`.
 

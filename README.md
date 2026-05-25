@@ -60,7 +60,7 @@ Open a folder, edit, preview PDF, commit, push to GitHub—**from one tab**.
 
 | | |
 | --- | --- |
-| **Compile in-browser** | WebAssembly TeX. Default: [SwiftLaTeX](https://github.com/SwiftLaTeX/SwiftLaTeX) pdfTeX. Optional [BusyTeX](https://github.com/TeXlyre/texlyre-busytex) for real **BibTeX** when your project uses classic `\bibliography` / `\bibliographystyle` or biblatex with `backend=bibtex`. |
+| **Compile in-browser** | WebAssembly TeX. Default: [SwiftLaTeX](https://github.com/SwiftLaTeX/SwiftLaTeX) pdfTeX. Optional [BusyTeX](https://github.com/TeXlyre/texlyre-busytex) for real **BibTeX** when your project uses classic `\bibliography` / `\bibliographystyle` or biblatex with `backend=bibtex`. On missing `.sty` / `.cls`, optional **[CTAN auto-fetch](docs/en/faq.md#ctan-auto-fetch-missing-packages)** (retry after download). |
 | **PDF preview** | **Dev:** [pdf.js](https://mozilla.github.io/pdf.js/). **Default production:** native browser PDF. Optional **`VITE_PDF_VIEWER=pdfjs`** at build time for pdf.js + **SyncTeX** in the preview. Details: [FAQ — SyncTeX & PDF.js](docs/en/faq.md#synctex-editor--pdf). |
 | **Git** | Clone, branch, stage, commit, push, pull, merge via [isomorphic-git](https://isomorphic-git.org/)—no CLI. |
 | **Local files** | [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API) on Chromium—read/write your disk folder. |
@@ -110,7 +110,7 @@ Sample project: [`examples/bibtex-metapost-english-chinese/`](examples/bibtex-me
 | Index | [docs/README.md](docs/README.md) | [docs/README.zh-CN.md](docs/README.zh-CN.md) |
 | Technical (architecture, stack, privacy) | [docs/en/technical.md](docs/en/technical.md) | [docs/zh-CN/technical.md](docs/zh-CN/technical.md) |
 | Deployment (local, Pages, PM2, NAS, CDN) | [docs/en/deployment.md](docs/en/deployment.md) | [docs/zh-CN/deployment.md](docs/zh-CN/deployment.md) |
-| FAQ (SyncTeX, BusyTeX, fonts, troubleshooting) | [docs/en/faq.md](docs/en/faq.md) | [docs/zh-CN/faq.md](docs/zh-CN/faq.md) |
+| FAQ (SyncTeX, CTAN auto-fetch, BusyTeX, fonts, troubleshooting) | [docs/en/faq.md](docs/en/faq.md) | [docs/zh-CN/faq.md](docs/zh-CN/faq.md) |
 | Collaboration workflow (GitHub, Collab) | [docs/en/collaboration-workflow.md](docs/en/collaboration-workflow.md) | [docs/zh-CN/collaboration-workflow.md](docs/zh-CN/collaboration-workflow.md) |
 | Roadmap | [ROADMAP.md](ROADMAP.md) | [ROADMAP.zh-CN.md](ROADMAP.zh-CN.md) |
 

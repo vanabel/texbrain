@@ -49,6 +49,28 @@
 
 ---
 
+## CTAN 自动拉包（缺 .sty / .cls）
+
+编译日志出现 `File 'foo.sty' not found`（或 `.cls`、`.clo` 等）时，TeXbrain 会**自动**在 [CTAN](https://ctan.org/) 解析包名、从镜像下载压缩包，将所需文件以**文件名**并入**编译根目录**（与 `sliceProjectToCompileRoot` 规则一致），并**重试编译**（最多三轮）。编译日志中可见 `[CTAN]`、`[TeXbrain] CTAN auto-fetch:` 等行。
+
+**不会触发的情况：** 日志里没有缺包错误时，说明依赖已由引擎自带树满足（BusyTeX 内置 TeX Live 或 SwiftLaTeX 缓存）。编译成功时也可能提示「已跳过 CTAN」。
+
+**网络与代理**
+
+| 环境 | CTAN 访问方式 |
+| --- | --- |
+| **本机 `pnpm dev` / `pnpm preview`** | Vite 同源代理 USTC / 清华镜像及 `ctan.org` JSON，一般无需额外配置。 |
+| **静态部署**（NAS、GitHub Pages 等） | 在 **Git → 远程 → CORS Proxy** 填写与 Git 相同的代理（例如 `https://git-cors.vanabel.cn`，**不要**末尾 `/`）。见[部署 — 自建 CORS 代理](deployment.md#可选自建-git-cors-代理浏览器-pushpull)。 |
+
+**包结构说明**
+
+- 部分 CTAN **源码** zip（如 `amsrefs.zip`）只有 `.dtx` / `.ins`，没有现成的 `.sty`；此时会再试 **`/install/…` 下的 TDS 安装包**（如 `install/macros/latex/contrib/amsrefs.tds.zip`）。
+- 工程若已自带 `foo.sty`（与主 `.tex` 同目录或祖先目录），会优先并入编译根，通常不必走 CTAN。
+
+**命令行冒烟测试（Node）：** `node scripts/test-ctan-fetch.mjs`（USTC + `physics.sty`）。
+
+---
+
 ## BusyTeX：`ctex` 与 Adobe OTF 字体
 
 在 **BusyTeX（XeLaTeX）** 下可用 `fontset=none` 并指定本地 OTF，例如：

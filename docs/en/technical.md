@@ -38,9 +38,13 @@ See the main [README — Editor sidebar](../../README.md#editor-sidebar-files-ou
 - **Entry Point** — always compile the project entry file (`Entry: …`).
 - **Target** — the bar shows the file actually compiled last time.
 
+### CTAN auto-fetch (missing `.sty` / `.cls`)
+
+On compile failure, `compileLaTeX` parses the log (`parse-missing-tex.ts`), may download from CTAN (`ctan-download.ts` — JSON API, mirror zips, `/install/…` TDS archives), merge basenames into the compile-root file map, and re-run (default **on**, max three rounds). Uses the same **Git → Remote → CORS Proxy** as isomorphic-git on static hosts; `pnpm dev` uses Vite routes `/__texbrain_ctan_*` instead. User-facing notes and troubleshooting: [FAQ — CTAN auto-fetch](faq.md#ctan-auto-fetch-missing-packages).
+
 ### Git
 
-[isomorphic-git](https://isomorphic-git.org/) + [LightningFS](https://github.com/isomorphic-git/lightning-fs) / IndexedDB. Remotes require a **CORS proxy** (browsers cannot speak git natively). Default proxy: `cors.isomorphic-git.org` (replaceable in the UI).
+[isomorphic-git](https://isomorphic-git.org/) + [LightningFS](https://github.com/isomorphic-git/lightning-fs) / IndexedDB. Remotes require a **CORS proxy** (browsers cannot speak git natively). The same proxy setting is used for **CTAN downloads** on deployed sites. Default: `cors.isomorphic-git.org` (replaceable in the UI).
 
 **Open Folder** does not import a disk `.git`. For course-style GitHub collaboration, see **[Collaboration workflow](collaboration-workflow.md)**.
 
@@ -90,6 +94,6 @@ Everything runs in your browser unless **you** push to a remote.
 ## Related docs
 
 - [Deployment](deployment.md) — local dev, GitHub Pages, PM2, NAS, Cloudflare
-- [FAQ](faq.md) — SyncTeX, build env vars, BusyTeX fonts, troubleshooting
+- [FAQ](faq.md) — SyncTeX, CTAN auto-fetch, build env vars, BusyTeX fonts, troubleshooting
 - [Collaboration workflow](collaboration-workflow.md) — GitHub + Collab for classes
 - [Main README](../../README.md) — features and quick start

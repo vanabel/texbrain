@@ -53,6 +53,28 @@ When you build with **`VITE_PDF_VIEWER=pdfjs`**, the preview pane uses pdf.js in
 
 ---
 
+## CTAN auto-fetch (missing packages)
+
+When a compile log contains `File 'foo.sty' not found` (or `.cls`, `.clo`, …), TeXbrain can **automatically** resolve the package on [CTAN](https://ctan.org/), download archives from mirrors, merge the needed files into the **compile root** (basename keys, same rule as `sliceProjectToCompileRoot`), and **retry** the compile (up to three rounds). Progress and results appear in the compile log as `[CTAN]` / `[TeXbrain] CTAN auto-fetch:` lines.
+
+**When it does *not* run:** if the log has no missing-package error, dependencies were satisfied by the engine tree (BusyTeX’s bundled TeX Live or SwiftLaTeX’s cache). A successful compile may still show a note that CTAN was skipped.
+
+**Network / proxy**
+
+| Environment | CTAN access |
+| --- | --- |
+| **`pnpm dev` / `pnpm preview` on localhost** | Vite proxies USTC / Tsinghua mirrors and `ctan.org` JSON (same-origin). No extra setup. |
+| **Static deploy** (NAS, GitHub Pages, …) | Set **Git → Remote → CORS Proxy** (same field as git push/pull). Example: `https://git-cors.vanabel.cn` — no trailing slash. See [Deployment — self-hosted CORS proxy](deployment.md#optional-self-hosted-git-cors-proxy). |
+
+**Package layout quirks**
+
+- Some CTAN **source** zips (e.g. `amsrefs.zip`) contain only `.dtx` / `.ins`, not a ready `.sty`. TeXbrain then tries the **`/install/…` TDS zip** (e.g. `install/macros/latex/contrib/amsrefs.tds.zip`) where built `.sty` files live.
+- Keep a copy of `foo.sty` **in the project** (same folder as the main `.tex` or an ancestor directory) when you ship vendored classes; that avoids unnecessary downloads.
+
+**Smoke test (Node, no browser):** `node scripts/test-ctan-fetch.mjs` (USTC mirror + `physics.sty`).
+
+---
+
 ## BusyTeX: `ctex` with Adobe OTF fonts
 
 On the **BusyTeX (XeLaTeX)** path, you can disable `ctex`’s bundled `fontset` (e.g. `fandol`) and point at local **Adobe OTF** files. Place the fonts next to your main `.tex` (or set `Path` to a dedicated folder) and add to the preamble:

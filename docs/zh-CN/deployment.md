@@ -104,7 +104,7 @@ pnpm pm2:delete
 
 3. **cloudflared（或反向代理）** 为 CORS 代理增加一条公网入口，将 `git-cors.vanabel.cn`（示例）指到 NAS `127.0.0.1:9999`。TeXbrain 主站 `tex.vanabel.cn` 仍指到 `4173`（或你现有的 ingress）。
 
-4. **在 TeXbrain 界面配置：** 打开 `https://tex.vanabel.cn` → **Git** → **Remote** → **CORS Proxy** 填 `https://git-cors.vanabel.cn`（**不要**末尾斜杠）。同时配置 remote URL 与 GitHub PAT（公开库 push 建议 `public_repo` scope）。
+4. **在 TeXbrain 界面配置：** 打开 `https://tex.vanabel.cn` → **Git** → **Remote** → **CORS Proxy** 填 `https://git-cors.vanabel.cn`（**不要**末尾斜杠）。该代理也用于编译时 **CTAN 自动拉包**（缺 `.sty` / `.cls` 时，见[常见问题](faq.md#ctan-自动拉包缺-sty--cls)）。同时配置 remote URL 与 GitHub PAT（公开库 push 建议 `public_repo` scope）。
 
 5. **自检：**
 

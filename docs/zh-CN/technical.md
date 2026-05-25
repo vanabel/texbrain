@@ -38,9 +38,13 @@ TeXbrain 是**纯静态** [SvelteKit](https://kit.svelte.dev/) 应用：编辑�
 - **Entry Point** — 始终编译入口文件（`Entry: …`）。
 - **Target** — 显示上次实际编译的文件。
 
+### CTAN 自动拉包（缺 `.sty` / `.cls`）
+
+编译失败时，`compileLaTeX` 解析日志（`parse-missing-tex.ts`），必要时从 CTAN 拉取（`ctan-download.ts`：JSON、镜像 zip、`/install/…` TDS 包），以**文件名**并入编译根 map 后重编（默认开启，最多三轮）。静态部署与 Git 共用 **Git → 远程 → CORS Proxy**；`pnpm dev` 走 Vite 的 `/__texbrain_ctan_*` 代理。说明与排错见[常见问题 — CTAN 自动拉包](faq.md#ctan-自动拉包缺-sty--cls)。
+
 ### Git
 
-[isomorphic-git](https://isomorphic-git.org/) + [LightningFS](https://github.com/isomorphic-git/lightning-fs) / IndexedDB；远程经 **CORS 代理**（浏览器无法直接使用 git 协议）。默认代理：`cors.isomorphic-git.org`（可在界面替换）。
+[isomorphic-git](https://isomorphic-git.org/) + [LightningFS](https://github.com/isomorphic-git/lightning-fs) / IndexedDB；远程经 **CORS 代理**（浏览器无法直接使用 git 协议）。**CTAN 自动拉包**在静态站上使用同一代理设置。默认：`cors.isomorphic-git.org`（可在界面替换）。
 
 打开本地目录**不会**导入磁盘 `.git`；师生以 GitHub 协作为主流程见 **[多人协作流程](collaboration-workflow.md)**。
 
@@ -90,6 +94,6 @@ SvelteKit **静态适配器** + [Tailwind CSS 4](https://tailwindcss.com/)，可
 ## 相关文档
 
 - [部署](deployment.md) — 本地开发、GitHub Pages、PM2、NAS、Cloudflare
-- [常见问题](faq.md) — SyncTeX、构建变量、BusyTeX 字体、排错
+- [常见问题](faq.md) — SyncTeX、CTAN 自动拉包、构建变量、BusyTeX 字体、排错
 - [多人协作流程](collaboration-workflow.md) — GitHub 课程协作与 Collab 房间
 - [主 README](../../README.zh-CN.md) — 功能概览与快速上手
