@@ -7,6 +7,15 @@ import {
 } from './busytex-bibtex';
 import { patchBiblatexFiles } from './bibliography';
 import { remapBblToProjectPath, sliceProjectToCompileRoot } from './compile-root';
+import {
+  fetchMissingTexFromLog,
+  formatCtanAutoFetchSuccessNote,
+  reportCtanFetchProgress,
+  setCtanFetchProgressReporter
+} from './ctan-download';
+
+export { setCtanFetchProgressReporter };
+import { parseMissingTexFilesFromLog } from './parse-missing-tex';
 
 let engine: any = null;
 let loadPromise: Promise<void> | null = null;
@@ -346,16 +355,100 @@ function formatSwiftLatexSynctexProbeLog(eng: any, mainFile: string): string {
   return '\n\n' + lines.join('\n');
 }
 
+export interface CompileLaTeXOptions {
+  /** CORS proxy base (Git > Remote); used when fetching CTAN zips in the browser. */
+  corsProxy?: string;
+  /** When true (default), retry compile after downloading missing .sty/.cls from CTAN. */
+  autoFetchCtan?: boolean;
+}
+
+const MAX_CTAN_FETCH_ROUNDS = 3;
+
 export async function compileLaTeX(
   projectMainFile: string,
   files: Map<string, string>,
   binaryFiles?: Map<string, ArrayBuffer>,
-  engine: CompileEngine = 'pdflatex'
+  engine: CompileEngine = 'pdflatex',
+  options: CompileLaTeXOptions = {}
+): Promise<CompileResult> {
+  const autoFetch = options.autoFetchCtan !== false;
+  const corsProxy = options.corsProxy ?? '';
+  let ctanLog = '';
+  let ctanFilesAdded = 0;
+  let sawMissingInLog = false;
+  let workFiles = files;
+  let workBinary = binaryFiles;
+
+  const appendCtanSuccessNote = (result: CompileResult): CompileResult => {
+    const note = formatCtanAutoFetchSuccessNote({
+      enabled: autoFetch,
+      sawMissingInLog,
+      filesAddedFromCtan: ctanFilesAdded
+    });
+    if (!note) return result;
+    return { ...result, log: result.log + note };
+  };
+
+  let result = await compileLaTeXOnce(
+    projectMainFile,
+    workFiles,
+    workBinary,
+    engine,
+    ctanLog
+  );
+  if (!autoFetch) return result;
+
+  if (result.status === 0) {
+    reportCtanFetchProgress(
+      '[TeXbrain] CTAN auto-fetch: skipped (no missing .sty/.cls in log; BusyTeX TeX Live satisfied dependencies)'
+    );
+    return appendCtanSuccessNote(result);
+  }
+
+  for (let round = 0; round < MAX_CTAN_FETCH_ROUNDS; round++) {
+    if (result.status === 0) {
+      return appendCtanSuccessNote(result);
+    }
+    const missing = parseMissingTexFilesFromLog(result.log);
+    if (missing.length === 0) return result;
+
+    sawMissingInLog = true;
+    const fetched = await fetchMissingTexFromLog(result.log, corsProxy);
+    ctanLog += fetched.log;
+    ctanFilesAdded += fetched.added.size;
+    if (fetched.added.size === 0) {
+      return { ...result, log: result.log + fetched.log };
+    }
+
+    const merged = new Map(workFiles);
+    for (const [base, content] of fetched.added) {
+      if (!merged.has(base)) merged.set(base, content);
+    }
+    workFiles = merged;
+
+    result = await compileLaTeXOnce(
+      projectMainFile,
+      workFiles,
+      workBinary,
+      engine,
+      ctanLog
+    );
+  }
+
+  return appendCtanSuccessNote(result);
+}
+
+async function compileLaTeXOnce(
+  projectMainFile: string,
+  files: Map<string, string>,
+  binaryFiles: Map<string, ArrayBuffer> | undefined,
+  engine: CompileEngine,
+  ctanPrefixLog: string
 ): Promise<CompileResult> {
   const sliced = sliceProjectToCompileRoot(projectMainFile, files, binaryFiles);
-  let mainFile = sliced.mainFile;
-  let workFiles = sliced.files;
-  let workBinary = sliced.binaryFiles;
+  const mainFile = sliced.mainFile;
+  const workFiles = sliced.files;
+  const workBinary = sliced.binaryFiles;
   const { compileRootDir } = sliced;
 
   const rootNote =
@@ -386,7 +479,7 @@ export async function compileLaTeX(
     return {
       pdf: busy.pdf,
       status: busy.status,
-      log: rootNote + busy.log,
+      log: ctanPrefixLog + rootNote + busy.log,
       bbl: remapBblToProjectPath(compileRootDir, projectMainFile, busy.bbl),
       synctex: busy.synctex
     };
@@ -398,7 +491,7 @@ export async function compileLaTeX(
       return {
         pdf: busy.pdf,
         status: busy.status,
-        log: rootNote + busy.log,
+        log: ctanPrefixLog + rootNote + busy.log,
         bbl: remapBblToProjectPath(compileRootDir, projectMainFile, busy.bbl),
         synctex: busy.synctex
       };
@@ -442,13 +535,13 @@ export async function compileLaTeX(
     return {
       pdf: firstPass.pdf,
       status: firstPass.status,
-      log: rootNote + busyTexFallbackNote + firstPass.log
+      log: ctanPrefixLog + rootNote + busyTexFallbackNote + firstPass.log
     };
   }
 
   const result = await eng.compileLaTeX();
 
-  let log = rootNote + busyTexFallbackNote + result.log;
+  let log = ctanPrefixLog + rootNote + busyTexFallbackNote + result.log;
   if (needsBibtexPipeline && !busyTexFallbackNote) {
     log =
       '[TeXbrain] For full BibTeX support, run: pnpm run download-busytex\n\n' + log;

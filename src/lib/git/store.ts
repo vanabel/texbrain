@@ -1,4 +1,4 @@
-import { writable, derived } from 'svelte/store';
+import { get, writable, derived } from 'svelte/store';
 import type { GitFileChange, GitCommitInfo } from './types';
 
 export const gitPanelOpen = writable(false);
@@ -37,4 +37,11 @@ function persisted(key: string, fallback: string) {
 export const gitAuthorName = persisted('texbrain-git-name', '');
 export const gitAuthorEmail = persisted('texbrain-git-email', '');
 export const gitAuthToken = persisted('texbrain-git-token', '');
-export const gitCorsProxy = persisted('texbrain-git-proxy', 'https://cors.isomorphic-git.org');
+export const DEFAULT_GIT_CORS_PROXY = 'https://cors.isomorphic-git.org';
+
+export const gitCorsProxy = persisted('texbrain-git-proxy', DEFAULT_GIT_CORS_PROXY);
+
+/** Same fallback as isomorphic-git engine (compile CTAN fetch, GitHub zip, …). */
+export function getEffectiveGitCorsProxy(): string {
+  return get(gitCorsProxy).trim() || DEFAULT_GIT_CORS_PROXY;
+}

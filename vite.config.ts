@@ -41,6 +41,28 @@ const texbrainCodeloadProxy = {
   }
 } as const;
 
+/** CTAN mirror + JSON API (auto-fetch missing .sty); dev / preview only. */
+const texbrainCtanProxy = {
+  '/__texbrain_ctan_ustc': {
+    target: 'https://mirrors.ustc.edu.cn',
+    changeOrigin: true,
+    secure: true,
+    rewrite: (p: string) => p.replace(/^\/__texbrain_ctan_ustc/, '')
+  },
+  '/__texbrain_ctan_tsinghua': {
+    target: 'https://mirrors.tuna.tsinghua.edu.cn',
+    changeOrigin: true,
+    secure: true,
+    rewrite: (p: string) => p.replace(/^\/__texbrain_ctan_tsinghua/, '')
+  },
+  '/__texbrain_ctan_json': {
+    target: 'https://www.ctan.org',
+    changeOrigin: true,
+    secure: true,
+    rewrite: (p: string) => p.replace(/^\/__texbrain_ctan_json/, '')
+  }
+} as const;
+
 export default defineConfig({
   plugins: [
     // Must run before SvelteKit: provides global process / Buffer for crypto-browserify → readable-stream
@@ -71,7 +93,7 @@ export default defineConfig({
     format: 'es'
   },
   server: {
-    proxy: { ...texbrainCodeloadProxy },
+    proxy: { ...texbrainCodeloadProxy, ...texbrainCtanProxy },
     watch: {
       // ignore latex artifacts and texlive cache to prevent hot reload on file save
       ignored: [
@@ -83,7 +105,7 @@ export default defineConfig({
     }
   },
   preview: {
-    proxy: { ...texbrainCodeloadProxy }
+    proxy: { ...texbrainCodeloadProxy, ...texbrainCtanProxy }
   },
   build: {
     rollupOptions: {

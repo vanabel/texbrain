@@ -27,7 +27,7 @@
   import { collabActive, collabPanelOpen, collabPeers, collabConnected } from '$lib/collab/store';
   import { createRoom, joinRoom, leaveRoom, getYTextWithUndo, getAwareness, setCurrentFile, getSharedFileList, getSharedEntryPoint, isHost, requestCompile, setCompileStatus, setCompileResult, observeCompileState, readCompileState, collectFilesFromYjs } from '$lib/collab/provider';
   import { collabRoom } from '$lib/collab/store';
-  import { gitPanelOpen, gitEnabled, gitChangeCount } from '$lib/git/store';
+  import { gitPanelOpen, gitEnabled, gitChangeCount, getEffectiveGitCorsProxy } from '$lib/git/store';
   import {
     initFs as gitInitFs, initRepo as gitInitRepo, syncFilesToGit,
     writeFileToGit, checkAndLoadGit, refreshGitState,
@@ -501,7 +501,8 @@
         import('$lib/compiler/busytex-bibtex')
       ]);
       latexEngineMod = latexMod;
-      const { compileLaTeX, getTexliveCacheState, setTexliveProgressReporter } = latexMod;
+      const { compileLaTeX, getTexliveCacheState, setTexliveProgressReporter, setCtanFetchProgressReporter } =
+        latexMod;
       const { busytexAssetsAvailable, needsBusyTexForProject, warmupBusyTexForProject } = busytexMod;
 
       if (compileEngine === 'xelatex') {
@@ -546,8 +547,13 @@
       setTexliveProgressReporter((message: string) => {
         compileLog.update(log => [...log, `[${ts()}] ${message}`]);
       });
+      setCtanFetchProgressReporter((message: string) => {
+        compileLog.update(log => [...log, `[${ts()}] ${message}`]);
+      });
       const result = await Promise.race([
-        compileLaTeX(mainFile, projectFiles, binaryFiles, compileEngine),
+        compileLaTeX(mainFile, projectFiles, binaryFiles, compileEngine, {
+          corsProxy: getEffectiveGitCorsProxy()
+        }),
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('compilation timed out after 600s')), 600_000)
         )
@@ -602,7 +608,14 @@
         bblFile = await resolveBblAfterCompile(result.bbl, mainFile);
         await persistBblToProject(bblFile);
         compileStatus.set('success');
-        compileLog.set([`[${ts()}] compilation successful (${pdfPageCount} pages)`, ...cleanedLines]);
+        const ctanSuccessNote = (result.log || '')
+          .split('\n')
+          .filter((l) => /\[TeXbrain\] CTAN auto-fetch:/i.test(l));
+        compileLog.set([
+          `[${ts()}] compilation successful (${pdfPageCount} pages)`,
+          ...ctanSuccessNote,
+          ...cleanedLines
+        ]);
 
         if (parsedErrors.some(e => e.type === 'error')) {
           previewTab.set('errors');
@@ -615,7 +628,14 @@
         synctexModel = undefined;
         bblFile = undefined;
         compileStatus.set('error');
-        compileLog.set([`[${ts()}] compilation failed (status ${result.status})`, ...cleanedLines]);
+        const ctanNoteLines = (result.log || '')
+          .split('\n')
+          .filter((l) => /\[TeXbrain\] CTAN auto-fetch:|\[CTAN\]/i.test(l));
+        compileLog.set([
+          `[${ts()}] compilation failed (status ${result.status})`,
+          ...ctanNoteLines,
+          ...cleanedLines
+        ]);
         previewTab.set('errors');
 
         if (isCollabMode) {
@@ -634,6 +654,7 @@
       }
     } finally {
       latexEngineMod?.setTexliveProgressReporter(null);
+      latexEngineMod?.setCtanFetchProgressReporter(null);
       busytexWarming = false;
       compiling = false;
       compileStuckTimer = 0;
