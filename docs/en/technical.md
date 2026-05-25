@@ -40,11 +40,11 @@ See the main [README — Editor sidebar](../../README.md#editor-sidebar-files-ou
 
 ### CTAN auto-fetch (missing `.sty` / `.cls`)
 
-On compile failure, `compileLaTeX` parses the log (`parse-missing-tex.ts`), may download from CTAN (`ctan-download.ts` — JSON API, mirror zips, `/install/…` TDS archives), merge basenames into the compile-root file map, and re-run (default **on**, max three rounds). Uses the same **Git → Remote → CORS Proxy** as isomorphic-git on static hosts; `pnpm dev` uses Vite routes `/__texbrain_ctan_*` instead. User-facing notes and troubleshooting: [FAQ — CTAN auto-fetch](faq.md#ctan-auto-fetch-missing-packages).
+On compile failure, `compileLaTeX` parses the log (`parse-missing-tex.ts`), may download from CTAN (`ctan-download.ts` — JSON API, mirror zips, `/install/…` TDS archives), merge basenames into the compile-root file map, and re-run (default **on**, max three rounds). The browser tries same-origin `/__texbrain_ctan_*` first (Vite on dev; nginx on NAS — [Deployment — CTAN proxy](deployment.md#static-deploy-same-origin-ctan-proxy-missing-sty--cls)); git-only CORS proxies are skipped. [FAQ — CTAN auto-fetch](faq.md#ctan-auto-fetch-missing-packages).
 
 ### Git
 
-[isomorphic-git](https://isomorphic-git.org/) + [LightningFS](https://github.com/isomorphic-git/lightning-fs) / IndexedDB. Remotes require a **CORS proxy** (browsers cannot speak git natively). The same proxy setting is used for **CTAN downloads** on deployed sites. Default: `cors.isomorphic-git.org` (replaceable in the UI).
+[isomorphic-git](https://isomorphic-git.org/) + [LightningFS](https://github.com/isomorphic-git/lightning-fs) / IndexedDB. Remotes require a **CORS proxy** (browsers cannot speak git natively). Default: `cors.isomorphic-git.org` (replaceable in the UI). **CTAN fetch** is separate — see CTAN section above.
 
 **Open Folder** does not import a disk `.git`. For course-style GitHub collaboration, see **[Collaboration workflow](collaboration-workflow.md)**.
 

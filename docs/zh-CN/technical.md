@@ -40,11 +40,11 @@ TeXbrain 是**纯静态** [SvelteKit](https://kit.svelte.dev/) 应用：编辑�
 
 ### CTAN 自动拉包（缺 `.sty` / `.cls`）
 
-编译失败时，`compileLaTeX` 解析日志（`parse-missing-tex.ts`），必要时从 CTAN 拉取（`ctan-download.ts`：JSON、镜像 zip、`/install/…` TDS 包），以**文件名**并入编译根 map 后重编（默认开启，最多三轮）。静态部署与 Git 共用 **Git → 远程 → CORS Proxy**；`pnpm dev` 走 Vite 的 `/__texbrain_ctan_*` 代理。说明与排错见[常见问题 — CTAN 自动拉包](faq.md#ctan-自动拉包缺-sty--cls)。
+编译失败时，`compileLaTeX` 解析日志（`parse-missing-tex.ts`），必要时从 CTAN 拉取（`ctan-download.ts`：JSON、镜像 zip、`/install/…` TDS 包），以**文件名**并入编译根 map 后重编（默认开启，最多三轮）。浏览器优先请求主站同源路径 `/__texbrain_ctan_*`（`pnpm dev` 由 Vite 提供；NAS 需 Nginx，见[部署 — CTAN 同源代理](deployment.md#静态部署ctan-同源代理编译缺-sty--cls)）；**不会**经 Git 专用 CORS 代理。说明与排错见[常见问题 — CTAN 自动拉包](faq.md#ctan-自动拉包缺-sty--cls)。
 
 ### Git
 
-[isomorphic-git](https://isomorphic-git.org/) + [LightningFS](https://github.com/isomorphic-git/lightning-fs) / IndexedDB；远程经 **CORS 代理**（浏览器无法直接使用 git 协议）。**CTAN 自动拉包**在静态站上使用同一代理设置。默认：`cors.isomorphic-git.org`（可在界面替换）。
+[isomorphic-git](https://isomorphic-git.org/) + [LightningFS](https://github.com/isomorphic-git/lightning-fs) / IndexedDB；远程经 **CORS 代理**（浏览器无法直接使用 git 协议）。默认：`cors.isomorphic-git.org`（可在界面替换）。**CTAN 拉包**与 Git 代理分离，见上文 CTAN 小节。
 
 打开本地目录**不会**导入磁盘 `.git`；师生以 GitHub 协作为主流程见 **[多人协作流程](collaboration-workflow.md)**。
 

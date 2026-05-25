@@ -41,7 +41,7 @@ const texbrainCodeloadProxy = {
   }
 } as const;
 
-/** CTAN mirror + JSON API (auto-fetch missing .sty); dev / preview only. */
+/** CTAN mirror + JSON API (auto-fetch missing .sty); dev/preview + same paths on NAS nginx. */
 const texbrainCtanProxy = {
   '/__texbrain_ctan_ustc': {
     target: 'https://mirrors.ustc.edu.cn',

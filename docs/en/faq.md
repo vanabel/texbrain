@@ -63,8 +63,9 @@ When a compile log contains `File 'foo.sty' not found` (or `.cls`, `.clo`, …),
 
 | Environment | CTAN access |
 | --- | --- |
-| **`pnpm dev` / `pnpm preview` on localhost** | Vite proxies USTC / Tsinghua mirrors and `ctan.org` JSON (same-origin). No extra setup. |
-| **Static deploy** (NAS, GitHub Pages, …) | Set **Git → Remote → CORS Proxy** (same field as git push/pull). Example: `https://git-cors.vanabel.cn` — no trailing slash. See [Deployment — self-hosted CORS proxy](deployment.md#optional-self-hosted-git-cors-proxy). |
+| **`pnpm dev` / `pnpm preview` on localhost** | Vite same-origin paths `/__texbrain_ctan_json`, `/__texbrain_ctan_ustc`, etc. No extra setup. |
+| **NAS / self-hosted static** | Reverse-proxy CTAN on the **same origin** as TeXbrain (`/__texbrain_ctan_json/`, …). See [Deployment — same-origin CTAN proxy](deployment.md#static-deploy-same-origin-ctan-proxy-missing-sty--cls). Do **not** use the Git CORS proxy (`git-cors.*`, `cors.isomorphic-git.org`) for CTAN — it returns 403. |
+| **GitHub Pages only** | Without a same-origin CTAN proxy, commit needed `.sty` files into the repo or compile via `pnpm dev` locally. |
 
 **Package layout quirks**
 

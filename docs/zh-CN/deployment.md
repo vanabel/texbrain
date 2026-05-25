@@ -79,6 +79,89 @@ pnpm pm2:delete
 
 `pnpm pm2:start` 会同时启动 **静态站点**（`texbrain`，默认端口 `4173`）与 **Git CORS 代理**（`texbrain-cors-proxy`，默认端口 `9999`）。若不需要浏览器内 Push/Pull，可在 `ecosystem.config.cjs` 中删除 `texbrain-cors-proxy` 条目，或 `pm2 delete texbrain-cors-proxy`。
 
+### 静态部署：CTAN 同源代理（编译缺 `.sty` / `.cls`）
+
+编译时若日志出现 `File 'xxx.sty' not found`，TeXbrain 会从 CTAN 拉包并重试。浏览器**不能**跨域直连 `ctan.org`；**Git CORS 代理**（`git-cors.vanabel.cn`、`cors.isomorphic-git.org`）**仅用于 Git**，对 CTAN 会返回 **403**，勿用于拉包。
+
+在 **TeXbrain 主站同一 origin**（例如 `https://tex.vanabel.cn`）上配置反向代理，路径与 `vite.config.ts` 中开发代理一致（`ctan-download.ts` 会优先请求这些 URL）：
+
+| 路径前缀 | 上游（示例） |
+| --- | --- |
+| `/__texbrain_ctan_json/` | `https://www.ctan.org/` |
+| `/__texbrain_ctan_ustc/` | `https://mirrors.ustc.edu.cn/`（含 `/CTAN/...`） |
+| `/__texbrain_ctan_tsinghua/` | `https://mirrors.tuna.tsinghua.edu.cn/` |
+
+#### cloudflared + NAS 单端口（常见）
+
+公网只暴露 **一个** tunnel 入口即可，**不必**在 Cloudflare 控制台为 CTAN 单独加规则或子域名。
+
+```text
+浏览器 → Cloudflare (tex.vanabel.cn)
+      → cloudflared tunnel
+      → NAS 192.168.x.x:19003   ← Nginx（或其它反代）监听
+            ├─ /__texbrain_ctan_json/     → www.ctan.org
+            ├─ /__texbrain_ctan_ustc/      → USTC 镜像
+            ├─ /__texbrain_ctan_tsinghua/ → 清华镜像
+            └─ /                         → TeXbrain PM2（如 127.0.0.1:19903）
+```
+
+**cloudflared** `ingress` 示例（概念上，按你实际配置文件调整）：
+
+```yaml
+ingress:
+  - hostname: tex.vanabel.cn
+    service: http://192.168.8.38:19003
+  - service: http_status:404
+```
+
+三个 `location` 写在 **监听 `19003` 的 Nginx** 上，而不是写在 cloudflared 里。PM2 默认 `PORT=19903`（见 `ecosystem.config.cjs`），由 Nginx `location /` 转发。
+
+**Nginx 完整示例**（`listen 19003`；TeXbrain 后端端口按本机修改）：
+
+```nginx
+server {
+  listen 19003;
+  server_name _;
+
+  location /__texbrain_ctan_json/ {
+    proxy_pass https://www.ctan.org/;
+    proxy_ssl_server_name on;
+    proxy_set_header Host www.ctan.org;
+  }
+
+  location /__texbrain_ctan_ustc/ {
+    proxy_pass https://mirrors.ustc.edu.cn/;
+    proxy_ssl_server_name on;
+    proxy_set_header Host mirrors.ustc.edu.cn;
+  }
+
+  location /__texbrain_ctan_tsinghua/ {
+    proxy_pass https://mirrors.tuna.tsinghua.edu.cn/;
+    proxy_ssl_server_name on;
+    proxy_set_header Host mirrors.tuna.tsinghua.edu.cn;
+  }
+
+  location / {
+    proxy_pass http://127.0.0.1:19903;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+  }
+}
+```
+
+**不要**把 `https://tex.vanabel.cn/__texbrain_ctan_*` 指到 `git-cors` 子域；Git 代理仅用于 Push/Pull。
+
+**自检（在 NAS 或任意能访问公网的环境）：**
+
+```bash
+curl -sS -o /dev/null -w "%{http_code}\n" \
+  "https://tex.vanabel.cn/__texbrain_ctan_json/json/2.0/pkg/extarrows"
+```
+
+应返回 **`200`**（JSON 包元数据）。若已是 `200`，反代已就绪；部署含 CTAN 修复的 TeXbrain 构建后，浏览器编译时应请求 `https://tex.vanabel.cn/__texbrain_ctan_json/...`，而非 `git-cors.../www.ctan.org/...`。
+
+本机 `pnpm dev` / `pnpm preview` 由 Vite 自动提供上述路径，无需 Nginx。说明见 [常见问题 — CTAN 自动拉包](faq.md#ctan-自动拉包缺-sty--cls)。
+
 ### 可选：自建 Git CORS 代理（浏览器 Push/Pull）
 
 浏览器里的 Git（isomorphic-git）无法直接访问 GitHub，需要 CORS 代理。公共地址 `https://cors.isomorphic-git.org` 在部分网络不可用；本仓库已包含 [`@isomorphic-git/cors-proxy`](https://github.com/isomorphic-git/cors-proxy)（`devDependencies`），可由 PM2 在 NAS 上同机运行。
@@ -104,7 +187,7 @@ pnpm pm2:delete
 
 3. **cloudflared（或反向代理）** 为 CORS 代理增加一条公网入口，将 `git-cors.vanabel.cn`（示例）指到 NAS `127.0.0.1:9999`。TeXbrain 主站 `tex.vanabel.cn` 仍指到 `4173`（或你现有的 ingress）。
 
-4. **在 TeXbrain 界面配置：** 打开 `https://tex.vanabel.cn` → **Git** → **Remote** → **CORS Proxy** 填 `https://git-cors.vanabel.cn`（**不要**末尾斜杠）。该代理也用于编译时 **CTAN 自动拉包**（缺 `.sty` / `.cls` 时，见[常见问题](faq.md#ctan-自动拉包缺-sty--cls)）。同时配置 remote URL 与 GitHub PAT（公开库 push 建议 `public_repo` scope）。
+4. **在 TeXbrain 界面配置：** 打开 `https://tex.vanabel.cn` → **Git** → **Remote** → **CORS Proxy** 填 `https://git-cors.vanabel.cn`（**不要**末尾斜杠），**仅用于 Git Push/Pull**。CTAN 拉包请配置上文 [CTAN 同源代理](#静态部署ctan-同源代理编译缺-sty--cls)。同时配置 remote URL 与 GitHub PAT（公开库 push 建议 `public_repo` scope）。
 
 5. **自检：**
 

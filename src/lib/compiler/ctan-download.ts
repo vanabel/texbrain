@@ -15,11 +15,15 @@ const CTAN_MIRROR_BASES = [
   'https://mirror.ctan.org'
 ] as const;
 
-/** Vite dev/preview same-origin proxy prefix per mirror host (see vite.config.ts). */
-const VITE_CTAN_PROXY_BY_BASE: Record<string, string> = {
+/**
+ * Same-origin proxy path per mirror host (Vite dev/preview; NAS/nginx — see docs/zh-CN/deployment.md).
+ * Request: `{origin}{prefix}/CTAN/macros/...` → upstream mirror.
+ */
+const SAME_ORIGIN_CTAN_PROXY_BY_HOST: Record<string, string> = {
   'https://mirrors.ustc.edu.cn': '/__texbrain_ctan_ustc',
   'https://mirrors.tuna.tsinghua.edu.cn': '/__texbrain_ctan_tsinghua'
 };
+const SAME_ORIGIN_CTAN_JSON_PREFIX = '/__texbrain_ctan_json';
 const DEFAULT_PUBLIC_CORS = 'https://cors.isomorphic-git.org';
 
 /** Per fetch attempt; avoids hanging on slow CORS proxies for multi-MB zips. */
@@ -59,14 +63,34 @@ export function reportCtanFetchProgress(message: string): void {
   }
 }
 
-function mirrorOriginInUrl(url: string): boolean {
-  return CTAN_MIRROR_BASES.some((base) => url.startsWith(base));
+/** Git-only CORS proxies cannot forward CTAN JSON/zip (returns 403). */
+function isGitOnlyCorsProxyBase(base: string): boolean {
+  const b = base.trim().toLowerCase();
+  if (!b) return true;
+  return (
+    b.includes('isomorphic-git.org') ||
+    b.includes('git-cors') ||
+    b.endsWith('/cors-proxy') ||
+    b.includes('/cors-proxy/')
+  );
 }
 
-function canUseLocalViteCtanProxy(): boolean {
-  if (typeof location === 'undefined' || !location.hostname) return false;
-  const h = location.hostname;
-  return h === 'localhost' || h === '127.0.0.1' || h === '[::1]';
+/** Prefer `{origin}/__texbrain_ctan_*` when reverse proxy is configured (Vite dev or NAS nginx). */
+function addSameOriginCtanAttempts(url: string, add: (u: string) => void): boolean {
+  if (typeof location === 'undefined' || !location.origin) return false;
+  let added = false;
+  for (const [host, prefix] of Object.entries(SAME_ORIGIN_CTAN_PROXY_BY_HOST)) {
+    if (url.startsWith(host)) {
+      add(`${location.origin}${prefix}${url.slice(host.length)}`);
+      added = true;
+      break;
+    }
+  }
+  if (url.startsWith(CTAN_JSON_ORIGIN)) {
+    add(`${location.origin}${SAME_ORIGIN_CTAN_JSON_PREFIX}${url.slice(CTAN_JSON_ORIGIN.length)}`);
+    added = true;
+  }
+  return added;
 }
 
 function buildFetchAttempts(url: string, corsProxy: string): string[] {
@@ -79,31 +103,16 @@ function buildFetchAttempts(url: string, corsProxy: string): string[] {
     }
   };
 
-  let viteProxied = false;
-  if (mirrorOriginInUrl(url) && canUseLocalViteCtanProxy() && location.origin) {
-    for (const [host, prefix] of Object.entries(VITE_CTAN_PROXY_BY_BASE)) {
-      if (url.startsWith(host)) {
-        add(`${location.origin}${prefix}${url.slice(host.length)}`);
-        viteProxied = true;
-        break;
-      }
-    }
-  }
-  if (url.startsWith(CTAN_JSON_ORIGIN) && canUseLocalViteCtanProxy() && location.origin) {
-    add(`${location.origin}/__texbrain_ctan_json${url.slice(CTAN_JSON_ORIGIN.length)}`);
-    viteProxied = true;
-  }
-
-  if (viteProxied) {
+  const sameOrigin = addSameOriginCtanAttempts(url, add);
+  if (sameOrigin) {
     add(url);
-    return attempts;
   }
 
-  const bases = [...new Set([corsProxy.trim() || DEFAULT_PUBLIC_CORS, DEFAULT_PUBLIC_CORS])];
-  for (const base of bases) {
-    if (base) add(corsProxify(base, url));
+  const proxyBases = [...new Set([corsProxy.trim() || DEFAULT_PUBLIC_CORS, DEFAULT_PUBLIC_CORS])];
+  for (const base of proxyBases) {
+    if (base && !isGitOnlyCorsProxyBase(base)) add(corsProxify(base, url));
   }
-  add(url);
+  if (!sameOrigin) add(url);
 
   return attempts;
 }
@@ -454,7 +463,7 @@ export async function fetchMissingTexFromCtan(
     if (files.size === 0) {
       const p = resolved.meta.ctan?.path ?? '?';
       logLines.push(
-        `[CTAN] download failed for pkg/${resolved.key} (${p}); set Git → Remote → CORS Proxy (e.g. https://git-cors.vanabel.cn) or use pnpm dev (Vite CTAN proxy)`
+        `[CTAN] download failed for pkg/${resolved.key} (${p}); on NAS/static hosts configure same-origin CTAN routes (/__texbrain_ctan_json, /__texbrain_ctan_ustc, …) — see docs deployment, or use pnpm dev`
       );
       continue;
     }

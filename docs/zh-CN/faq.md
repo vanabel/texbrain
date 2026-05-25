@@ -59,8 +59,9 @@
 
 | 环境 | CTAN 访问方式 |
 | --- | --- |
-| **本机 `pnpm dev` / `pnpm preview`** | Vite 同源代理 USTC / 清华镜像及 `ctan.org` JSON，一般无需额外配置。 |
-| **静态部署**（NAS、GitHub Pages 等） | 在 **Git → 远程 → CORS Proxy** 填写与 Git 相同的代理（例如 `https://git-cors.vanabel.cn`，**不要**末尾 `/`）。见[部署 — 自建 CORS 代理](deployment.md#可选自建-git-cors-代理浏览器-pushpull)。 |
+| **本机 `pnpm dev` / `pnpm preview`** | Vite 同源路径 `/__texbrain_ctan_json`、`/__texbrain_ctan_ustc` 等，一般无需额外配置。 |
+| **NAS / 自托管静态站** | 在 **TeXbrain 主站同一域名** 配置反向代理（`/__texbrain_ctan_json/` 等），见[部署 — CTAN 同源代理](deployment.md#静态部署ctan-同源代理编译缺-sty--cls)。**不要**用 Git CORS 代理（`git-cors.*`、`cors.isomorphic-git.org`）拉 CTAN，会 403。 |
+| **GitHub Pages 等纯静态** | 无法配同源 CTAN 代理时，将常用 `.sty` 提交进仓库，或在本机 `pnpm dev` 编译。 |
 
 **包结构说明**
 

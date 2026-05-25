@@ -88,6 +88,89 @@ For **SyncTeX in the PDF preview**, build with `VITE_PDF_VIEWER=pdfjs pnpm build
 
 `pnpm pm2:start` starts both the **static site** (`texbrain`, default port `4173`) and the **Git CORS proxy** (`texbrain-cors-proxy`, default port `9999`). Remove the `texbrain-cors-proxy` app from `ecosystem.config.cjs` if you do not need in-browser push/pull.
 
+### Static deploy: same-origin CTAN proxy (missing `.sty` / `.cls`)
+
+When a compile log reports `File 'xxx.sty' not found`, TeXbrain may fetch from CTAN and retry. Browsers cannot call `ctan.org` cross-origin from your site. **Git CORS proxies** (`git-cors.*`, `cors.isomorphic-git.org`) are **git-only** and return **403** for CTAN URLs — do not use them for package download.
+
+Expose these paths on the **same origin** as TeXbrain (e.g. `https://tex.vanabel.cn`), matching `vite.config.ts` dev routes (`ctan-download.ts` tries them first):
+
+| Path prefix | Upstream (example) |
+| --- | --- |
+| `/__texbrain_ctan_json/` | `https://www.ctan.org/` |
+| `/__texbrain_ctan_ustc/` | `https://mirrors.ustc.edu.cn/` |
+| `/__texbrain_ctan_tsinghua/` | `https://mirrors.tuna.tsinghua.edu.cn/` |
+
+#### cloudflared + single NAS port (typical)
+
+Expose **one** tunnel hostname to your NAS. You do **not** add separate Cloudflare rules or hostnames for CTAN.
+
+```text
+Browser → Cloudflare (tex.example.com)
+       → cloudflared tunnel
+       → NAS 192.168.x.x:19003   ← Nginx (or similar) listens here
+             ├─ /__texbrain_ctan_json/     → www.ctan.org
+             ├─ /__texbrain_ctan_ustc/      → USTC mirror
+             ├─ /__texbrain_ctan_tsinghua/ → Tsinghua mirror
+             └─ /                         → TeXbrain PM2 (e.g. 127.0.0.1:19903)
+```
+
+**cloudflared** `ingress` (adjust to your config file):
+
+```yaml
+ingress:
+  - hostname: tex.vanabel.cn
+    service: http://192.168.8.38:19003
+  - service: http_status:404
+```
+
+Put the three `location` blocks on **Nginx listening on `19003`**, not inside cloudflared. PM2 defaults to `PORT=19903` (`ecosystem.config.cjs`); Nginx `location /` forwards there.
+
+**Full Nginx example** (`listen 19003`; change the TeXbrain backend port if needed):
+
+```nginx
+server {
+  listen 19003;
+  server_name _;
+
+  location /__texbrain_ctan_json/ {
+    proxy_pass https://www.ctan.org/;
+    proxy_ssl_server_name on;
+    proxy_set_header Host www.ctan.org;
+  }
+
+  location /__texbrain_ctan_ustc/ {
+    proxy_pass https://mirrors.ustc.edu.cn/;
+    proxy_ssl_server_name on;
+    proxy_set_header Host mirrors.ustc.edu.cn;
+  }
+
+  location /__texbrain_ctan_tsinghua/ {
+    proxy_pass https://mirrors.tuna.tsinghua.edu.cn/;
+    proxy_ssl_server_name on;
+    proxy_set_header Host mirrors.tuna.tsinghua.edu.cn;
+  }
+
+  location / {
+    proxy_pass http://127.0.0.1:19903;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+  }
+}
+```
+
+Do **not** point `https://tex.vanabel.cn/__texbrain_ctan_*` at the `git-cors` host; that proxy is git-only.
+
+**Smoke test:**
+
+```bash
+curl -sS -o /dev/null -w "%{http_code}\n" \
+  "https://tex.vanabel.cn/__texbrain_ctan_json/json/2.0/pkg/extarrows"
+```
+
+Expect **`200`**. If you already get `200`, the reverse proxy is fine — deploy a TeXbrain build with the CTAN client fix and hard-refresh the browser so fetches use `https://tex.vanabel.cn/__texbrain_ctan_json/...` instead of `git-cors.../www.ctan.org/...`.
+
+`pnpm dev` / `pnpm preview` on localhost use Vite’s built-in proxies. See [FAQ — CTAN auto-fetch](faq.md#ctan-auto-fetch-missing-packages).
+
 ### Optional: self-hosted Git CORS proxy
 
 Browser Git (isomorphic-git) cannot talk to GitHub directly; it needs a CORS proxy. This repo ships [`@isomorphic-git/cors-proxy`](https://github.com/isomorphic-git/cors-proxy) as a devDependency and runs it via PM2.
@@ -102,7 +185,7 @@ Example (cloudflared + custom domain):
 1. `pnpm install`, `pnpm build`, then `pnpm pm2:start`.
 2. Optional overrides before start: `GIT_CORS_ALLOW_ORIGIN=https://tex.vanabel.cn`, `GIT_CORS_PROXY_PORT=9999` (must match the browser origin where users open TeXbrain).
 3. Point a second tunnel/ingress (e.g. `git-cors.vanabel.cn`) at `127.0.0.1:9999`.
-4. In TeXbrain: **Git → Remote → CORS Proxy** = `https://git-cors.vanabel.cn` (no trailing slash). The same proxy is used for **CTAN auto-fetch** when a compile reports missing `.sty` / `.cls` ([FAQ](faq.md#ctan-auto-fetch-missing-packages)).
+4. In TeXbrain: **Git → Remote → CORS Proxy** = `https://git-cors.vanabel.cn` (no trailing slash), **for Git push/pull only**. For CTAN, configure [same-origin CTAN routes](#static-deploy-same-origin-ctan-proxy-missing-sty--cls) on the main site.
 
 Local test: `ALLOW_ORIGIN=http://localhost:5173 pnpm run serve:cors-proxy`, then set CORS Proxy to `http://127.0.0.1:9999`.
 
