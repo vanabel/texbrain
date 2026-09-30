@@ -5,7 +5,7 @@ import { openFileTab, activeFile, markFileSaved, projectTree, projectName, proje
 import { openLocalFile, saveLocalFile, saveLocalFileAs, openDirectory, readFileFromHandle } from '../fs/local-fs';
 import { openFileFallback, saveFileFallback } from '../fs/fallback-fs';
 import { addToast } from '../stores/app';
-import { initFs as gitInitFs, cloneRepo, readAllFilesFromGit, checkAndLoadGit, syncFilesToGit } from '../git/engine';
+import { initFs as gitInitFs, cloneRepo, readAllFilesFromGit, checkAndLoadGit, syncFilesToGit } from '../git/load-engine';
 import { downloadGithubSubfolderAsMaps, extractSubfolderFromUnzipped, parseGithubRepoUrl } from '../git/github-zip';
 import { gitCorsProxy } from '../git/store';
 import type { TreeEntry } from './types';
@@ -131,7 +131,7 @@ export async function cloneProject(url: string, name: string, options?: ClonePro
     addToast('Cloning repository...', 'info', 3000);
   }
 
-  gitInitFs(name);
+  await gitInitFs(name);
 
   if (onlySubpath) {
     const gh = parseGithubRepoUrl(url)!;
@@ -161,7 +161,7 @@ export async function loadBundledBibtexExample(name: string): Promise<void> {
   const projectDir = await dirHandle.getDirectoryHandle(name, { create: true });
 
   addToast('Loading built-in BibTeX example…', 'info', 3000);
-  gitInitFs(name);
+  await gitInitFs(name);
 
   const zipPath = `${base}/bundled-bibtex-example.zip`.replace(/\/+/g, '/');
   const zipUrl = zipPath.startsWith('http') ? zipPath : new URL(zipPath, location.origin).href;

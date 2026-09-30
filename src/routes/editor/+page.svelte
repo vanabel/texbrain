@@ -1364,7 +1364,7 @@
 
     const handle = get(projectHandle);
     const projectId = handle?.name || 'default';
-    gitInitFs(projectId);
+    await gitInitFs(projectId);
 
     await syncFilesToGit(projectFiles);
     await gitInitRepo();
@@ -1567,9 +1567,9 @@
   let lastGitProjectHandle: FileSystemDirectoryHandle | null = null;
   $: if (browser && $projectHandle && $projectHandle !== lastGitProjectHandle) {
     lastGitProjectHandle = $projectHandle;
-    gitInitFs($projectHandle.name);
     (async () => {
       try {
+        await gitInitFs($projectHandle.name);
         let projectFiles = new Map<string, string>();
         try {
           const collected = await collectProjectFiles();

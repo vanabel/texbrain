@@ -11,7 +11,7 @@
     addRemote, listRemotes, removeRemote, push, pull,
     refreshGitState, getFileDiff, readAllFilesFromGit, writeFileToGit, checkAndLoadGit,
     getBranchTips, getCommitChangedFiles, getCommitFileDiff
-  } from '$lib/git/engine';
+  } from '$lib/git/load-engine';
   import type { GitFileDiff, GitCommitInfo } from '$lib/git/types';
   import { addToast } from '$lib/stores/app';
 
