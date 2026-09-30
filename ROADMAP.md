@@ -13,6 +13,44 @@ This document is used to:
 - break work into incremental milestones for collaboration
 - clarify short-/mid-term goals vs long-term exploration
 
+## Lessons from [LatexCoder](https://github.com/EvoEvolver/LatexCoder) (2026-09)
+
+LatexCoder is a **self-hosted** collaborative workspace (Yjs + SQLite + real Git + Tectonic/latexmk + agent file APIs). TeXbrain is **browser-only** (WASM TeX, isomorphic-git, optional WebRTC). Do **not** absorb the server stack; absorb UX/algorithm ideas that fit a static client.
+
+| Area | TeXbrain today | LatexCoder strength | Absorb? |
+| --- | --- | --- | --- |
+| Hosting | Static SPA, no accounts | Node service, auth, SSH Git | No (identity conflict) |
+| Compile | SwiftLaTeX / BusyTeX WASM | Tectonic / latexmk on server | No (keep WASM; optional later companion) |
+| Collab | WebRTC Yjs rooms | Server Yjs + capability links + checkpoints | Partial (UX only) |
+| Agent | None | Checked full-file edit + SHA256 + manual | Optional companion only |
+| Log / diagnostics | Structured Log + first fatal + jump; static lint | Structured Log, first fatal, click-to-source | **Done (A1/A4)** |
+| Stale PDF | Keep last good + stale badge | Keep last good PDF + stale badge | **Done (A2)** |
+| Go-to-ref | Cmd/Ctrl+click follow + sidebar | Cmd/Ctrl+click `\cite`/`\ref`/`\input`/`\includegraphics`/`\url` | **Done (A3)** |
+| Static lint | Dup label / undef cite·ref + CM lint | Undefined cite/ref, duplicate `\label` | **Done (A4)** |
+| Cite complete | Title/authors + Labels tab | Title + authors in completion | **Done (A5)** |
+| Project search | Ctrl/⌘+Shift+F + disk write-back | Multi-file search + replace preview | **Done (A6)** |
+| Review | UI-only comments (collab) | Review as LaTeX macros (Git-visible) | Explore (A7) |
+| TreeWriter / TLDR | Outline only | Paper-level summaries + in-place leaf edit | Later |
+| Markdown | No | Edit + sanitized GFM preview | Later |
+
+### Absorption backlog (client-compatible)
+
+**A1 (P0):** Structured **Log** panel — promote first fatal error; group errors/warnings; click jumps to file+line (reuse/strengthen existing `parseLog`). ✅ structured Diagnostics + Raw log in Log tab
+
+**A2 (P0):** **Stale PDF** — keep last successful preview while editing; mark stale until next successful compile; never present a failed build as a fresh PDF. ✅
+
+**A3 (P1):** **Cmd/Ctrl+click follow** for `\cite` / `\citep` / `\citet` / `\ref` / `\autoref` / `\cref` / `\eqref` / `\input` / `\include` / `\includegraphics` / `\url` (LatexCoder `referenceLinks` pattern). ✅
+
+**A4 (P1):** **Static diagnostics** before compile — duplicate labels, undefined refs/cites (LatexCoder `latexDiagnostics`); surface in Log + editor marks. ✅ Warnings/Log + CodeMirror lint gutter/underlines
+
+**A5 (P1):** Richer **citation completion** (title/authors from `.bib`) and `\label`/`\ref` browse in **References**. ✅
+
+**A6 (P2):** Project-wide **search / replace with preview** (in-memory; no ripgrep/sandbox needed in browser). ✅ + write-back to disk when a folder project is open
+
+**A7 (explore):** Review/comments as **LaTeX macros** so Git and future agents see the same review state (fits TeXbrain’s “source is truth” story better than opaque UI state).
+
+**Explicit non-goals from LatexCoder:** admin panel, SSH Git listener, server compile queue, Agent HTTP protocol, capability share sessions, bubblewrap search — unless TeXbrain later adds an *optional* self-hosted companion (separate product surface).
+
 ## Current priorities (2026)
 
 ### Recently shipped (editor)
@@ -20,8 +58,9 @@ This document is used to:
 - Tabbed sidebar: **Files**, **Outline** (section tree + `\input` / `\include`), **References** (citation keys + numbered equations)
 - Click-to-jump and Ctrl/⌘+click-to-insert for cites and equations; project-wide `\cite{…}` / `\eqref{…}` autocomplete
 - BusyTeX: second XeLaTeX pass for cross-references; SyncTeX / PDF viewer robustness improvements in the same release line
+- **A1–A6 (from LatexCoder):** structured Log (first fatal + click-to-source), stale PDF badge, Cmd/Ctrl+click follow for cite/ref/input/include/includegraphics/url, static diagnostics (dup label / undef cite·ref), richer cite + `\label`/`\ref` in References + autocomplete, project search/replace preview (Ctrl/⌘+Shift+F)
 
-Still open: `\label` / `\ref` browsing, rename/refactor across files, and error-list linkage.
+Still open: rename/refactor across files; TreeWriter / review macros (A7).
 
 ### P0: Stability and predictability
 
@@ -35,14 +74,15 @@ Still open: `\label` / `\ref` browsing, rename/refactor across files, and error-
 - improve capability boundaries and hints for BibTeX / biblatex / biber
 - incremental compile and caching strategy for larger projects
 - stronger templates/scaffolds (thesis, journal, Chinese writing)
-- `\label` / `\ref` navigation and safer rename flow for `\input` / `\include` (cite/equation browse + jump largely covered by the sidebar **References** tab)
+- safer rename/refactor across `\input` / `\include` and label keys
 
 ### P2: Editing experience enhancements
 
 - Vim mode (start with core behavior, then move toward vimtex-like workflows)
 - more configurable command palette and keybindings
-- structure-aware navigation beyond the shipped **Outline** tab (symbols, `\ref` targets, error linkage)
+- structure-aware navigation beyond the shipped **Outline** tab (symbols, TreeWriter-style paper view)
 - extensible snippets and completion patterns
+- review-as-LaTeX-macros (A7) if collaboration needs Git-visible comments
 
 ## Mid-/long-term exploration
 

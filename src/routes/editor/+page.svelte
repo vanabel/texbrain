@@ -3,18 +3,27 @@
   import { base } from '$app/paths';
   import { browser } from '$app/environment';
   import { get } from 'svelte/store';
-  import { sidebarOpen, sidebarPanel, previewOpen, editorOpen, snippetPickerOpen, commandPaletteOpen, compileStatus, compileLog, compileErrors, previewTab, addToast } from '$lib/stores/app';
+  import { sidebarOpen, sidebarPanel, previewOpen, editorOpen, snippetPickerOpen, commandPaletteOpen, projectSearchOpen, compileStatus, compileLog, compileErrors, staticDiagnostics, pdfStale, previewTab, addToast } from '$lib/stores/app';
   import { files, activeFile, activeFileId, updateFileContent, projectHandle, projectTree, entryPoint, openFileTab } from '$lib/project/store';
   import { handleOpenFile, handleSaveFile, handleSaveFileAs, handleDroppedFiles, handleOpenDirectory, handleNewProject, cloneProject, loadBundledBibtexExample, refreshProjectTree } from '$lib/project/manager';
   import { insertAtCursor, createEditor, replaceEditorContent } from '$lib/editor/setup';
-  import { insertCitationKey, insertEquationNumber } from '$lib/editor/citation-insert';
+  import { insertCitationKey, insertEquationNumber, insertLabelRef } from '$lib/editor/citation-insert';
   import {
+    getMergedProjectTextMap,
     getProjectTexPaths,
     recomputeProjectSourcesNow,
     scheduleRecomputeProjectSources,
     setDiskBibFiles,
     setDiskTexFiles
   } from '$lib/editor/project-sources';
+  import { referenceFollowExtension } from '$lib/editor/reference-follow';
+  import { applyEditorDiagnostics } from '$lib/editor/latex-lint';
+  import {
+    findReferenceDefinition,
+    resolveProjectRelativePath,
+    type ReferenceLink
+  } from '$lib/tex/reference-links';
+  import { parseCompileLog, firstFatalError } from '$lib/compiler/parse-log';
   import { loadDiskBibFiles } from '$lib/project/bib-file-map';
   import { loadDiskTexFiles } from '$lib/project/tex-file-map';
   import { EditorView } from '@codemirror/view';
@@ -45,6 +54,7 @@
   import CommandPalette from '$lib/ui/CommandPalette.svelte';
   import SnippetPicker from '$lib/ui/SnippetPicker.svelte';
   import EntryPointPicker from '$lib/ui/EntryPointPicker.svelte';
+  import ProjectSearchPanel from '$lib/ui/ProjectSearchPanel.svelte';
   import type PdfViewerComponent from '$lib/ui/PdfViewer.svelte';
   import type DrawioEditorComponent from '$lib/ui/DrawioEditor.svelte';
   import { TEXBRAIN_GITHUB_CLONE_URL } from '$lib/constants/texbrain-repo';
@@ -118,6 +128,45 @@
   $: refsStatusLine =
     $sidebarOpen && $sidebarPanel === 'references' ? E.statusBarRefsClick : '';
   $: refsStatusTitle = E.ttStatusBarRefs;
+
+  $: displayErrors = [
+    ...$compileErrors.filter((e) => e.type === 'error'),
+    ...$staticDiagnostics.filter((d) => d.type === 'error')
+  ];
+  $: displayWarnings = [
+    ...$compileErrors.filter((e) => e.type === 'warning'),
+    ...$staticDiagnostics.filter((d) => d.type === 'warning')
+  ];
+  $: firstFatal = firstFatalError($compileErrors);
+  $: structuredLogItems = [
+    ...displayErrors.map((d) => ({
+      ...d,
+      kind: 'error' as const,
+      source: 'source' in d ? d.source : ('compiler' as const)
+    })),
+    ...displayWarnings.map((d) => ({
+      ...d,
+      kind: 'warning' as const,
+      source: 'source' in d ? d.source : ('compiler' as const)
+    }))
+  ];
+
+  function isSameDiag(
+    a: { message?: string; line?: number; file?: string } | null | undefined,
+    b: { message?: string; line?: number; file?: string } | null | undefined
+  ): boolean {
+    if (!a || !b) return false;
+    return (
+      a.message === b.message &&
+      a.line === b.line &&
+      (a.file || '') === (b.file || '')
+    );
+  }
+
+  $: if (editorView) {
+    const path = $activeFile?.path || $activeFile?.name || null;
+    applyEditorDiagnostics(editorView, path, $staticDiagnostics, $compileErrors);
+  }
   let drawioEditor: DrawioEditorComponent | undefined;
   let pdfViewerLoaded = false;
   let gitPanelLoaded = false;
@@ -227,6 +276,59 @@
     previewOpen.set(true);
   }
 
+  function followReferenceLink(link: ReferenceLink, _view: EditorView) {
+    void (async () => {
+      if (link.kind === 'url') {
+        try {
+          window.open(link.key, '_blank', 'noopener,noreferrer');
+        } catch {
+          /* ignore */
+        }
+        return;
+      }
+
+      const map = getMergedProjectTextMap();
+      const af = get(activeFile);
+      const origin = (af?.path || af?.name || '').replace(/\\/g, '/');
+
+      if (link.kind === 'file' || link.kind === 'asset') {
+        const prefer =
+          link.kind === 'file'
+            ? ['.tex', '.ltx']
+            : ['.png', '.jpg', '.jpeg', '.pdf', '.eps', '.svg'];
+        const resolved =
+          resolveProjectRelativePath(origin, link.key, map.keys(), {
+            preferExtensions: prefer
+          }) ||
+          resolveProjectRelativePath(origin, link.key, getProjectTexPaths(), {
+            preferExtensions: prefer
+          });
+        if (resolved) {
+          await gotoEditorLocation(resolved, 1);
+        } else {
+          addToast(`Not found: ${link.key}`, 'info', 2000);
+        }
+        return;
+      }
+
+      const kind = link.kind === 'cite' ? 'cite' : 'label';
+      for (const [path, source] of map) {
+        if (kind === 'cite' && !/\.(bib|bbl)$/i.test(path)) continue;
+        if (kind === 'label' && !/\.(tex|ltx)$/i.test(path)) continue;
+        const def = findReferenceDefinition(source, link.key, kind);
+        if (def) {
+          await gotoEditorLocation(path, def.line);
+          return;
+        }
+      }
+      addToast(`Definition not found: ${link.key}`, 'info', 2000);
+    })();
+  }
+
+  function editorExtraExtensions() {
+    return [referenceFollowExtension(followReferenceLink)];
+  }
+
   function buildEditor() {
     if (!editorContainer) return;
     editorView?.destroy();
@@ -250,7 +352,8 @@
             parent: editorContainer,
             dark: true,
             onUpdate: handleEditorUpdate,
-            collab: yCollab(data.ytext, awareness, { undoManager: data.undoManager })
+            collab: yCollab(data.ytext, awareness, { undoManager: data.undoManager }),
+            extraExtensions: editorExtraExtensions()
           });
           setCurrentFile(file.path);
         }
@@ -259,7 +362,8 @@
           doc: file.content,
           parent: editorContainer,
           dark: true,
-          onUpdate: handleEditorUpdate
+          onUpdate: handleEditorUpdate,
+          extraExtensions: editorExtraExtensions()
         });
       }
     } catch (err) {
@@ -559,7 +663,10 @@
         )
       ]);
 
-      const { errors: parsedErrors, cleanedLines } = parseLog(result.log || '');
+      const { errors: parsedErrors, cleanedLines } = parseCompileLog(
+        result.log || '',
+        mainFile
+      );
       const parsedSteps = extractCompileSteps(result.log || '');
       compileSteps = parsedSteps.length > 0
         ? parsedSteps
@@ -605,6 +712,7 @@
         }
 
         pdfData = new Uint8Array(result.pdf);
+        pdfStale.set(false);
         bblFile = await resolveBblAfterCompile(result.bbl, mainFile);
         await persistBblToProject(bblFile);
         compileStatus.set('success');
@@ -625,6 +733,8 @@
           setCompileResult({ status: 'success', pdf: pdfData, log: cleanedLines, errors: parsedErrors, pageCount: pdfPageCount });
         }
       } else {
+        // Keep last successful PDF; mark stale so the user knows it is outdated.
+        if (pdfData) pdfStale.set(true);
         synctexModel = undefined;
         bblFile = undefined;
         compileStatus.set('error');
@@ -639,10 +749,11 @@
         previewTab.set('errors');
 
         if (isCollabMode) {
-          setCompileResult({ status: 'error', pdf: null, log: cleanedLines, errors: parsedErrors, pageCount: pdfPageCount });
+          setCompileResult({ status: 'error', pdf: pdfData ?? null, log: cleanedLines, errors: parsedErrors, pageCount: pdfPageCount });
         }
       }
     } catch (err: any) {
+      if (pdfData) pdfStale.set(true);
       synctexModel = undefined;
       bblFile = undefined;
       compileStatus.set('error');
@@ -650,7 +761,7 @@
       compileSteps = [...compileSteps, `[exception] ${err.message || String(err)}`];
 
       if (isCollabMode) {
-        setCompileResult({ status: 'error', pdf: null, log: [`[error] ${err.message || String(err)}`], errors: [{ type: 'error', message: err.message || String(err) }], pageCount: 0 });
+        setCompileResult({ status: 'error', pdf: pdfData ?? null, log: [`[error] ${err.message || String(err)}`], errors: [{ type: 'error', message: err.message || String(err) }], pageCount: 0 });
       }
     } finally {
       latexEngineMod?.setTexliveProgressReporter(null);
@@ -698,156 +809,24 @@
     return /error|failed|exception/i.test(step);
   }
 
-  /** BusyTeX appends `--- steps ---` with per-command logs; warnings from earlier passes are stale after bibtex / reruns. */
-  function selectLastLatexEngineLogForWarnings(rawLog: string): string {
-    const delimMatch = rawLog.match(/\n--- steps ---\n/);
-    if (!delimMatch || delimMatch.index === undefined) {
-      return rawLog;
-    }
-    const stepsSection = rawLog.slice(delimMatch.index + delimMatch[0].length);
-    const chunks = stepsSection.split(/\n(?=\[[^\]]+\] exit \d+\n)/);
-    const latexCmdRe = /^\[(xelatex|pdflatex|lualatex|latex|uplatex|tectonic)\b/i;
-    for (let i = chunks.length - 1; i >= 0; i--) {
-      const chunk = chunks[i].replace(/^\uFEFF/, '').trimStart();
-      const header = chunk.match(/^\[([^\]]+)\] exit \d+\n/);
-      if (!header) continue;
-      if (latexCmdRe.test(`[${header[1]}]`)) {
-        return chunk.slice(header[0].length);
-      }
-    }
-    return rawLog;
-  }
-
-  function dedupeDiagnostics(
-    items: Array<{ type: 'error' | 'warning'; message: string; line?: number; file?: string; context?: string }>
-  ) {
-    const seen = new Set<string>();
-    const out: typeof items = [];
-    for (const item of items) {
-      const key = [
-        item.type,
-        item.message.replace(/\s+/g, ' ').trim(),
-        String(item.line ?? ''),
-        item.context ?? '',
-        item.file ?? ''
-      ].join('\u0001');
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push(item);
-    }
-    return out;
-  }
-
-  // parse latex log into structured errors/warnings
-  function parseLog(rawLog: string): {
-    errors: Array<{ type: 'error' | 'warning'; message: string; line?: number; file?: string; context?: string }>;
-    cleanedLines: string[];
-  } {
-    const errors: Array<{ type: 'error' | 'warning'; message: string; line?: number; file?: string; context?: string }> =
-      [];
-    const lines = rawLog.split('\n');
-    const cleanedLines: string[] = [];
-
-    const noisePatterns = [
-      /^\s*\(\/tex\//,
-      /^\s*\(\/tex\/[^)]*$/,
-      /^\s*\)\s*$/,
-      /^\s*\)+\s*$/,
-      /^\s*\(\/?tex\//,
-      /^pdfTeX warning:.*fontmap entry/,
-      /^\s*exists, duplicates ignored$/,
-      /^ABD: Every/,
-      /^\*geometry\*/,
-      /^1773\d+/,
-      /^\s*$/,
-    ];
-
-    const suppressedWarningPatterns = [
-      /shell escape.*disabled/i,
-      /You have requested package/,
-      /You have requested, on input line.*version/,
-      /^(Underfull|Overfull)\s+\\[hv]box/,
-      /pdfTeX warning:.*PDF inclusion: found PDF/,
-      /ABD: EveryShipout/,
-    ];
-
-    function isSuppressedWarning(msg: string): boolean {
-      return suppressedWarningPatterns.some(p => p.test(msg));
-    }
-
-    function pushWarningsFromLine(trimmed: string) {
-      if (/LaTeX Warning:/i.test(trimmed) || /Package \w+ Warning:/i.test(trimmed)) {
-        const warnMatch = trimmed.match(/Warning:\s*(.+)/i);
-        const msg = warnMatch ? warnMatch[1] : trimmed;
-        if (!isSuppressedWarning(trimmed) && !isSuppressedWarning(msg)) {
-          let lineNum: number | undefined;
-          const lm = trimmed.match(/on input line (\d+)/);
-          if (lm) lineNum = parseInt(lm[1], 10);
-          errors.push({ type: 'warning', message: msg.replace(/\s+$/, ''), line: lineNum });
-        }
+  function jumpToDiagnostic(err: {
+    line?: number;
+    file?: string;
+  }) {
+    if (!err.line) return;
+    const file = err.file?.replace(/^\.\//, '');
+    if (file) {
+      const pool = getProjectTexPaths();
+      const match =
+        pool.find((p) => p === file || p.endsWith('/' + file) || p.split('/').pop() === file.split('/').pop()) ||
+        get(files).find((f) => (f.path || f.name) === file || (f.path || f.name).endsWith('/' + file))
+          ?.path;
+      if (match) {
+        void gotoEditorLocation(match, err.line);
         return;
       }
-      if (/pdfTeX warning:/i.test(trimmed) && !/fontmap entry/.test(trimmed)) {
-        if (!isSuppressedWarning(trimmed)) {
-          errors.push({ type: 'warning', message: trimmed });
-        }
-      }
     }
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const trimmed = line.trim();
-
-      if (trimmed.startsWith('! ')) {
-        const msg = trimmed.slice(2);
-        let lineNum: number | undefined;
-        let file: string | undefined;
-        let context: string | undefined;
-        const maxLook = 48;
-        for (let j = i + 1; j < Math.min(i + maxLook, lines.length); j++) {
-          const jtrim = lines[j].trim();
-          const m = jtrim.match(/^l\.(\d+)(?:\s+(.*))?$/);
-          if (m) {
-            lineNum = parseInt(m[1], 10);
-            const tail = m[2]?.trim();
-            if (tail) context = `l.${lineNum} ${tail}`;
-            break;
-          }
-        }
-        errors.push({ type: 'error', message: msg, line: lineNum, file, context });
-        cleanedLines.push(line);
-        continue;
-      }
-
-      if (/LaTeX Warning:/i.test(trimmed) || /Package \w+ Warning:/i.test(trimmed)) {
-        cleanedLines.push(line);
-        continue;
-      }
-
-      if (/pdfTeX warning:/i.test(trimmed) && !/fontmap entry/.test(trimmed)) {
-        cleanedLines.push(line);
-        continue;
-      }
-
-      if (/^(Underfull|Overfull)\s+\\[hv]box/.test(trimmed)) {
-        cleanedLines.push(line);
-        continue;
-      }
-
-      if (noisePatterns.some(p => p.test(trimmed))) continue;
-      if (/^[\s()]*$/.test(trimmed)) continue;
-      if (/^[\s()]*(\([^)]*\)[\s)]*)+[\s)]*$/.test(trimmed)) continue;
-
-      cleanedLines.push(line);
-    }
-
-    const warnSlice = selectLastLatexEngineLogForWarnings(rawLog);
-    const warnLines = warnSlice.split('\n');
-    for (let i = 0; i < warnLines.length; i++) {
-      pushWarningsFromLine(warnLines[i].trim());
-    }
-
-    return { errors: dedupeDiagnostics(errors), cleanedLines };
+    gotoEditorLine(err.line);
   }
 
   async function saveAndCompile() {
@@ -920,6 +899,7 @@
     if (!$activeFile) return;
     updateFileContent($activeFile.id, content);
     scheduleRecomputeProjectSources();
+    if (pdfData && !$pdfStale) pdfStale.set(true);
     if (editorView) {
       const pos = editorView.state.selection.main.head;
       const line = editorView.state.doc.lineAt(pos);
@@ -964,7 +944,7 @@
     const tab = get(files).find((f) => (f.path || f.name) === filePath);
     if (tab?.content != null) return tab.content;
     const handle = get(projectHandle);
-    if (handle) return await readTextAtProjectPath(handle, filePath);
+    if (handle) return (await readTextAtProjectPath(handle, filePath)) ?? null;
     return null;
   }
 
@@ -1044,6 +1024,20 @@
 
   function handleInsertEquation(number: string) {
     if (editorView) insertEquationNumber(editorView, number);
+  }
+
+  function handleInsertLabel(key: string) {
+    if (editorView) insertLabelRef(editorView, key);
+  }
+
+  function handleSearchContentApplied(path: string, content: string) {
+    if (pdfData) pdfStale.set(true);
+    const af = get(activeFile);
+    if (af && (af.path || af.name) === path && editorView) {
+      replaceEditorContent(editorView, content);
+    }
+    scheduleRecomputeProjectSources();
+    scheduleSyncToGit();
   }
 
   let projectDiskKey = '';
@@ -1273,6 +1267,7 @@
     { id: 'snippet', label: E.cmdInsertSnippet, shortcut: 'Ctrl+/', action: () => snippetPickerOpen.set(true), category: 'edit' },
     { id: 'preview', label: E.cmdShowPreview, shortcut: '', action: () => previewTab.set('preview'), category: 'view' },
     { id: 'log', label: E.cmdShowLog, shortcut: '', action: () => previewTab.set('log'), category: 'view' },
+    { id: 'search', label: E.cmdProjectSearch, shortcut: 'Ctrl+Shift+F', action: () => projectSearchOpen.set(true), category: 'edit' },
     { id: 'git', label: E.cmdToggleGit, shortcut: 'Ctrl+G', action: () => gitPanelOpen.update(v => !v), category: 'view' },
     { id: 'collab', label: E.cmdToggleCollab, shortcut: '', action: () => collabPanelOpen.update(v => !v), category: 'view' },
   ];
@@ -1287,9 +1282,15 @@
     else if (mod && e.key === 'b') { e.preventDefault(); sidebarOpen.update(v => !v); }
     else if (mod && e.key === '/') { e.preventDefault(); snippetPickerOpen.update(v => !v); }
     else if (mod && e.key === 'g') { e.preventDefault(); if (get(projectHandle)) gitPanelOpen.update(v => !v); }
+    else if (mod && e.key === 'f' && e.shiftKey) { e.preventDefault(); projectSearchOpen.set(true); }
     else if (mod && e.key === 'p' && e.shiftKey) { e.preventDefault(); toggleEditorPane(); }
     else if (mod && e.key === 'p') { e.preventDefault(); togglePreview(); }
-    else if (e.key === 'Escape') { commandPaletteOpen.set(false); snippetPickerOpen.set(false); showEngineHelp = false; }
+    else if (e.key === 'Escape') {
+      commandPaletteOpen.set(false);
+      snippetPickerOpen.set(false);
+      projectSearchOpen.set(false);
+      showEngineHelp = false;
+    }
   }
 
   function handleGlobalPointerDown(e: PointerEvent) {
@@ -1528,6 +1529,7 @@
             if (snap.status === 'success' && snap.pdf) {
               synctexModel = undefined;
               pdfData = new Uint8Array(snap.pdf);
+              pdfStale.set(false);
               pdfPageCount = snap.pageCount;
               pdfViewer?.setPageCount(pdfPageCount);
               compileStatus.set('success');
@@ -1752,6 +1754,7 @@
           onTocNavigate={gotoEditorLocation}
           onInsertCitation={handleInsertCitation}
           onInsertEquation={handleInsertEquation}
+          onInsertLabel={handleInsertLabel}
         />
       </aside>
     {/if}
@@ -1785,17 +1788,22 @@
           {/if}
           <div class="preview-pane" class:preview-full={!splitLayout} style={previewPaneStyle}>
             <div class="preview-header">
-              <button class="preview-tab" class:active={$previewTab === 'preview'} on:click={() => previewTab.set('preview')}>{E.tabPreview}</button>
+              <button class="preview-tab" class:active={$previewTab === 'preview'} on:click={() => previewTab.set('preview')}>
+                {E.tabPreview}
+                {#if $pdfStale && pdfData}
+                  <span class="stale-badge" title={E.pdfStaleTitle}>{E.pdfStaleBadge}</span>
+                {/if}
+              </button>
               <button class="preview-tab" class:active={$previewTab === 'errors'} on:click={() => previewTab.set('errors')}>
                 {E.tabErrors}
-                {#if $compileErrors.filter(e => e.type === 'error').length > 0}
-                  <span class="error-badge has-errors">{$compileErrors.filter(e => e.type === 'error').length}</span>
+                {#if displayErrors.length > 0}
+                  <span class="error-badge has-errors">{displayErrors.length}</span>
                 {/if}
               </button>
               <button class="preview-tab" class:active={$previewTab === 'warnings'} on:click={() => previewTab.set('warnings')}>
                 {E.tabWarnings}
-                {#if $compileErrors.filter(e => e.type === 'warning').length > 0}
-                  <span class="error-badge">{$compileErrors.filter(e => e.type === 'warning').length}</span>
+                {#if displayWarnings.length > 0}
+                  <span class="error-badge">{displayWarnings.length}</span>
                 {/if}
               </button>
               <button class="preview-tab" class:active={$previewTab === 'log'} on:click={() => previewTab.set('log')}>{E.tabLog}</button>
@@ -1821,7 +1829,10 @@
               {/if}
             </div>
             {#if $previewTab === 'preview'}
-              <div class="preview-content">
+              <div class="preview-content" class:is-stale={$pdfStale && !!pdfData}>
+                {#if $pdfStale && pdfData}
+                  <div class="stale-banner" title={E.pdfStaleTitle}>{E.pdfStaleTitle}</div>
+                {/if}
                 {#if pdfViewerLoaded}
                   {#await import('$lib/ui/PdfViewer.svelte') then { default: PdfViewer }}
                     <PdfViewer bind:this={pdfViewer} {pdfData} synctexPdfNavigate={handleSynctexPdfNavigate} />
@@ -1830,49 +1841,139 @@
               </div>
             {:else if $previewTab === 'errors'}
               <div class="errors-content">
-                {#if $compileErrors.filter(e => e.type === 'error').length === 0}
+                {#if displayErrors.length === 0}
                   <div class="preview-empty"><p>{E.noErrors}</p></div>
                 {:else}
-                  {#each $compileErrors.filter(e => e.type === 'error') as err}
-                    <div class="error-item is-error">
+                  {#if firstFatal}
+                    <button
+                      type="button"
+                      class="error-item is-error first-fatal"
+                      on:click={() => jumpToDiagnostic(firstFatal)}
+                    >
+                      <span class="error-type-badge err-badge">!</span>
+                      <div class="error-text">
+                        <span class="fatal-label">{E.firstFatal}</span>
+                        <span class="error-msg">{firstFatal.message}</span>
+                        {#if firstFatal.context}
+                          <div class="error-context">{firstFatal.context}</div>
+                        {/if}
+                      </div>
+                      <span class="error-line">
+                        {#if firstFatal.file}{firstFatal.file}:{/if}{#if firstFatal.line}{E.linePrefix} {firstFatal.line}{/if}
+                      </span>
+                    </button>
+                  {/if}
+                  {#each displayErrors.filter((e) => e !== firstFatal) as err, i (`e-${i}-${err.message}-${err.line ?? ''}`)}
+                    <button
+                      type="button"
+                      class="error-item is-error"
+                      class:clickable={!!err.line}
+                      on:click={() => jumpToDiagnostic(err)}
+                    >
                       <span class="error-type-badge err-badge">E</span>
                       <div class="error-text">
+                        {#if 'source' in err && err.source === 'latex'}
+                          <span class="diag-source">{E.diagnosticStatic}</span>
+                        {/if}
                         <span class="error-msg">{err.message}</span>
                         {#if err.context}
                           <div class="error-context">{err.context}</div>
                         {/if}
                       </div>
-                      {#if err.line}
-                        <span class="error-line">{E.linePrefix} {err.line}</span>
-                      {/if}
-                    </div>
+                      <span class="error-line">
+                        {#if err.file}{err.file} {/if}{#if err.line}{E.linePrefix} {err.line}{/if}
+                      </span>
+                    </button>
                   {/each}
                 {/if}
               </div>
             {:else if $previewTab === 'warnings'}
               <div class="errors-content">
-                {#if $compileErrors.filter(e => e.type === 'warning').length === 0}
+                {#if displayWarnings.length === 0}
                   <div class="preview-empty"><p>{E.noWarnings}</p></div>
                 {:else}
-                  {#each $compileErrors.filter(e => e.type === 'warning') as warn}
-                    <div class="error-item is-warning">
+                  {#each displayWarnings as warn, i (`w-${i}-${warn.message}-${warn.line ?? ''}`)}
+                    <button
+                      type="button"
+                      class="error-item is-warning"
+                      class:clickable={!!warn.line}
+                      on:click={() => jumpToDiagnostic(warn)}
+                    >
                       <span class="error-type-badge warn-badge">W</span>
-                      <span class="error-msg">{warn.message}</span>
-                      {#if warn.line}
-                        <span class="error-line">{E.linePrefix} {warn.line}</span>
-                      {/if}
-                    </div>
+                      <div class="error-text">
+                        {#if 'source' in warn && warn.source === 'latex'}
+                          <span class="diag-source">{E.diagnosticStatic}</span>
+                        {/if}
+                        <span class="error-msg">{warn.message}</span>
+                      </div>
+                      <span class="error-line">
+                        {#if warn.file}{warn.file} {/if}{#if warn.line}{E.linePrefix} {warn.line}{/if}
+                      </span>
+                    </button>
                   {/each}
                 {/if}
               </div>
             {:else if $previewTab === 'log'}
-              <div class="log-content">
-                {#each $compileLog as entry}
-                  <div class="log-entry" class:error={entry.includes('[Error]') || entry.includes('!')} class:success={entry.includes('successful')}>{entry}</div>
-                {/each}
-                {#if $compileLog.length === 0}
-                  <div class="preview-empty"><p>{E.noLogYet}</p></div>
+              <div class="log-structured">
+                {#if structuredLogItems.length > 0}
+                  <div class="log-section-head">{E.logStructuredHeading}</div>
+                  {#if firstFatal}
+                    <button
+                      type="button"
+                      class="error-item is-error first-fatal"
+                      on:click={() => jumpToDiagnostic(firstFatal)}
+                    >
+                      <span class="error-type-badge err-badge">!</span>
+                      <div class="error-text">
+                        <span class="fatal-label">{E.firstFatal}</span>
+                        <span class="error-msg">{firstFatal.message}</span>
+                        {#if firstFatal.context}
+                          <div class="error-context">{firstFatal.context}</div>
+                        {/if}
+                      </div>
+                      <span class="error-line">
+                        {#if firstFatal.file}{firstFatal.file}:{/if}{#if firstFatal.line}{E.linePrefix} {firstFatal.line}{/if}
+                      </span>
+                    </button>
+                  {/if}
+                  {#each structuredLogItems.filter((d) => !isSameDiag(d, firstFatal)) as item, i (`log-${item.kind}-${i}-${item.message}-${item.line ?? ''}`)}
+                    <button
+                      type="button"
+                      class="error-item"
+                      class:is-error={item.kind === 'error'}
+                      class:is-warning={item.kind === 'warning'}
+                      class:clickable={!!item.line}
+                      on:click={() => jumpToDiagnostic(item)}
+                    >
+                      <span class="error-type-badge" class:err-badge={item.kind === 'error'} class:warn-badge={item.kind === 'warning'}>
+                        {item.kind === 'error' ? 'E' : 'W'}
+                      </span>
+                      <div class="error-text">
+                        {#if item.source === 'latex'}
+                          <span class="diag-source">{E.diagnosticStatic}</span>
+                        {:else if item.source === 'compiler' || !item.source}
+                          <span class="diag-source">{E.diagnosticCompiler}</span>
+                        {/if}
+                        <span class="error-msg">{item.message}</span>
+                        {#if item.context}
+                          <div class="error-context">{item.context}</div>
+                        {/if}
+                      </div>
+                      <span class="error-line">
+                        {#if item.file}{item.file} {/if}{#if item.line}{E.linePrefix} {item.line}{/if}
+                      </span>
+                    </button>
+                  {/each}
                 {/if}
+                <div class="log-section-head">{E.logRawHeading}</div>
+                <div class="log-content log-raw">
+                  {#each $compileLog as entry}
+                    <div class="log-entry" class:error={entry.includes('[Error]') || entry.includes('!')} class:success={entry.includes('successful')}>{entry}</div>
+                  {/each}
+                  {#if $compileLog.length === 0 && structuredLogItems.length === 0}
+                    <div class="preview-empty"><p>{E.noLogYet}</p></div>
+                  {/if}
+                </div>
               </div>
             {:else}
               <div class="log-content">
@@ -1989,6 +2090,10 @@
 
   <CommandPalette {commands} />
   <SnippetPicker onInsert={handleSnippetInsert} />
+  <ProjectSearchPanel
+    onNavigate={gotoEditorLocation}
+    onContentApplied={handleSearchContentApplied}
+  />
   <EntryPointPicker />
   {#if gitPanelLoaded}
     {#await import('$lib/ui/GitPanel.svelte') then { default: GitPanel }}
@@ -2095,6 +2200,30 @@
   .preview-content { flex: 1; overflow: hidden; display: flex; }
 
   .log-content { flex: 1; overflow-y: auto; padding: 8px; font-family: var(--font-editor); font-size: 11px; }
+  .log-structured {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .log-section-head {
+    flex-shrink: 0;
+    padding: 8px 10px 4px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .log-structured .error-item {
+    flex-shrink: 0;
+  }
+  .log-raw {
+    flex: 1;
+    min-height: 0;
+  }
   .log-entry { padding: 2px 6px; color: var(--text-secondary); margin-bottom: 1px; white-space: pre-wrap; word-break: break-all; }
   .log-entry.error { color: var(--error); }
   .log-entry.success { color: var(--success); }
@@ -2181,9 +2310,70 @@
     font-size: 11.5px;
     font-family: var(--font-editor);
     line-height: 1.5;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    color: inherit;
+    cursor: default;
+  }
+  .error-item.clickable,
+  .error-item.first-fatal {
+    cursor: pointer;
+  }
+  .error-item.clickable:hover,
+  .error-item.first-fatal:hover {
+    filter: brightness(1.08);
   }
   .error-item.is-error { background: rgba(224, 108, 117, 0.06); }
   .error-item.is-warning { background: rgba(229, 192, 123, 0.06); }
+  .error-item.first-fatal {
+    background: rgba(224, 108, 117, 0.14);
+    border-bottom: 2px solid rgba(224, 108, 117, 0.35);
+    margin-bottom: 6px;
+  }
+  .fatal-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--error, #e06c75);
+    margin-bottom: 2px;
+  }
+  .diag-source {
+    display: inline-block;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-right: 6px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0 4px;
+  }
+  .stale-badge {
+    margin-left: 4px;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: rgba(229, 192, 123, 0.25);
+    color: var(--warning, #e5c07b);
+  }
+  .stale-banner {
+    flex-shrink: 0;
+    padding: 6px 10px;
+    font-size: 11px;
+    background: rgba(229, 192, 123, 0.15);
+    color: var(--warning, #e5c07b);
+    border-bottom: 1px solid var(--border);
+  }
+  .preview-content.is-stale {
+    display: flex;
+    flex-direction: column;
+  }
   .error-type-badge {
     flex-shrink: 0;
     width: 16px;

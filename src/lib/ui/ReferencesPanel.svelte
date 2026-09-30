@@ -1,20 +1,23 @@
 <script lang="ts">
   import { files, projectHandle } from '$lib/project/store';
-  import { projectBibKeys, projectEquations } from '$lib/editor/project-sources';
+  import { projectBibKeys, projectEquations, projectLabels } from '$lib/editor/project-sources';
   import { editorUi } from '$lib/i18n/editor-ui';
   import { locale } from '$lib/i18n/locale';
 
   export let onInsertCitation: (key: string) => void = () => {};
   export let onInsertEquation: (number: string) => void = () => {};
+  export let onInsertLabel: (key: string) => void = () => {};
   export let onNavigate: (filePath: string, line: number) => void = () => {};
 
   $: E = editorUi[$locale];
   $: bibKeys = $projectBibKeys;
   $: equations = $projectEquations;
+  $: labels = $projectLabels;
   $: hasProject = !!$projectHandle || $files.length > 0;
 
   let bibFilter = '';
   let eqFilter = '';
+  let labelFilter = '';
 
   $: filteredBib = bibFilter.trim()
     ? bibKeys.filter(
@@ -23,6 +26,14 @@
           (k.detail?.toLowerCase().includes(bibFilter.toLowerCase()) ?? false)
       )
     : bibKeys;
+
+  $: filteredLabels = labelFilter.trim()
+    ? labels.filter(
+        (l) =>
+          l.key.toLowerCase().includes(labelFilter.toLowerCase()) ||
+          (l.detail?.toLowerCase().includes(labelFilter.toLowerCase()) ?? false)
+      )
+    : labels;
 
   $: uniqueEquations = (() => {
     const seen = new Set<string>();
@@ -96,6 +107,52 @@
               on:click={(e) =>
                 handleRefClick(e, {
                   insert: () => onInsertCitation(item.key),
+                  filePath: item.filePath,
+                  line: item.line
+                })}
+            >
+              <span class="refs-row-top">
+                <span class="refs-key">{item.key}</span>
+                {#if item.line}
+                  <span class="refs-line">{item.line}</span>
+                {/if}
+              </span>
+              {#if item.detail}
+                <span class="refs-detail">{item.detail}</span>
+              {/if}
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </section>
+
+  <section class="refs-section">
+    <div class="refs-section-head">
+      <span class="refs-section-title">{E.refsLabels}</span>
+      <span class="refs-count">{filteredLabels.length}</span>
+    </div>
+    {#if !hasProject}
+      <p class="refs-empty">{E.refsNoProject}</p>
+    {:else if labels.length === 0}
+      <p class="refs-empty">{E.refsNoLabels}</p>
+    {:else}
+      <input
+        type="search"
+        class="refs-filter"
+        placeholder={E.refsFilterLabels}
+        bind:value={labelFilter}
+      />
+      <ul class="refs-list">
+        {#each filteredLabels as item (item.key)}
+          <li>
+            <button
+              type="button"
+              class="refs-item"
+              title={itemTitle(item.detail || item.key, item.filePath, item.line)}
+              on:click={(e) =>
+                handleRefClick(e, {
+                  insert: () => onInsertLabel(item.key),
                   filePath: item.filePath,
                   line: item.line
                 })}

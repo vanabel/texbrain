@@ -9,6 +9,7 @@
   export let onTocNavigate: (filePath: string, line: number) => void = () => {};
   export let onInsertCitation: (key: string) => void = () => {};
   export let onInsertEquation: (number: string) => void = () => {};
+  export let onInsertLabel: (key: string) => void = () => {};
 
   $: E = editorUi[$locale];
 </script>
@@ -56,6 +57,7 @@
         onNavigate={onTocNavigate}
         onInsertCitation={onInsertCitation}
         onInsertEquation={onInsertEquation}
+        onInsertLabel={onInsertLabel}
       />
     {/if}
   </div>

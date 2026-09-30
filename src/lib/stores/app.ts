@@ -1,4 +1,4 @@
-import { writable, derived } from 'svelte/store';
+import { writable } from 'svelte/store';
 
 export const sidebarOpen = writable(true);
 export const sidebarPanel = writable<'files' | 'outline' | 'references'>('files');
@@ -7,12 +7,29 @@ export const previewOpen = writable(true);
 export const editorOpen = writable(true);
 export const snippetPickerOpen = writable(false);
 export const commandPaletteOpen = writable(false);
+export const projectSearchOpen = writable(false);
 export const previewTab = writable<'preview' | 'errors' | 'warnings' | 'log' | 'steps'>('preview');
 export const compileStatus = writable<'idle' | 'compiling' | 'success' | 'error'>('idle');
 export const compileLog = writable<string[]>([]);
 export const compileErrors = writable<
   Array<{ type: 'error' | 'warning'; message: string; line?: number; file?: string; context?: string }>
 >([]);
+/** Static project diagnostics (duplicate labels, undefined cite/ref). */
+export const staticDiagnostics = writable<
+  Array<{
+    type: 'error' | 'warning';
+    message: string;
+    line?: number;
+    file?: string;
+    /** Character offsets in the file (for editor underlines). */
+    from?: number;
+    to?: number;
+    context?: string;
+    source?: 'compiler' | 'latex';
+  }>
+>([]);
+/** True when the shown PDF may not match current sources. */
+export const pdfStale = writable(false);
 export const toasts = writable<Array<{ id: string; message: string; type: 'info' | 'success' | 'warning' | 'error' }>>([]);
 
 let toastId = 0;

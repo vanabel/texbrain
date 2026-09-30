@@ -40,6 +40,7 @@ TeXbrain 应用由 [Braian Plaku](https://swimmingbrain.dev) 开创并推广。*
 - [它能做什么](#它能做什么)
 - [功能概览](#功能概览)
 - [编辑器侧栏](#编辑器侧栏文件--大纲--引用)
+- [诊断、日志与搜索](#诊断日志与搜索)
 - [SyncTeX](#synctex编辑器--pdf)
 - [双语 BibTeX 示例](#双语-bibtex-示例)
 - [文档](#文档)
@@ -63,8 +64,10 @@ TeXbrain 在**浏览器里**把 `.tex` 编译成 **PDF**，编辑器、编译器
 | **Git** | 克隆、分支、提交、推送等，基于 [isomorphic-git](https://isomorphic-git.org/)。 |
 | **本地文件** | Chromium 系通过 [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API) 读写磁盘目录。 |
 | **多文件工程** | 文件树、标签页、拖拽；`.tex`、`.bib`、`.sty`、`.cls` 等。 |
-| **侧栏** | **文件**、**大纲**（章节 + `\input` / `\include`）、**引用**（文献键 + 带编号公式）。**Ctrl+B** 切换侧栏。 |
-| **编辑器** | CodeMirror 6；工程级 `\cite` / `\eqref` 补全。 |
+| **侧栏** | **文件**、**大纲**（章节 + `\input` / `\include`）、**引用**（文献键、`\label`、带编号公式）。**Ctrl+B** 切换侧栏。 |
+| **编辑器** | CodeMirror 6；补全、片段、lint 标记；工程级 `\cite` / `\ref` / `\eqref` 补全（文献含标题/作者）。编辑器内 **Ctrl/⌘+单击** 可跟随 cite/ref/input/include/includegraphics/url。 |
+| **诊断与日志** | 结构化 Errors/Warnings/Log（置顶首致命错误，单击跳源）。静态检查重复 `\label`、未定义 cite/ref。PDF 可能过期时显示 **过期** 标记。 |
+| **工程搜索** | **Ctrl/⌘+Shift+F** — 多文件搜索与替换预览；打开文件夹工程时应用后写回磁盘。 |
 | **命令面板与片段** | 命令面板；可搜索片段。 |
 | **离线** | 加载后可离线编辑与编译。 |
 | **模板** | 文章、论文、Beamer、报告、简历等。 |
@@ -80,10 +83,25 @@ TeXbrain 在**浏览器里**把 `.tex` 编译成 **PDF**，编辑器、编译器
 | --- | --- |
 | **文件** | 工程文件树。 |
 | **大纲** | 当前 `.tex` 的 `\part` … `\subparagraph`，含 `\input` / `\include`。 |
-| **引用** | `.bib` / `.bbl` 文献键；入口 `.tex` 链上的带编号公式（`.tex` 超过 120 个路径时不列公式）。 |
+| **引用** | `.bib` / `.bbl` 文献键、`\label{…}`，以及入口 `.tex` 链上的带编号公式（`.tex` 超过 120 个路径时不列公式）。 |
 
-- **单击** → 跳转源码行。
-- **Ctrl+单击** / **⌘+单击** → 插入 `\cite{键}` 或 `\eq{编号}`。
+- **单击** 键 / label / 公式编号 → 跳转源码行。
+- 在 **引用** 侧栏 **Ctrl+单击** / **⌘+单击** → 插入 `\cite{键}`、`\ref{label}` 或 `\eq{编号}`。
+- 在 **编辑器** 内按住 **Ctrl/⌘** 并单击 `\cite` / `\ref` / `\input` / `\include` / `\includegraphics` / `\url` 的参数可跟随跳转。
+
+---
+
+## 诊断、日志与搜索
+
+| 区域 | 行为 |
+| --- | --- |
+| **错误 / 警告** | 编译诊断 + 静态检查（重复 label、未定义 cite/ref）。单击跳到文件与行；首个致命错误置顶。 |
+| **日志** | 上方为可点击的 **诊断** 列表，下方为原始编译输出。 |
+| **编辑器 lint** | 当前文件内下划线 / gutter 标记。 |
+| **过期 PDF** | 编译失败或继续编辑后仍保留上次成功 PDF；预览标签显示 **过期**，直到下次成功编译。 |
+| **搜索** | 命令面板「在工程中搜索…」，或 **Ctrl/⌘+Shift+F**。可预览替换；打开文件夹时应用会写回磁盘。 |
+
+详见：[常见问题 — 诊断与搜索](docs/zh-CN/faq.md#诊断日志与工程搜索)。
 
 ---
 
@@ -108,7 +126,7 @@ TeXbrain 在**浏览器里**把 `.tex` 编译成 **PDF**，编辑器、编译器
 | 索引 | [docs/README.md](docs/README.md) | [docs/README.zh-CN.md](docs/README.zh-CN.md) |
 | 技术说明（架构、技术栈、隐私） | [docs/en/technical.md](docs/en/technical.md) | [docs/zh-CN/technical.md](docs/zh-CN/technical.md) |
 | 部署（本地、Pages、PM2、NAS、CDN） | [docs/en/deployment.md](docs/en/deployment.md) | [docs/zh-CN/deployment.md](docs/zh-CN/deployment.md) |
-| 常见问题（SyncTeX、CTAN 拉包、BusyTeX、字体、排错） | [docs/en/faq.md](docs/en/faq.md) | [docs/zh-CN/faq.md](docs/zh-CN/faq.md) |
+| 常见问题（SyncTeX、诊断、搜索、CTAN、BusyTeX、字体） | [docs/en/faq.md](docs/en/faq.md) | [docs/zh-CN/faq.md](docs/zh-CN/faq.md) |
 | 多人协作流程（GitHub、Collab） | [docs/en/collaboration-workflow.md](docs/en/collaboration-workflow.md) | [docs/zh-CN/collaboration-workflow.md](docs/zh-CN/collaboration-workflow.md) |
 | 路线图 | [ROADMAP.md](ROADMAP.md) | [ROADMAP.zh-CN.md](ROADMAP.zh-CN.md) |
 

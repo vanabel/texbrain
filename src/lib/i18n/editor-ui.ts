@@ -23,6 +23,7 @@ export type EditorUi = {
   cmdInsertSnippet: string;
   cmdShowPreview: string;
   cmdShowLog: string;
+  cmdProjectSearch: string;
   cmdToggleGit: string;
   cmdToggleCollab: string;
   palettePlaceholder: string;
@@ -79,11 +80,14 @@ export type EditorUi = {
   sidebarTabOutline: string;
   sidebarTabReferences: string;
   refsCitations: string;
+  refsLabels: string;
   refsEquations: string;
   refsNoProject: string;
   refsNoBib: string;
+  refsNoLabels: string;
   refsNoEquations: string;
   refsFilterCitations: string;
+  refsFilterLabels: string;
   refsFilterEquations: string;
   tocNoFile: string;
   tocNotTex: string;
@@ -108,6 +112,31 @@ export type EditorUi = {
   noLogYet: string;
   noStepsYet: string;
   linePrefix: string;
+  firstFatal: string;
+  pdfStaleBadge: string;
+  pdfStaleTitle: string;
+  diagnosticStatic: string;
+  diagnosticCompiler: string;
+  searchTitle: string;
+  searchPlaceholder: string;
+  searchReplacePlaceholder: string;
+  searchRun: string;
+  searchCaseSensitive: string;
+  searchRegex: string;
+  searchShowReplace: string;
+  searchApplySelected: string;
+  searchSelectAll: string;
+  searchSelectNone: string;
+  searchNoResults: string;
+  searchHint: string;
+  /** Use {n} */
+  searchApplied: string;
+  /** Use {n} — replacements written to disk */
+  searchAppliedDisk: string;
+  /** Use {n} — files that failed to write */
+  searchWritePartial: string;
+  logStructuredHeading: string;
+  logRawHeading: string;
   toastSynctexNoMatch: string;
   toastSynctexNoTabMatch: string;
   toastSynctexUnavailable: string;
@@ -236,6 +265,7 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     cmdInsertSnippet: 'Insert Snippet',
     cmdShowPreview: 'Show Preview',
     cmdShowLog: 'Show Log',
+    cmdProjectSearch: 'Search in Project…',
     cmdToggleGit: 'Toggle Git Panel',
     cmdToggleCollab: 'Toggle Collaboration Panel',
     palettePlaceholder: 'Type a command...',
@@ -288,11 +318,14 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     sidebarTabOutline: 'Outline',
     sidebarTabReferences: 'Refs',
     refsCitations: 'Citations',
+    refsLabels: 'Labels',
     refsEquations: 'Equations',
     refsNoProject: 'Open a project to list references',
     refsNoBib: 'No keys in .bib or .bbl yet',
+    refsNoLabels: 'No \\label{…} found yet',
     refsNoEquations: 'No numbered equations found',
     refsFilterCitations: 'Filter citation keys…',
+    refsFilterLabels: 'Filter labels…',
     refsFilterEquations: 'Filter by number or label…',
     tocNoFile: 'Open a file to see its outline',
     tocNotTex: 'Outline is available for .tex files only',
@@ -316,6 +349,28 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     noLogYet: 'No compilation log yet',
     noStepsYet: 'No compile steps yet',
     linePrefix: 'line',
+    firstFatal: 'First error',
+    pdfStaleBadge: 'stale',
+    pdfStaleTitle: 'PDF may be out of date — recompile to refresh',
+    diagnosticStatic: 'static',
+    diagnosticCompiler: 'compiler',
+    searchTitle: 'Search in project',
+    searchPlaceholder: 'Find in .tex / .bib / …',
+    searchReplacePlaceholder: 'Replace with…',
+    searchRun: 'Search',
+    searchCaseSensitive: 'Case sensitive',
+    searchRegex: 'Regex',
+    searchShowReplace: 'Replace',
+    searchApplySelected: 'Apply selected',
+    searchSelectAll: 'Select all',
+    searchSelectNone: 'Select none',
+    searchNoResults: 'No matches',
+    searchHint: 'Enter a query and press Search (or Enter)',
+    searchApplied: 'Applied {n} replacement(s)',
+    searchAppliedDisk: 'Applied {n} replacement(s) and saved to disk',
+    searchWritePartial: '{n} file(s) could not be written to disk',
+    logStructuredHeading: 'Diagnostics',
+    logRawHeading: 'Raw log',
     toastSynctexNoMatch: 'SyncTeX: no source region near this click',
     toastSynctexNoTabMatch:
       'SyncTeX: found a source path in synctex, but no .tex file in this project matches it (re-open the project folder and recompile)',
@@ -440,6 +495,7 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     cmdInsertSnippet: '插入片段',
     cmdShowPreview: '显示 PDF 预览',
     cmdShowLog: '显示编译日志',
+    cmdProjectSearch: '在工程中搜索…',
     cmdToggleGit: '切换 Git 面板',
     cmdToggleCollab: '切换协作面板',
     palettePlaceholder: '输入命令…',
@@ -492,11 +548,14 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     sidebarTabOutline: '大纲',
     sidebarTabReferences: '引用',
     refsCitations: '文献',
+    refsLabels: '标签',
     refsEquations: '公式',
     refsNoProject: '打开工程后可查看引用列表',
     refsNoBib: '尚未在 .bib 或 .bbl 中发现文献键',
+    refsNoLabels: '尚未发现 \\label{…}',
     refsNoEquations: '未找到带编号的公式',
     refsFilterCitations: '筛选文献键…',
+    refsFilterLabels: '筛选标签…',
     refsFilterEquations: '按编号或 label 筛选…',
     tocNoFile: '打开文件后可查看大纲',
     tocNotTex: '大纲仅适用于 .tex 文件',
@@ -520,6 +579,28 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     noLogYet: '尚无编译日志',
     noStepsYet: '尚无编译步骤',
     linePrefix: '行',
+    firstFatal: '首个错误',
+    pdfStaleBadge: '过期',
+    pdfStaleTitle: 'PDF 可能已过期 — 请重新编译',
+    diagnosticStatic: '静态',
+    diagnosticCompiler: '编译器',
+    searchTitle: '在工程中搜索',
+    searchPlaceholder: '在 .tex / .bib / … 中查找',
+    searchReplacePlaceholder: '替换为…',
+    searchRun: '搜索',
+    searchCaseSensitive: '区分大小写',
+    searchRegex: '正则',
+    searchShowReplace: '替换',
+    searchApplySelected: '应用所选',
+    searchSelectAll: '全选',
+    searchSelectNone: '全不选',
+    searchNoResults: '无匹配',
+    searchHint: '输入关键词后点搜索（或按 Enter）',
+    searchApplied: '已应用 {n} 处替换',
+    searchAppliedDisk: '已应用 {n} 处替换并写入磁盘',
+    searchWritePartial: '{n} 个文件未能写入磁盘',
+    logStructuredHeading: '诊断',
+    logRawHeading: '原始日志',
     toastSynctexNoMatch: 'SyncTeX：该点击附近没有可识别的源码区域',
     toastSynctexNoTabMatch:
       'SyncTeX：synctex 中有源文件路径，但当前工程里没有能与之匹配的 .tex（请重新打开项目文件夹并重新编译）',

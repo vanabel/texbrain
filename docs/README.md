@@ -2,6 +2,8 @@
 
 User-facing overview: [README.md](../README.md) (English) · [README.zh-CN.md](../README.zh-CN.md) (中文)
 
+Editor UX also covered in the READMEs and FAQs: sidebar References, Cmd/Ctrl+click follow, structured Log/diagnostics, stale PDF, and project search (**Ctrl/⌘+Shift+F**).
+
 | Guide | English | 中文 |
 | --- | --- | --- |
 | **Technical** | [en/technical.md](en/technical.md) | [zh-CN/technical.md](zh-CN/technical.md) |

@@ -40,6 +40,7 @@ I was tired of paying for basics. I wrote a thesis in LaTeX and fought the toolc
 - [What it does](#what-it-does)
 - [Features](#features)
 - [Editor sidebar](#editor-sidebar-files-outline-references)
+- [Diagnostics, Log, and search](#diagnostics-log-and-search)
 - [SyncTeX](#synctex-editor--pdf)
 - [BibTeX example](#bibtex-example-english--chinese)
 - [Documentation](#documentation)
@@ -65,8 +66,10 @@ Open a folder, edit, preview PDF, commit, push to GitHub—**from one tab**.
 | **Git** | Clone, branch, stage, commit, push, pull, merge via [isomorphic-git](https://isomorphic-git.org/)—no CLI. |
 | **Local files** | [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API) on Chromium—read/write your disk folder. |
 | **Projects** | Tree, tabs, drag-and-drop; `.tex`, `.bib`, `.sty`, `.cls`, and more. |
-| **Sidebar** | **Files**, **Outline** (sections + `\input` / `\include`), **References** (cites + numbered equations). **Ctrl+B** toggles the sidebar. |
-| **Editor** | CodeMirror 6—highlighting, completions, folding, snippets, themes. Project-wide `\cite{…}` / `\eqref{…}` completion from `.bib` / `.bbl` and equation labels. |
+| **Sidebar** | **Files**, **Outline** (sections + `\input` / `\include`), **References** (cites, `\label`s, numbered equations). **Ctrl+B** toggles the sidebar. |
+| **Editor** | CodeMirror 6—highlighting, completions, folding, snippets, themes, lint marks. Project-wide `\cite{…}` / `\ref{…}` / `\eqref{…}` completion (cite details from `.bib`). **Ctrl/⌘+click** follows cite/ref/input/include/includegraphics/url. |
+| **Diagnostics & Log** | Structured Errors/Warnings/Log (first fatal promoted, click → source). Static checks for duplicate `\label` and undefined cite/ref. Stale PDF badge when the preview may be outdated. |
+| **Project search** | **Ctrl/⌘+Shift+F** — multi-file search and replace with preview; writes back to disk when a folder project is open. |
 | **Palette & snippets** | Command palette; searchable math/env snippets. |
 | **Offline** | After load, editing and compilation work without the network. |
 | **Templates** | Article, thesis, beamer, report, CV, letter, minimal. |
@@ -82,10 +85,25 @@ The left sidebar has three tabs (**Ctrl+B**):
 | --- | --- |
 | **Files** | Project file tree. |
 | **Outline** | `\part` … `\subparagraph` from the **active** `.tex`, including `\input` / `\include`. Click to jump. |
-| **References** | Citation keys (`.bib` / `.bbl`) and numbered equations (from **entry** `.tex` + includes; skipped when the project has more than 120 `.tex` paths). |
+| **References** | Citation keys (`.bib` / `.bbl`), `\label{…}` targets, and numbered equations (equations skipped when the project has more than 120 `.tex` paths). |
 
-- **Click** a key or equation number → jump to source.
-- **Ctrl+click** / **⌘+click** → insert `\cite{key}` or `\eq{number}`.
+- **Click** a key, label, or equation number → jump to source.
+- **Ctrl+click** / **⌘+click** on a References row → insert `\cite{key}`, `\ref{label}`, or `\eq{number}`.
+- In the **editor**, hold **Ctrl/⌘** and click a `\cite` / `\ref` / `\input` / `\include` / `\includegraphics` / `\url` argument to follow it.
+
+---
+
+## Diagnostics, Log, and search
+
+| Area | Behavior |
+| --- | --- |
+| **Errors / Warnings** | Compiler diagnostics plus static checks (duplicate labels, undefined cites/refs). Click a row to jump to file + line. First fatal error is promoted at the top. |
+| **Log** | Structured **Diagnostics** list (same jump behavior) above the raw compiler transcript. |
+| **Editor lint** | Underlines / gutter marks for issues in the active file. |
+| **Stale PDF** | Last successful PDF is kept after a failed compile or while you edit; the Preview tab shows a **stale** badge until the next successful build. |
+| **Search** | Command palette → **Search in Project…**, or **Ctrl/⌘+Shift+F**. Optional replace with preview; apply writes open tabs and, with **Open Folder**, the disk files. |
+
+Details: [FAQ — Diagnostics & search](docs/en/faq.md#diagnostics-log-and-project-search).
 
 ---
 
@@ -110,7 +128,7 @@ Sample project: [`examples/bibtex-metapost-english-chinese/`](examples/bibtex-me
 | Index | [docs/README.md](docs/README.md) | [docs/README.zh-CN.md](docs/README.zh-CN.md) |
 | Technical (architecture, stack, privacy) | [docs/en/technical.md](docs/en/technical.md) | [docs/zh-CN/technical.md](docs/zh-CN/technical.md) |
 | Deployment (local, Pages, PM2, NAS, CDN) | [docs/en/deployment.md](docs/en/deployment.md) | [docs/zh-CN/deployment.md](docs/zh-CN/deployment.md) |
-| FAQ (SyncTeX, CTAN auto-fetch, BusyTeX, fonts, troubleshooting) | [docs/en/faq.md](docs/en/faq.md) | [docs/zh-CN/faq.md](docs/zh-CN/faq.md) |
+| FAQ (SyncTeX, diagnostics, search, CTAN, BusyTeX, fonts) | [docs/en/faq.md](docs/en/faq.md) | [docs/zh-CN/faq.md](docs/zh-CN/faq.md) |
 | Collaboration workflow (GitHub, Collab) | [docs/en/collaboration-workflow.md](docs/en/collaboration-workflow.md) | [docs/zh-CN/collaboration-workflow.md](docs/zh-CN/collaboration-workflow.md) |
 | Roadmap | [ROADMAP.md](ROADMAP.md) | [ROADMAP.zh-CN.md](ROADMAP.zh-CN.md) |
 

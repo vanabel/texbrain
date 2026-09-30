@@ -13,10 +13,18 @@ TeXbrain is a **static** [SvelteKit](https://kit.svelte.dev/) app: the editor, c
 The tabbed **sidebar** parses project `.tex` / `.bib` for:
 
 - **Outline** — section tree and `\input` / `\include` navigation
-- **References** — citation keys and numbered equations
-- In-editor completion for `\cite{…}` / `\eqref{…}` from the same parsed sources
+- **References** — citation keys, `\label` targets, and numbered equations
+- In-editor completion for `\cite{…}` / `\ref{…}` / `\eqref{…}` (cite detail from `.bib` author/title)
 
-See the main [README — Editor sidebar](../../README.md#editor-sidebar-files-outline-references) for user-facing behavior.
+**Navigation and diagnostics (client-side):**
+
+- **Cmd/Ctrl+click** in the editor follows `\cite` / `\ref` / `\input` / `\include` / `\includegraphics` / `\url` (`reference-links.ts` + `reference-follow.ts`)
+- **Static diagnostics** (`latex-diagnostics.ts`) flag duplicate `\label` and undefined cite/ref; results feed the Warnings/Log panels and CodeMirror lint (`latex-lint.ts`)
+- **Compile log parsing** (`parse-log.ts`) structures Errors/Warnings and promotes the first fatal error; the Log tab shows Diagnostics + raw transcript
+- **Stale PDF** keeps the last successful preview after failed compiles or edits until the next success
+- **Project search/replace** (`search-replace.ts`, **Ctrl/⌘+Shift+F**) runs in memory; with an open folder it writes via `writeTextAtProjectPath`
+
+See the main [README — Editor sidebar](../../README.md#editor-sidebar-files-outline-references) and [FAQ — Diagnostics & search](faq.md#diagnostics-log-and-project-search).
 
 ### Compiler — two backends (auto-selected)
 
@@ -94,6 +102,6 @@ Everything runs in your browser unless **you** push to a remote.
 ## Related docs
 
 - [Deployment](deployment.md) — local dev, GitHub Pages, PM2, NAS, Cloudflare
-- [FAQ](faq.md) — SyncTeX, CTAN auto-fetch, build env vars, BusyTeX fonts, troubleshooting
+- [FAQ](faq.md) — SyncTeX, diagnostics/search, CTAN auto-fetch, build env vars, BusyTeX fonts, troubleshooting
 - [Collaboration workflow](collaboration-workflow.md) — GitHub + Collab for classes
 - [Main README](../../README.md) — features and quick start

@@ -1,5 +1,6 @@
 import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
-import { citeKeyCompletions, equationCompletions } from './project-autocomplete';
+import { citeKeyCompletions, equationCompletions, labelKeyCompletions } from './project-autocomplete';
+
 
 const latexCommands = [
   { label: '\\textbf', detail: 'Bold text', apply: '\\textbf{$}' },
@@ -113,7 +114,7 @@ function latexCompletions(context: CompletionContext): CompletionResult | null {
 }
 
 export const latexAutocomplete = autocompletion({
-  override: [citeKeyCompletions, equationCompletions, latexCompletions],
+  override: [citeKeyCompletions, labelKeyCompletions, equationCompletions, latexCompletions],
   icons: false,
   activateOnTyping: true,
   defaultKeymap: true

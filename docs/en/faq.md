@@ -13,7 +13,7 @@ When the compiler returns SyncTeX data, TeXbrain keeps it **in memory** for the 
 
 **Why doesn’t SyncTeX work in production by default?** The default production build uses the browser’s **native PDF** viewer in an `<iframe>`. That surface is opaque — TeXbrain cannot read click positions or scroll to a SyncTeX box. Rebuild with **`VITE_PDF_VIEWER=pdfjs`** for the same behavior as `pnpm dev`.
 
-Status bar hints appear next to Entry/Target when SyncTeX or the References panel is relevant.
+Status bar hints appear next to Entry/Target when SyncTeX or the References panel is relevant. Editor **Ctrl/⌘+click** follow is independent of SyncTeX.
 
 ### PDF.js production preview
 
@@ -151,9 +151,40 @@ For thesis/class templates: prefer the maintainer’s **`online-texbrain`** bran
 
 ## Sidebar references panel
 
-- **Click** citation key or equation number → jump to source line.
-- **Ctrl+click** (Windows/Linux) or **⌘+click** (macOS) → insert `\cite{key}` or `\eq{number}` at the cursor.
+- **Click** citation key, `\label`, or equation number → jump to source line.
+- **Ctrl+click** (Windows/Linux) or **⌘+click** (macOS) on a References row → insert `\cite{key}`, `\ref{label}`, or `\eq{number}` at the cursor.
+- In the **editor**, hold **Ctrl/⌘** and click a `\cite` / `\ref` / `\input` / `\include` / `\includegraphics` / `\url` argument to follow it (highlight while the modifier is held).
 - Equation list is skipped when the project has more than **120** `.tex` paths (performance guard).
+
+---
+
+## Diagnostics, Log, and project search
+
+### Structured Log and Errors
+
+After compile, the **Errors** and **Warnings** tabs list parsed compiler messages. The **Log** tab shows:
+
+1. **Diagnostics** — same structured items (first fatal error promoted), including **static** checks; click to jump to file + line when location is known.
+2. **Raw log** — the cleaned compiler transcript.
+
+Static diagnostics (no compile required) include:
+
+- Duplicate `\label{…}`
+- `\ref` / `\autoref` / `\cref` / `\eqref` to unknown labels
+- `\cite` / `\citep` / `\citet` (and common variants) to unknown bibliography keys (when `.bib` / `.bbl` keys are available)
+
+Matching issues in the **active** file also appear as CodeMirror **lint** underlines / gutter marks.
+
+### Stale PDF
+
+TeXbrain keeps the last **successful** PDF when a later compile fails or you keep editing. The Preview tab shows a **stale** badge and banner until the next successful compile. A failed build never silently replaces a good PDF with “empty.”
+
+### Project search / replace
+
+- Shortcut: **Ctrl+Shift+F** (Windows/Linux) or **⌘+Shift+F** (macOS); also in the command palette.
+- Search across `.tex` / `.bib` / related text files (open tabs + disk when a folder is open).
+- Optional **Replace** with per-match preview and selection.
+- **Apply selected**: updates open tabs; if you used **Open Folder**, also writes files to disk and refreshes the project tree. Without a folder handle, changes stay in memory until you Save / download.
 
 ---
 

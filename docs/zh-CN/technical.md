@@ -13,10 +13,18 @@ TeXbrain 是**纯静态** [SvelteKit](https://kit.svelte.dev/) 应用：编辑�
 带标签页的**侧栏**会解析工程 `.tex` / `.bib`，用于：
 
 - **大纲** — 章节树与 `\input` / `\include` 导航
-- **引用** — 文献键与带编号公式
-- 在 `\cite` / `\eqref` 等处的工程级补全
+- **引用** — 文献键、`\label` 目标与带编号公式
+- 在 `\cite` / `\ref` / `\eqref` 等处的工程级补全（文献详情来自 `.bib` 作者/标题）
 
-用户向说明见主 [README — 编辑器侧栏](../../README.zh-CN.md#编辑器侧栏文件--大纲--引用)。
+**导航与诊断（纯客户端）：**
+
+- 编辑器内 **Cmd/Ctrl+单击** 跟随 `\cite` / `\ref` / `\input` / `\include` / `\includegraphics` / `\url`（`reference-links.ts` + `reference-follow.ts`）
+- **静态诊断**（`latex-diagnostics.ts`）检测重复 `\label`、未定义 cite/ref；进入警告/日志面板，并以 CodeMirror lint（`latex-lint.ts`）标在当前文件
+- **编译日志解析**（`parse-log.ts`）结构化 Errors/Warnings 并置顶首个致命错误；Log 标签为「诊断」+ 原始输出
+- **过期 PDF**：编译失败或继续编辑时保留上次成功预览，直到下次成功编译
+- **工程搜索/替换**（`search-replace.ts`，**Ctrl/⌘+Shift+F**）在内存中运行；打开文件夹时经 `writeTextAtProjectPath` 写回磁盘
+
+用户向说明见主 [README — 编辑器侧栏](../../README.zh-CN.md#编辑器侧栏文件--大纲--引用) 与 [常见问题 — 诊断与搜索](faq.md#诊断日志与工程搜索)。
 
 ### 编译器 — 两套后端（自动选择）
 
@@ -94,6 +102,6 @@ SvelteKit **静态适配器** + [Tailwind CSS 4](https://tailwindcss.com/)，可
 ## 相关文档
 
 - [部署](deployment.md) — 本地开发、GitHub Pages、PM2、NAS、Cloudflare
-- [常见问题](faq.md) — SyncTeX、CTAN 自动拉包、构建变量、BusyTeX 字体、排错
+- [常见问题](faq.md) — SyncTeX、诊断/搜索、CTAN 自动拉包、构建变量、BusyTeX 字体、排错
 - [多人协作流程](collaboration-workflow.md) — GitHub 课程协作与 Collab 房间
 - [主 README](../../README.zh-CN.md) — 功能概览与快速上手

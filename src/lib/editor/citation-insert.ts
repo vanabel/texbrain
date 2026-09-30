@@ -3,6 +3,11 @@ import type { EditorView } from '@codemirror/view';
 const CITE_CMD_RE =
   /\\(?:cite|autocite|parencite|textcite|fullcite|citeauthor|citeyear|Cite|Autocite|Parencite|Textcite|Fullcite)(?:\*)?(?:\[[^\]]*\])*\{([^}]*)$/;
 
+const REF_CMD_RE =
+  /\\(?:ref|autoref|cref|eqref|pageref)(?:\*)?(?:\[[^\]]*\])*\{([^}]*)$/;
+
+const EQ_CMD_RE = /\\eq(?:ref)?\{([^}]*)$/;
+
 /** Insert a citation key at the cursor, merging with an open \\cite{...} if present. */
 export function insertCitationKey(view: EditorView, key: string): void {
   const pos = view.state.selection.main.head;
@@ -30,7 +35,30 @@ export function insertCitationKey(view: EditorView, key: string): void {
   view.focus();
 }
 
-const EQ_CMD_RE = /\\eq(?:ref)?\{([^}]*)$/;
+/** Insert a \\ref{key} at the cursor, merging with an open \\ref{...} if present. */
+export function insertLabelRef(view: EditorView, key: string): void {
+  const pos = view.state.selection.main.head;
+  const before = view.state.doc.sliceString(0, pos);
+
+  const refMatch = before.match(REF_CMD_RE);
+  if (refMatch) {
+    const existing = refMatch[1];
+    const from = pos - existing.length;
+    view.dispatch({
+      changes: { from, to: pos, insert: key },
+      selection: { anchor: from + key.length }
+    });
+    view.focus();
+    return;
+  }
+
+  const text = `\\ref{${key}}`;
+  view.dispatch({
+    changes: { from: pos, insert: text },
+    selection: { anchor: pos + text.length }
+  });
+  view.focus();
+}
 
 /** Insert an equation display number inside \\eq{...} or as a full \\eq{num}. */
 export function insertEquationNumber(view: EditorView, number: string): void {

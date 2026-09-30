@@ -12,6 +12,7 @@ import { latexLanguage } from './latex-language';
 import { darkEditorTheme, lightEditorTheme, darkHighlight, lightHighlight } from './theme';
 import { tabKeymap } from './keybindings';
 import { latexAutocomplete } from './autocomplete';
+import { latexLintGutter } from './latex-lint';
 
 export interface EditorConfig {
   doc: string;
@@ -20,6 +21,8 @@ export interface EditorConfig {
   onUpdate?: (content: string) => void;
   // pass the result of yCollab(...) here to enable collaborative editing
   collab?: Extension;
+  /** Extra CodeMirror extensions (e.g. Cmd/Ctrl+click reference follow). */
+  extraExtensions?: Extension[];
 }
 
 function autoCloseEnvironment(): Extension {
@@ -110,9 +113,14 @@ export function createEditor(config: EditorConfig): EditorView {
     themeExtension,
     highlightExtension,
     latexAutocomplete,
+    latexLintGutter(),
     autoCloseEnvironment(),
     updateListener
   );
+
+  if (config.extraExtensions?.length) {
+    extensions.push(...config.extraExtensions);
+  }
 
   const state = EditorState.create({
     doc: config.doc,
