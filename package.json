@@ -28,6 +28,7 @@
     "pm2:delete": "pm2 delete ecosystem.config.cjs",
     "pm2:logs": "pm2 logs texbrain",
     "pm2:logs:cors": "pm2 logs texbrain-cors-proxy",
+    "update": "bash scripts/nas-update.sh",
     "test:elegantbook-cn": "node scripts/compile-elegantbook-cn-test.mjs"
   },
   "type": "module",

@@ -205,16 +205,26 @@ Local test: `ALLOW_ORIGIN=http://localhost:5173 pnpm run serve:cors-proxy`, then
 
 ## Updating on a NAS (PM2 static host)
 
-TeXbrain on a NAS is usually a **git clone** + **`pnpm build`** + **PM2** serving the `build/` folder (same as [PM2 deployment](#pm2-deployment) above). To roll out a new version:
+TeXbrain on a NAS is usually a **git clone** + **`pnpm build`** + **PM2** serving the `build/` folder (same as [PM2 deployment](#pm2-deployment) above).
+
+**One-shot (recommended):** from the project root:
+
+```bash
+pnpm run update
+```
+
+That runs: `git pull` → `pnpm install` → `VITE_PDF_VIEWER=pdfjs pnpm build` → `pnpm pm2:restart` (`scripts/nas-update.sh`). `pnpm build` already defaults to pdf.js; the script sets the env explicitly for clarity.
+
+Manual steps (or when BusyTeX assets changed):
 
 1. **SSH** into the NAS and `cd` to the project directory (the folder that contains `package.json`).
-2. **Pull** the latest code: `git fetch origin && git checkout main && git pull origin main` (adjust branch if you deploy from another branch).
+2. **Pull** the latest code: `git fetch origin && git checkout main && git pull origin main` (adjust branch if needed) — or just `pnpm run update`.
 3. **Install deps:** `pnpm install`
-4. **BusyTeX (if you ship it on the NAS):** `pnpm run download-busytex` — only needed when `@vanabel/texlyre-busytex` or upstream assets changed, or if `static/busytex/` is missing on that machine.
-5. **Rebuild:** `pnpm build` — for **SyncTeX in the PDF preview** on this host, use `VITE_PDF_VIEWER=pdfjs pnpm build` instead (native iframe viewer cannot drive SyncTeX).
-6. **Restart PM2:** `pnpm pm2:restart` — or `PORT=8080 pnpm pm2:restart` if you override the port; confirm the app name in `ecosystem.config.cjs` if you use raw `pm2 restart <name>`.
-7. **Reverse proxy / CDN:** if you use Cloudflare and updated BusyTeX, follow [Cloudflare cache purge (BusyTeX)](#cloudflare-cache-purge-busytex); otherwise purge or shorten TTL for static assets as needed.
-8. **Browser:** do a **hard refresh** (e.g. Ctrl+F5 / ⌘+Shift+R) so clients load the new `/_app/immutable/...` chunks and updated `busytex/` URLs if applicable.
+4. **BusyTeX (if you ship it on the NAS):** `pnpm run download-busytex` — only when `@vanabel/texlyre-busytex` / upstream assets changed, or `static/busytex/` is missing.
+5. **Rebuild:** `pnpm build` (already includes `VITE_PDF_VIEWER=pdfjs`).
+6. **Restart PM2:** `pnpm pm2:restart` — or `PORT=8080 pnpm pm2:restart` if you override the port.
+7. **Reverse proxy / CDN:** if you use Cloudflare and updated BusyTeX, follow [Cloudflare cache purge (BusyTeX)](#cloudflare-cache-purge-busytex).
+8. **Browser:** hard refresh so clients load new `/_app/immutable/...` chunks.
 
 No database or server-side migration is required — this app is static files plus optional BusyTeX assets under `static/`.
 

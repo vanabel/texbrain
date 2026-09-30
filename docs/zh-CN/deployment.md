@@ -227,11 +227,21 @@ ALLOW_ORIGIN=http://localhost:5173 pnpm run serve:cors-proxy
 
 常见为 **git 克隆** + **`pnpm build`** + **PM2** 托管 `build/`（同 [PM2 部署](#pm2-部署)）。
 
+**一键（推荐）：** 在项目根目录执行：
+
+```bash
+pnpm run update
+```
+
+等价于：`git pull` → `pnpm install` → `VITE_PDF_VIEWER=pdfjs pnpm build` → `pnpm pm2:restart`（见 `scripts/nas-update.sh`）。`pnpm build` 本身已默认启用 pdf.js；脚本仍显式设置以便与文档一致。
+
+手动步骤（或 BusyTeX 资源有变时先补一步）：
+
 1. SSH 到项目根目录。
-2. `git fetch origin && git checkout main && git pull origin main`（按实际分支调整）。
+2. `git fetch origin && git checkout main && git pull origin main`（按实际分支调整）；或直接 `pnpm run update`。
 3. `pnpm install`
 4. 需要 BusyTeX 且资源有变或缺失时：`pnpm run download-busytex`
-5. `pnpm build`；要预览 SyncTeX 用 `VITE_PDF_VIEWER=pdfjs pnpm build`
+5. `pnpm build`（已含 `VITE_PDF_VIEWER=pdfjs`）
 6. `pnpm pm2:restart`（会重启静态站与 CORS 代理；或 `PORT=8080 pnpm pm2:restart` 仅影响 `texbrain` 端口）
 7. 若走 Cloudflare 且更新了 BusyTeX：见下文 [Cloudflare 缓存清理](#cloudflare-缓存清理busytex)
 8. 浏览器 **强制刷新**
