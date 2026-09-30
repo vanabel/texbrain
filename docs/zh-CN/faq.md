@@ -2,6 +2,25 @@
 
 # 常见问题
 
+## 两套编译引擎：SwiftLaTeX / BusyTeX
+
+TeXbrain 在浏览器里用 **两套 WASM 后端**，按工程与顶栏引擎**自动选择**，不是让用户在「两个重复编译器」里手工二选一。更细的实现说明见[技术说明 — 编译器](technical.md#编译器--两套后端互补自动选择)。
+
+| 你想做的事 | 通常走哪条 |
+| --- | --- |
+| 普通 pdfLaTeX 文章、无经典 BibTeX | **SwiftLaTeX**（默认） |
+| 顶栏选 **XeLaTeX**（中文 `ctex` / `fontspec`、ElegantBook 等） | **BusyTeX** |
+| `\bibliography` / `\bibliographystyle`，或 biblatex 且非 Biber | **BusyTeX**（bibtex8） |
+| biblatex + **`backend=biber`** | **SwiftLaTeX**（有折中；**不能**真跑 Biber） |
+
+**如何确认当前路径：** 编译日志里会出现 BusyTeX 加载/步骤提示；按钮在预热 WASM 时显示「BusyTeX 加载中…」。SwiftLaTeX 路径会走 TeXLive 缓存预热说明。
+
+**没有 BusyTeX 资源时：** 未执行 `pnpm run download-busytex`（或部署未带上 `static/busytex/`）时，SwiftLaTeX 仍可用；XeLaTeX / 经典 BibTeX 会失败或能力缺失。线上排查见下文 [GitHub Pages 与 BusyTeX](#github-pages-与-busytex)。
+
+**是否该放弃其中一个？** 短期**不建议**。丢掉 BusyTeX ≈ 失去 Xe 与真正的 bibtex8；丢掉 SwiftLaTeX ≈ 默认永远下载大包、冷启动变慢。两边都无法替代本机完整 TeX 或服务端 latexmk/Tectonic。
+
+---
+
 ## SyncTeX（编辑器 ↔ PDF）
 
 编译器若返回 SyncTeX 数据，TeXbrain 在**当前会话内存**中解析使用（不额外写盘）。来源：**BusyTeX** 的 `result.synctex`（gzip），或 SwiftLaTeX 路径下 MEMFS 中的 `.synctex.gz`。
@@ -39,7 +58,7 @@
 
 ## BibTeX 与参考文献
 
-浏览器内**经典 BibTeX** 需要部署端含 BusyTeX（`pnpm run download-busytex`）；仅 SwiftLaTeX 无法跑 bibtex8。
+引擎如何分流见上文 [两套编译引擎](#两套编译引擎-swiftlatex--busytex)。浏览器内**经典 BibTeX** 需要部署端含 BusyTeX（`pnpm run download-busytex`）；仅 SwiftLaTeX 无法跑 bibtex8。
 
 **`cleveref`** 在部分 BusyTeX 运行中可能报 `Extra \endcsname` 等；本仓库 `Chinese-biblatex` 示例在 `\BUSYTEX` 时将 `\cref/\Cref` 回退为 `\autoref`。
 
@@ -177,7 +196,7 @@ TeXbrain **不会**自动把编辑同步到 GitHub 模板仓库；默认只写�
 
 ## 相关文档
 
+- [技术说明 — 两套编译后端](technical.md#编译器--两套后端互补自动选择)
 - [多人协作流程](collaboration-workflow.md)
-- [技术说明](technical.md)
 - [部署](deployment.md)
 - [主 README](../../README.zh-CN.md)

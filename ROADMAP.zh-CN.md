@@ -20,7 +20,7 @@ LatexCoder 是**自托管**协作工作区（Yjs + SQLite + 真实 Git + Tectoni
 | 维度 | TeXbrain 现状 | LatexCoder 强项 | 是否吸收 |
 | --- | --- | --- | --- |
 | 部署 | 静态 SPA，无账号 | Node 服务、鉴权、SSH Git | 否（定位冲突） |
-| 编译 | SwiftLaTeX / BusyTeX WASM | 服务端 Tectonic / latexmk | 否（保持 WASM；可选后续 companion） |
+| 编译 | SwiftLaTeX（默认）+ BusyTeX（Xe/BibTeX），自动分流；见 [FAQ](docs/zh-CN/faq.md#两套编译引擎-swiftlatex--busytex) | 服务端 Tectonic / latexmk | 否（保持双 WASM；可选后续 companion） |
 | 协作 | WebRTC Yjs 房间 | 服务端 Yjs + 能力链接 + 自动 checkpoint | 部分（仅 UX） |
 | Agent | 无 | 整文件编辑 + SHA256 冲突检测 + 明文手册 | 仅可选 companion |
 | 日志 / 诊断 | 结构化 Log + 首致命错误跳转；静态 lint | 结构化 Log、首个致命错误、跳转源码 | **已完成（A1/A4）** |

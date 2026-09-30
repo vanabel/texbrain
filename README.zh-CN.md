@@ -59,7 +59,7 @@ TeXbrain 在**浏览器里**把 `.tex` 编译成 **PDF**，编辑器、编译器
 
 | | |
 | --- | --- |
-| **浏览器内编译** | 默认 [SwiftLaTeX](https://github.com/SwiftLaTeX/SwiftLaTeX) pdfTeX；经典 BibTeX 可选用 [BusyTeX](https://github.com/TeXlyre/texlyre-busytex)。缺 `.sty` / `.cls` 时可 **[CTAN 自动拉包](docs/zh-CN/faq.md#ctan-自动拉包缺-sty--cls)** 并重试编译。 |
+| **浏览器内编译** | **两套引擎、自动分流：** 默认 [SwiftLaTeX](https://github.com/SwiftLaTeX/SwiftLaTeX)（pdfTeX）；**XeLaTeX** / 经典 BibTeX（bibtex8）走 [BusyTeX](https://github.com/TeXlyre/texlyre-busytex)。对照与选择规则：[常见问题 — 两套编译引擎](docs/zh-CN/faq.md#两套编译引擎-swiftlatex--busytex)、[技术说明](docs/zh-CN/technical.md#编译器--两套后端互补自动选择)。缺 `.sty` / `.cls` 时可 **[CTAN 自动拉包](docs/zh-CN/faq.md#ctan-自动拉包缺-sty--cls)**。 |
 | **PDF 预览** | 开发环境为 [pdf.js](https://mozilla.github.io/pdf.js/)；默认生产为内置 PDF。构建时 **`VITE_PDF_VIEWER=pdfjs`** 可启用 pdf.js 与预览栏 **SyncTeX**。详见 [常见问题 — SyncTeX](docs/zh-CN/faq.md#synctex编辑器--pdf)。 |
 | **Git** | 克隆、分支、提交、推送等，基于 [isomorphic-git](https://isomorphic-git.org/)。 |
 | **本地文件** | Chromium 系通过 [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API) 读写磁盘目录。 |
@@ -126,7 +126,7 @@ TeXbrain 在**浏览器里**把 `.tex` 编译成 **PDF**，编辑器、编译器
 | 索引 | [docs/README.md](docs/README.md) | [docs/README.zh-CN.md](docs/README.zh-CN.md) |
 | 技术说明（架构、技术栈、隐私） | [docs/en/technical.md](docs/en/technical.md) | [docs/zh-CN/technical.md](docs/zh-CN/technical.md) |
 | 部署（本地、Pages、PM2、NAS、CDN） | [docs/en/deployment.md](docs/en/deployment.md) | [docs/zh-CN/deployment.md](docs/zh-CN/deployment.md) |
-| 常见问题（SyncTeX、诊断、搜索、CTAN、BusyTeX、字体） | [docs/en/faq.md](docs/en/faq.md) | [docs/zh-CN/faq.md](docs/zh-CN/faq.md) |
+| 常见问题（双引擎、SyncTeX、诊断、搜索、CTAN、BusyTeX、字体） | [docs/en/faq.md](docs/en/faq.md) | [docs/zh-CN/faq.md](docs/zh-CN/faq.md) |
 | 多人协作流程（GitHub、Collab） | [docs/en/collaboration-workflow.md](docs/en/collaboration-workflow.md) | [docs/zh-CN/collaboration-workflow.md](docs/zh-CN/collaboration-workflow.md) |
 | 路线图 | [ROADMAP.md](ROADMAP.md) | [ROADMAP.zh-CN.md](ROADMAP.zh-CN.md) |
 

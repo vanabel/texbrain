@@ -2,7 +2,7 @@
 
 User-facing overview: [README.md](../README.md) (English) · [README.zh-CN.md](../README.zh-CN.md) (中文)
 
-Editor UX also covered in the READMEs and FAQs: sidebar References, Cmd/Ctrl+click follow, structured Log/diagnostics, stale PDF, and project search (**Ctrl/⌘+Shift+F**).
+Editor UX also covered in the READMEs and FAQs: sidebar References, Cmd/Ctrl+click follow, structured Log/diagnostics, stale PDF, and project search (**Ctrl/⌘+Shift+F**). Compile engines (SwiftLaTeX vs BusyTeX): [Technical](en/technical.md#compiler--two-backends-complementary-auto-selected) · [FAQ](en/faq.md#two-compile-engines-swiftlatex--busytex).
 
 | Guide | English | 中文 |
 | --- | --- | --- |

@@ -26,18 +26,36 @@ The tabbed **sidebar** parses project `.tex` / `.bib` for:
 
 See the main [README — Editor sidebar](../../README.md#editor-sidebar-files-outline-references) and [FAQ — Diagnostics & search](faq.md#diagnostics-log-and-project-search).
 
-### Compiler — two backends (auto-selected)
+### Compiler — two backends (complementary, auto-selected)
 
-1. **[SwiftLaTeX](https://github.com/SwiftLaTeX/SwiftLaTeX)** pdfTeX (WASM) — **default**. Project files go to MEMFS; TexLive cache loads from static assets on first compile; a preprocessor handles unsupported constructs. Projects using biblatex + **Biber** (typical default) stay on this path with a small bibliography workaround.
+TeXbrain **keeps both** [SwiftLaTeX](https://github.com/SwiftLaTeX/SwiftLaTeX) and [BusyTeX](https://github.com/TeXlyre/texlyre-busytex) ([`texlyre-busytex`](https://www.npmjs.com/package/texlyre-busytex)). They are not duplicates: SwiftLaTeX is the default light pdfTeX path; BusyTeX covers XeLaTeX, classic BibTeX (bibtex8), and Chinese `fontspec` workflows. User-facing comparison: [FAQ — Two compile engines](faq.md#two-compile-engines-swiftlatex--busytex).
 
-2. **[BusyTeX](https://github.com/TeXlyre/texlyre-busytex)** ([`texlyre-busytex`](https://www.npmjs.com/package/texlyre-busytex)) — when classic **BibTeX** is required **and** `static/busytex/` exists on the host. XeLaTeX + bibtex8 pipeline. The npm package ships only the JS API; large WASM assets are downloaded separately ([deployment guide](deployment.md#optional-busytex-assets-bibtex)).
+| | **SwiftLaTeX** | **BusyTeX** |
+| --- | --- | --- |
+| Role | **Default** engine | Heavier engine, used when needed |
+| Shape | pdfTeX (WASM) | XeLaTeX + bibtex8 pipeline (WASM) |
+| Best for | Ordinary English / simple pdfLaTeX; faster after TeXLive cache warmup | Classic `\bibliography`, biblatex+bibtex8, Chinese Xe / `fontspec`, ElegantBook, etc. |
+| Assets | Built-in TeXLive cache → IndexedDB warmup | ~**175 MB**; run `pnpm run download-busytex` into `static/busytex/` ([deployment](deployment.md#optional-busytex-assets-bibtex)) |
+| Without BusyTeX on host | Still compiles | Xe / real BibTeX paths unavailable or fall back |
+| SyncTeX | When `.synctex.gz` is present in MEMFS | Usually via `result.synctex` (gzip) |
+
+**Auto-selection** (`busytex-bibtex.ts` → `needsBusyTexForProject`):
+
+1. Toolbar engine **XeLaTeX** → always BusyTeX (requires BusyTeX assets).
+2. Toolbar **pdfLaTeX** and the project needs a real BibTeX pipeline → BusyTeX; otherwise → SwiftLaTeX.
+3. “Needs BibTeX” means `\bibliography` / `\bibliographystyle`, or biblatex detected **without** explicit `backend=biber` (narrow sources including `.cls` / `.sty` so macro-expanded `backend=…` still triggers bibtex8).
+4. Explicit **biblatex + Biber** (`backend=biber`) → **stays on SwiftLaTeX** with a bibliography workaround (browser WASM **cannot run Biber**).
+
+**Neither engine provides:** in-browser **Biber**, or a full local TeX Live tree (missing packages may use [CTAN auto-fetch](faq.md#ctan-auto-fetch-missing-packages)).
+
+**Why not merge to one WASM?** SwiftLaTeX-only drops Xe and classic BibTeX; BusyTeX-only makes every project pay the large download and cold start. A future server-side Tectonic companion (roadmap) is a different unification path than “pick one WASM.”
 
 ### Cache and download behavior
 
 | Path | TeXLive / cache |
 | --- | --- |
 | SwiftLaTeX (`pdfLaTeX`) | TeXLive cache in IndexedDB; first compile may be slow, later runs faster |
-| BusyTeX (XeLaTeX / BibTeX) | Does **not** use TeXbrain’s TeXLive warmup |
+| BusyTeX (XeLaTeX / BibTeX) | Does **not** use TeXbrain’s TeXLive warmup; ships its own TeX Live data packages |
 | Incognito / private browsing | Storage is ephemeral; large downloads may repeat each session |
 
 ### Compile target mode (top bar **Compile**)
@@ -77,7 +95,7 @@ SvelteKit **static adapter** + [Tailwind CSS 4](https://tailwindcss.com/). Deplo
 | --- | --- |
 | UI | Svelte 5 + SvelteKit (static) |
 | Editor | CodeMirror 6 + LaTeX tooling |
-| Compile | SwiftLaTeX WASM; optional BusyTeX for BibTeX |
+| Compile | SwiftLaTeX (default pdfTeX) + BusyTeX (Xe / BibTeX), auto-selected |
 | Git | isomorphic-git + LightningFS |
 | PDF | pdf.js (optional in production) |
 | Style | Tailwind CSS 4 |
@@ -102,6 +120,6 @@ Everything runs in your browser unless **you** push to a remote.
 ## Related docs
 
 - [Deployment](deployment.md) — local dev, GitHub Pages, PM2, NAS, Cloudflare
-- [FAQ](faq.md) — SyncTeX, diagnostics/search, CTAN auto-fetch, build env vars, BusyTeX fonts, troubleshooting
+- [FAQ](faq.md) — two engines, SyncTeX, diagnostics/search, CTAN auto-fetch, build env vars, BusyTeX fonts, troubleshooting
 - [Collaboration workflow](collaboration-workflow.md) — GitHub + Collab for classes
 - [Main README](../../README.md) — features and quick start

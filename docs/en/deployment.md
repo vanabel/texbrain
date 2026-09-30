@@ -14,9 +14,9 @@ pnpm dev
 
 Open **http://localhost:5173** in Chrome or Edge.
 
-### Optional: BusyTeX assets (BibTeX)
+### Optional: BusyTeX assets (BibTeX / XeLaTeX)
 
-`pnpm install` adds the **npm package** only. The **~175 MB** WASM / TeX Live bundle is **not** in the tarball — it is downloaded from [texlyre-busytex releases](https://github.com/TeXlyre/texlyre-busytex) into `static/busytex/`:
+For how SwiftLaTeX and BusyTeX split work, see [FAQ — Two compile engines](faq.md#two-compile-engines-swiftlatex--busytex). `pnpm install` adds the **npm package** only. The **~175 MB** WASM / TeX Live bundle is **not** in the tarball — it is downloaded from [texlyre-busytex releases](https://github.com/TeXlyre/texlyre-busytex) into `static/busytex/`:
 
 ```bash
 pnpm run download-busytex

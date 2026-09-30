@@ -2,7 +2,7 @@
 
 产品概览：[README.zh-CN.md](../README.zh-CN.md)（中文）· [README.md](../README.md)（English）
 
-编辑器相关说明亦见 README 与 FAQ：侧栏「引用」、Cmd/Ctrl+单击跟随、结构化 Log/诊断、过期 PDF、工程搜索（**Ctrl/⌘+Shift+F**）。
+编辑器相关说明亦见 README 与 FAQ：侧栏「引用」、Cmd/Ctrl+单击跟随、结构化 Log/诊断、过期 PDF、工程搜索（**Ctrl/⌘+Shift+F**）。编译引擎对照（SwiftLaTeX vs BusyTeX）见 [技术说明](zh-CN/technical.md#编译器--两套后端互补自动选择) 与 [FAQ](zh-CN/faq.md#两套编译引擎-swiftlatex--busytex)。
 
 | 指南 | English | 中文 |
 | --- | --- | --- |

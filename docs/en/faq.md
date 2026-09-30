@@ -2,6 +2,25 @@
 
 # FAQ
 
+## Two compile engines: SwiftLaTeX / BusyTeX
+
+TeXbrain runs **two WASM backends** in the browser and **auto-selects** by project + toolbar engine. This is not a duplicate “pick your favorite compiler” menu. Implementation detail: [Technical — Compiler](technical.md#compiler--two-backends-complementary-auto-selected).
+
+| What you need | Typical path |
+| --- | --- |
+| Ordinary pdfLaTeX, no classic BibTeX | **SwiftLaTeX** (default) |
+| Toolbar **XeLaTeX** (CJK `ctex` / `fontspec`, ElegantBook, …) | **BusyTeX** |
+| `\bibliography` / `\bibliographystyle`, or biblatex without Biber | **BusyTeX** (bibtex8) |
+| biblatex + **`backend=biber`** | **SwiftLaTeX** (workaround; **no** real Biber) |
+
+**How to tell which path ran:** BusyTeX shows warmup / step lines in the compile log and the button label “Loading BusyTeX…” while WASM loads. SwiftLaTeX uses the TeXLive cache warmup messaging.
+
+**Without BusyTeX assets:** if you never ran `pnpm run download-busytex` (or deploy omitted `static/busytex/`), SwiftLaTeX still works; XeLaTeX / classic BibTeX will fail or lack features. Hosted troubleshooting: [GitHub Pages & BusyTeX](#github-pages--busytex).
+
+**Should we drop one engine?** Not in the short term. Dropping BusyTeX removes Xe and real bibtex8; dropping SwiftLaTeX forces every project onto a large download and slower cold start. Neither replaces a full local TeX tree or a server-side latexmk/Tectonic.
+
+---
+
 ## SyncTeX (editor ↔ PDF)
 
 When the compiler returns SyncTeX data, TeXbrain keeps it **in memory** for the current session (no extra disk write). Parsing uses the gzip payload from **BusyTeX** (`result.synctex`) or, on the SwiftLaTeX path, `.synctex.gz` read from the engine MEMFS when present.
@@ -43,7 +62,7 @@ When you build with **`VITE_PDF_VIEWER=pdfjs`**, the preview pane uses pdf.js in
 
 ## BibTeX & bibliographies
 
-**Classic BibTeX in the browser** requires BusyTeX assets on the deployment (`pnpm run download-busytex`). SwiftLaTeX alone does not run bibtex8.
+Engine routing: [Two compile engines](#two-compile-engines-swiftlatex--busytex). **Classic BibTeX in the browser** requires BusyTeX assets on the deployment (`pnpm run download-busytex`). SwiftLaTeX alone does not run bibtex8.
 
 **`cleveref` (`\cref` / `\Cref`) errors** (e.g. `Extra \endcsname`) can appear in some BusyTeX runs. The `Chinese-biblatex` example in this repo maps `\cref/\Cref` to `\autoref` when `\BUSYTEX` is defined; local TeX keeps native `cleveref`.
 
@@ -190,7 +209,7 @@ TeXbrain keeps the last **successful** PDF when a later compile fails or you kee
 
 ## Related docs
 
+- [Technical — two compile backends](technical.md#compiler--two-backends-complementary-auto-selected)
 - [Collaboration workflow](collaboration-workflow.md)
-- [Technical guide](technical.md)
 - [Deployment](deployment.md)
 - [Main README](../../README.md)

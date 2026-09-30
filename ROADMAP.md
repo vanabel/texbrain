@@ -20,7 +20,7 @@ LatexCoder is a **self-hosted** collaborative workspace (Yjs + SQLite + real Git
 | Area | TeXbrain today | LatexCoder strength | Absorb? |
 | --- | --- | --- | --- |
 | Hosting | Static SPA, no accounts | Node service, auth, SSH Git | No (identity conflict) |
-| Compile | SwiftLaTeX / BusyTeX WASM | Tectonic / latexmk on server | No (keep WASM; optional later companion) |
+| Compile | SwiftLaTeX (default) + BusyTeX (Xe/BibTeX), auto-routed; see [FAQ](docs/en/faq.md#two-compile-engines-swiftlatex--busytex) | Tectonic / latexmk on server | No (keep both WASM engines; optional later companion) |
 | Collab | WebRTC Yjs rooms | Server Yjs + capability links + checkpoints | Partial (UX only) |
 | Agent | None | Checked full-file edit + SHA256 + manual | Optional companion only |
 | Log / diagnostics | Structured Log + first fatal + jump; static lint | Structured Log, first fatal, click-to-source | **Done (A1/A4)** |

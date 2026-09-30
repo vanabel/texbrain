@@ -14,9 +14,9 @@ pnpm dev
 
 在 Chrome 或 Edge 中打开 **http://localhost:5173**。
 
-### 可选：BusyTeX 资源（BibTeX）
+### 可选：BusyTeX 资源（BibTeX / XeLaTeX）
 
-`pnpm install` 只会安装 **npm 包**。**约 175 MB** 的 WASM / TeX Live 数据**不在** npm 包内，需从 [texlyre-busytex 的 GitHub Releases](https://github.com/TeXlyre/texlyre-busytex) 下载到 `static/busytex/`：
+SwiftLaTeX 与 BusyTeX 的分工见 [常见问题 — 两套编译引擎](faq.md#两套编译引擎-swiftlatex--busytex)。`pnpm install` 只会安装 **npm 包**。**约 175 MB** 的 WASM / TeX Live 数据**不在** npm 包内，需从 [texlyre-busytex 的 GitHub Releases](https://github.com/TeXlyre/texlyre-busytex) 下载到 `static/busytex/`：
 
 ```bash
 pnpm run download-busytex
