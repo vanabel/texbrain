@@ -2193,8 +2193,8 @@
   .cm-wrapper :global(.cm-editor) { height: 100%; }
 
   .preview-pane { display: flex; flex-direction: column; flex: 1; min-width: 280px; overflow: hidden; background: var(--bg-elevated); }
-  .preview-header { display: flex; align-items: center; height: 32px; border-bottom: 1px solid var(--border); padding: 0 3px; flex-shrink: 0; }
-  .preview-tab { padding: 5px 12px; font-size: 11px; font-weight: 500; color: var(--text-muted); }
+  .preview-header { display: flex; align-items: center; height: 32px; border-bottom: 1px solid var(--border); padding: 0 3px; flex-shrink: 0; min-width: 0; overflow-x: auto; }
+  .preview-tab { padding: 5px 12px; font-size: 11px; font-weight: 500; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
   .preview-tab:hover { color: var(--text-secondary); }
   .preview-tab.active { color: var(--text-primary); background: var(--bg-hover); }
   .preview-content { flex: 1; overflow: hidden; display: flex; }
@@ -2279,7 +2279,7 @@
   .clone-actions { display: flex; gap: 6px; margin-top: 4px; }
   .clone-actions .welcome-btn { flex: 1; justify-content: center; }
   .clone-hint { font-size: 10.5px; color: var(--text-muted); line-height: 1.5; text-align: center; margin-top: 4px; }
-  .save-pdf { display: flex; align-items: center; gap: 2px; }
+  .save-pdf { display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; white-space: nowrap; }
 
   .error-badge {
     display: inline-flex;
