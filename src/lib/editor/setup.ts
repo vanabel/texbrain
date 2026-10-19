@@ -1,4 +1,4 @@
-import { EditorState, type Extension } from '@codemirror/state';
+import { EditorState, Compartment, type Extension } from '@codemirror/state';
 import { EditorView, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection, dropCursor, rectangularSelection, crosshairCursor, keymap } from '@codemirror/view';
 import { defaultKeymap as _defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 
@@ -25,6 +25,20 @@ export interface EditorConfig {
   extraExtensions?: Extension[];
 }
 
+const themeCompartment = new Compartment();
+
+export function editorThemeExtensions(dark: boolean): Extension {
+  return dark
+    ? [darkEditorTheme, darkHighlight]
+    : [lightEditorTheme, lightHighlight];
+}
+
+export function setEditorTheme(view: EditorView, dark: boolean) {
+  view.dispatch({
+    effects: themeCompartment.reconfigure(editorThemeExtensions(dark))
+  });
+}
+
 function autoCloseEnvironment(): Extension {
   return EditorView.inputHandler.of((view, from, to, text) => {
     if (text !== '\n') return false;
@@ -49,9 +63,6 @@ function autoCloseEnvironment(): Extension {
 }
 
 export function createEditor(config: EditorConfig): EditorView {
-  const themeExtension = config.dark ? darkEditorTheme : lightEditorTheme;
-  const highlightExtension = config.dark ? darkHighlight : lightHighlight;
-
   const updateListener = EditorView.updateListener.of((update) => {
     if (update.docChanged && config.onUpdate) {
       config.onUpdate(update.state.doc.toString());
@@ -110,8 +121,7 @@ export function createEditor(config: EditorConfig): EditorView {
   extensions.push(
     tabKeymap,
     latexLanguage,
-    themeExtension,
-    highlightExtension,
+    themeCompartment.of(editorThemeExtensions(config.dark)),
     latexAutocomplete,
     latexLintGutter(),
     autoCloseEnvironment(),

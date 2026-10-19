@@ -26,6 +26,7 @@ export type EditorUi = {
   cmdProjectSearch: string;
   cmdToggleGit: string;
   cmdToggleCollab: string;
+  cmdToggleTheme: string;
   palettePlaceholder: string;
   paletteNoResults: string;
 
@@ -268,6 +269,7 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     cmdProjectSearch: 'Search in Project…',
     cmdToggleGit: 'Toggle Git Panel',
     cmdToggleCollab: 'Toggle Collaboration Panel',
+    cmdToggleTheme: 'Toggle Light / Dark',
     palettePlaceholder: 'Type a command...',
     paletteNoResults: 'No matching commands',
 
@@ -498,6 +500,7 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     cmdProjectSearch: '在工程中搜索…',
     cmdToggleGit: '切换 Git 面板',
     cmdToggleCollab: '切换协作面板',
+    cmdToggleTheme: '切换浅色 / 深色',
     palettePlaceholder: '输入命令…',
     paletteNoResults: '没有匹配的命令',
 

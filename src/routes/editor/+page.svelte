@@ -6,7 +6,7 @@
   import { sidebarOpen, sidebarPanel, previewOpen, editorOpen, snippetPickerOpen, commandPaletteOpen, projectSearchOpen, compileStatus, compileLog, compileErrors, staticDiagnostics, pdfStale, previewTab, addToast } from '$lib/stores/app';
   import { files, activeFile, activeFileId, updateFileContent, projectHandle, projectTree, entryPoint, openFileTab } from '$lib/project/store';
   import { handleOpenFile, handleSaveFile, handleSaveFileAs, handleDroppedFiles, handleOpenDirectory, handleNewProject, cloneProject, loadBundledBibtexExample, refreshProjectTree } from '$lib/project/manager';
-  import { insertAtCursor, createEditor, replaceEditorContent } from '$lib/editor/setup';
+  import { insertAtCursor, createEditor, replaceEditorContent, setEditorTheme } from '$lib/editor/setup';
   import { insertCitationKey, insertEquationNumber, insertLabelRef } from '$lib/editor/citation-insert';
   import {
     getMergedProjectTextMap,
@@ -45,6 +45,8 @@
 
   import Logo from '$lib/ui/Logo.svelte';
   import LanguageSwitch from '$lib/ui/LanguageSwitch.svelte';
+  import ThemeToggle from '$lib/ui/ThemeToggle.svelte';
+  import { theme, toggleTheme } from '$lib/stores/theme';
   import { locale } from '$lib/i18n/locale';
   import { editorUi, expandEditorTemplate } from '$lib/i18n/editor-ui';
   import TabBar from '$lib/ui/TabBar.svelte';
@@ -350,7 +352,7 @@
           editorView = createEditor({
             doc: content,
             parent: editorContainer,
-            dark: true,
+            dark: get(theme) !== 'light',
             onUpdate: handleEditorUpdate,
             collab: yCollab(data.ytext, awareness, { undoManager: data.undoManager }),
             extraExtensions: editorExtraExtensions()
@@ -361,7 +363,7 @@
         editorView = createEditor({
           doc: file.content,
           parent: editorContainer,
-          dark: true,
+          dark: get(theme) !== 'light',
           onUpdate: handleEditorUpdate,
           extraExtensions: editorExtraExtensions()
         });
@@ -1270,6 +1272,7 @@
     { id: 'search', label: E.cmdProjectSearch, shortcut: 'Ctrl+Shift+F', action: () => projectSearchOpen.set(true), category: 'edit' },
     { id: 'git', label: E.cmdToggleGit, shortcut: 'Ctrl+G', action: () => gitPanelOpen.update(v => !v), category: 'view' },
     { id: 'collab', label: E.cmdToggleCollab, shortcut: '', action: () => collabPanelOpen.update(v => !v), category: 'view' },
+    { id: 'theme', label: E.cmdToggleTheme, shortcut: '', action: toggleTheme, category: 'view' },
   ];
 
   function handleGlobalKeydown(e: KeyboardEvent) {
@@ -1621,6 +1624,8 @@
     localStorage.setItem('texbrain.compile.engine', compileEngine);
     localStorage.setItem('texbrain.compile.mainMode', compileMainMode);
   }
+
+  $: if (editorView) setEditorTheme(editorView, $theme !== 'light');
 </script>
 
 <svelte:head>
@@ -1712,6 +1717,7 @@
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="6" cy="6" r="2.5" stroke="currentColor" stroke-width="1.2"/><path d="M1 13c0-2.2 2.2-4 5-4s5 1.8 5 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="11.5" cy="5" r="2" stroke="currentColor" stroke-width="1.1"/><path d="M14.5 12c0-1.7-1.3-3-3-3" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
         <span>{E.collab}</span>
       </button>
+      <ThemeToggle />
       <LanguageSwitch />
       <div class="separator"></div>
       <a href="https://github.com/vanabel/texbrain" target="_blank" rel="noopener" class="action-btn" title={E.github}>

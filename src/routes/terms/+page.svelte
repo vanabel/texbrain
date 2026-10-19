@@ -3,6 +3,7 @@
   import { siteUrl } from '$lib/site';
   import Logo from '$lib/ui/Logo.svelte';
   import LanguageSwitch from '$lib/ui/LanguageSwitch.svelte';
+  import ThemeToggle from '$lib/ui/ThemeToggle.svelte';
 </script>
 
 <svelte:head>
@@ -21,6 +22,7 @@
         <span class="logo-name">TeXbrain</span>
       </a>
       <div class="nav-actions">
+        <ThemeToggle />
         <LanguageSwitch />
       </div>
     </div>

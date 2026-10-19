@@ -7,6 +7,16 @@
     <meta name="description" content="LaTeX editor that compiles to PDF entirely in your browser. No accounts, no installs, no servers. Edit .tex files with live preview, built-in git, and real-time collaboration." />
     <meta name="author" content="Braian Plaku" />
     <meta name="theme-color" content="#111113" />
+    <script>
+      (function () {
+        try {
+          var mode = localStorage.getItem('texbrain-theme') === 'light' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', mode);
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', mode === 'light' ? '#f6f5f2' : '#111113');
+        } catch (e) {}
+      })();
+    </script>
     <meta name="keywords" content="LaTeX editor, online LaTeX, browser LaTeX, PDF compiler, TeX editor, LaTeX to PDF, overleaf alternative, texbrain" />
     <meta property="og:site_name" content="TeXbrain" />
     <meta property="og:type" content="website" />
