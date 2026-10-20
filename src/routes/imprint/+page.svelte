@@ -1,176 +1,55 @@
 <script lang="ts">
-  import { base } from '$app/paths';
   import { siteUrl } from '$lib/site';
-  import Logo from '$lib/ui/Logo.svelte';
-  import LanguageSwitch from '$lib/ui/LanguageSwitch.svelte';
-  import ThemeToggle from '$lib/ui/ThemeToggle.svelte';
+  import SiteChrome from '$lib/ui/SiteChrome.svelte';
+  import { locale } from '$lib/i18n/locale';
+  import { legalCopy } from '$lib/i18n/legal';
+
+  $: page = legalCopy[$locale].imprint;
 </script>
 
 <svelte:head>
-  <title>Imprint | TeXbrain</title>
-  <meta name="description" content="Legal notice and contact information for TeXbrain, a free browser-based LaTeX editor by Braian Plaku." />
+  <title>{page.metaTitle}</title>
+  <meta name="description" content={page.metaDescription} />
   <link rel="canonical" href={siteUrl('/imprint')} />
-  <meta property="og:title" content="Imprint | TeXbrain" />
+  <meta property="og:title" content={page.ogTitle} />
   <meta property="og:url" content={siteUrl('/imprint')} />
 </svelte:head>
 
-<div class="legal">
-  <nav class="nav">
-    <div class="nav-inner">
-      <a href="{base}/" class="logo">
-        <span class="logo-mark"><Logo size={24} /></span>
-        <span class="logo-name">TeXbrain</span>
-      </a>
-      <div class="nav-actions">
-        <ThemeToggle />
-        <LanguageSwitch />
-      </div>
-    </div>
-  </nav>
+<SiteChrome scrollable>
+  <div class="content legal-sheet">
+    <h1>{page.title}</h1>
+    {#if page.updated}
+      <p class="updated">{page.updated}</p>
+    {/if}
 
-  <div class="content">
-    <h1>Imprint</h1>
-
-    <h2>Responsible for Content</h2>
-    <p>
-      Braian Plaku<br />
-      <a href="https://swimmingbrain.dev" target="_blank" rel="noopener">swimmingbrain.dev</a>
-    </p>
-
-    <h2>Contact</h2>
-    <p>
-      GitHub: <a href="https://github.com/vanabel/texbrain" target="_blank" rel="noopener">vanabel/texbrain</a>
-    </p>
-
-    <h2>Liability for Content</h2>
-    <p>
-      The contents of this website have been created with the utmost care. However, we cannot guarantee
-      the accuracy, completeness, or timeliness of the content. As a service provider, we are responsible
-      for our own content on these pages under general law. However, we are not obligated to monitor
-      transmitted or stored third-party information or to investigate circumstances that indicate illegal activity.
-    </p>
-
-    <h2>Liability for Links</h2>
-    <p>
-      This website contains links to external third-party websites over whose content we have no influence.
-      Therefore, we cannot accept any liability for this external content. The respective provider or operator
-      of the pages is always responsible for the content of the linked pages.
-    </p>
+    {#each page.sections as section}
+      <h2>{section.heading}</h2>
+      {#if section.heading === 'Maintainer' || section.heading === '本站维护者'}
+        <p>
+          <a href="https://github.com/vanabel" target="_blank" rel="noopener">{section.body}</a>
+          （<a href="https://tex.vanabel.cn" target="_blank" rel="noopener">tex.vanabel.cn</a>）
+        </p>
+      {:else if section.heading === 'Original author' || section.heading === '原作者'}
+        <p>
+          <a href="https://swimmingbrain.dev" target="_blank" rel="noopener">{section.body}</a>
+          （<a href="https://tex.swimmingbrain.dev" target="_blank" rel="noopener">tex.swimmingbrain.dev</a>）
+        </p>
+      {:else if section.heading === 'Contact' || section.heading === '联系方式'}
+        <p>
+          {section.body}<a href="https://github.com/vanabel/texbrain" target="_blank" rel="noopener"
+            >vanabel/texbrain</a
+          >{$locale === 'zh' ? '。' : ''}
+        </p>
+      {:else}
+        <p>{section.body}</p>
+      {/if}
+    {/each}
   </div>
-
-  <footer class="footer">
-    <a href="{base}/">&larr; Back to TeXbrain</a>
-  </footer>
-</div>
+</SiteChrome>
 
 <style>
-  :global(html), :global(body) {
+  :global(html),
+  :global(body) {
     overflow: auto;
-  }
-
-  .legal {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    background: var(--bg-deep);
-  }
-
-  .nav {
-    flex-shrink: 0;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .nav-inner {
-    max-width: 720px;
-    margin: 0 auto;
-    padding: 0 32px;
-    height: 48px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
-
-  .nav-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-shrink: 0;
-  }
-
-  .logo {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    text-decoration: none;
-  }
-
-  .logo-mark {
-    display: flex;
-    align-items: center;
-    color: var(--accent);
-  }
-
-  .logo-name {
-    font-family: var(--font-brand);
-    font-style: italic;
-    font-size: 18px;
-    color: var(--text-primary);
-  }
-
-  .content {
-    flex: 1;
-    max-width: 720px;
-    margin: 0 auto;
-    padding: 48px 32px;
-    width: 100%;
-  }
-
-  h1 {
-    font-size: 28px;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: 24px;
-  }
-
-  h2 {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin: 24px 0 8px;
-  }
-
-  p {
-    font-size: 14px;
-    line-height: 1.7;
-    color: var(--text-secondary);
-  }
-
-  p a {
-    color: var(--accent);
-    text-decoration: none;
-  }
-
-  p a:hover {
-    color: var(--accent-hover);
-  }
-
-  .footer {
-    border-top: 1px solid var(--border);
-    padding: 16px 32px;
-    max-width: 720px;
-    margin: 0 auto;
-    width: 100%;
-  }
-
-  .footer a {
-    font-size: 12px;
-    font-family: var(--font-editor);
-    color: var(--text-muted);
-    text-decoration: none;
-  }
-
-  .footer a:hover {
-    color: var(--accent);
   }
 </style>

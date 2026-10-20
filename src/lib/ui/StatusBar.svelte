@@ -90,11 +90,14 @@
     <span class="sep"></span>
     <span class="status-item credit">
       {#if $locale === 'en'}
-        {E.statusCredit} <span class="heart">&hearts;</span> by
+        maintained by
+        <a href="https://github.com/vanabel" target="_blank" rel="noopener">vanabel</a>
+        · originally
         <a href="https://swimmingbrain.dev" target="_blank" rel="noopener">Braian Plaku</a>
       {:else}
+        <a href="https://github.com/vanabel" target="_blank" rel="noopener">vanabel</a>
+        维护 · 原作
         <a href="https://swimmingbrain.dev" target="_blank" rel="noopener">Braian Plaku</a>
-        {E.statusCredit} <span class="heart">&hearts;</span> 制作
       {/if}
     </span>
   </div>

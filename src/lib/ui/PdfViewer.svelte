@@ -2,6 +2,7 @@
   import { onDestroy, tick } from 'svelte';
   import { locale } from '$lib/i18n/locale';
   import { editorUi } from '$lib/i18n/editor-ui';
+  import { theme } from '$lib/stores/theme';
   import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
   import 'pdfjs-dist/web/pdf_viewer.css';
   import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.mjs?url';
@@ -378,8 +379,9 @@
       pageSizePts.push({ w: unscaled.width, h: unscaled.height });
 
       const pageDiv = document.createElement('div');
+      pageDiv.className = 'pdf-page';
       pageDiv.dataset.page = String(i);
-      pageDiv.style.cssText = `width:${viewport.width}px;height:${viewport.height}px;position:relative;background:white;margin-bottom:8px;box-shadow:0 2px 8px rgba(0,0,0,0.3);flex-shrink:0;--scale-factor:${scale};`;
+      pageDiv.style.cssText = `width:${viewport.width}px;height:${viewport.height}px;--scale-factor:${scale};`;
 
       const canvas = document.createElement('canvas');
       canvas.width = Math.floor(viewport.width * dpr);
@@ -676,7 +678,7 @@
   export function getPageCount(): number { return pageCount; }
 </script>
 
-<div class="pdf-wrap">
+<div class="pdf-wrap" class:pdf-invert={$theme !== 'light'}>
   {#if pdfData}
     <div class="pdf-toolbar" class:docked={toolbarDocked} role="toolbar" aria-label="PDF zoom" use:dockToolbar>
       <button
@@ -804,6 +806,26 @@
     position: relative;
   }
 
+  .pdf-container :global(.pdf-page) {
+    position: relative;
+    background: #fff;
+    margin-bottom: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    flex-shrink: 0;
+  }
+
+  /* Invert the painted page: mid-gray paper becomes charcoal (not pure black),
+     black type becomes light. hue-rotate restores figure colors; brightness lifts the page. */
+  .pdf-invert .pdf-container :global(.pdf-page) {
+    background: #bcbcc2;
+    filter: invert(1) hue-rotate(180deg) brightness(1.2);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .pdf-invert .pdf-native {
+    filter: invert(1) hue-rotate(180deg) brightness(1.2);
+  }
+
   .pdf-native {
     width: 100%;
     height: 100%;
@@ -823,6 +845,7 @@
     text-align: center;
     height: 100%;
     width: 100%;
+    background: var(--pdf-canvas);
   }
 
   .pdf-empty kbd {
