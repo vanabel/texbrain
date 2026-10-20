@@ -1,4 +1,5 @@
-import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
+import { autocompletion, snippet, type Completion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
+import type { EditorView } from '@codemirror/view';
 import { citeKeyCompletions, equationCompletions, labelKeyCompletions } from './project-autocomplete';
 
 
@@ -81,6 +82,20 @@ const environments = [
   'bmatrix', 'pmatrix', 'cases', 'split', 'multline'
 ];
 
+function applyBeginEnvironment(view: EditorView, completion: Completion, from: number, to: number) {
+  const name = completion.label;
+  const end = view.state.sliceDoc(to, to + 1) === '}' ? to + 1 : to;
+  const after = view.state.sliceDoc(end, Math.min(view.state.doc.length, end + 400));
+  if (after.includes(`\\end{${name}}`)) {
+    view.dispatch({
+      changes: { from, to: end, insert: name },
+      selection: { anchor: from + name.length }
+    });
+    return;
+  }
+  snippet(`${name}\\}\n\${}\n\\end\\{${name}\\}`)(view, completion, from, end);
+}
+
 function latexCompletions(context: CompletionContext): CompletionResult | null {
   const commandMatch = context.matchBefore(/\\[a-zA-Z]*/);
   if (commandMatch) {
@@ -100,11 +115,13 @@ function latexCompletions(context: CompletionContext): CompletionResult | null {
   if (envMatch) {
     const prefix = envMatch.text;
     const braceIdx = prefix.indexOf('{');
+    const isBegin = prefix.startsWith('\\begin');
     return {
       from: envMatch.from + braceIdx + 1,
       options: environments.map((env) => ({
         label: env,
-        type: 'type'
+        type: 'type',
+        apply: isBegin ? applyBeginEnvironment : undefined
       })),
       validFor: /^[a-zA-Z*]*$/
     };

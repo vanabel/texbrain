@@ -1,4 +1,4 @@
-import { EditorState, Compartment, type Extension } from '@codemirror/state';
+import { EditorState, Compartment, Prec, type Extension } from '@codemirror/state';
 import { EditorView, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection, dropCursor, rectangularSelection, crosshairCursor, keymap } from '@codemirror/view';
 import { defaultKeymap as _defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 
@@ -6,7 +6,7 @@ import { defaultKeymap as _defaultKeymap, history, historyKeymap } from '@codemi
 const defaultKeymap = _defaultKeymap.filter(k => k.key !== 'Mod-/');
 
 import { foldGutter, foldKeymap, bracketMatching, indentOnInput } from '@codemirror/language';
-import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
+import { closeBrackets, closeBracketsKeymap, snippet } from '@codemirror/autocomplete';
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
 import { latexLanguage } from './latex-language';
 import { darkEditorTheme, lightEditorTheme, darkHighlight, lightHighlight } from './theme';
@@ -39,26 +39,56 @@ export function setEditorTheme(view: EditorView, dark: boolean) {
   });
 }
 
-function autoCloseEnvironment(): Extension {
+const ENV_NAME = /^[A-Za-z*][A-Za-z0-9*]*$/;
+
+function hasMatchingEnd(doc: EditorState['doc'], pos: number, name: string): boolean {
+  const after = doc.sliceString(pos, Math.min(doc.length, pos + 400));
+  return after.includes(`\\end{${name}}`);
+}
+
+/** Expand display math and environments so the cursor lands inside the pair. */
+function autoCloseLatex(): Extension {
   return EditorView.inputHandler.of((view, from, to, text) => {
-    if (text !== '\n') return false;
+    if (from !== to || view.state.readOnly || text.length !== 1) return false;
+    const doc = view.state.doc;
 
-    const state = view.state;
-    const line = state.doc.lineAt(from);
-    const lineText = line.text;
+    if (text === '[' || text === '(' || text === '$') {
+      const prev = doc.sliceString(Math.max(0, from - 2), from);
+      const escaped = prev.endsWith('\\\\');
+      if (text === '[' && prev.endsWith('\\') && !escaped) {
+        snippet('[\n${}\n\\]')(view, null, from, to);
+        return true;
+      }
+      if (text === '(' && prev.endsWith('\\') && !escaped) {
+        snippet('(${}\\)')(view, null, from, to);
+        return true;
+      }
+      if (text === '$' && prev.endsWith('$') && !prev.endsWith('$$')) {
+        snippet('$\n${}\n$$')(view, null, from, to);
+        return true;
+      }
+      return false;
+    }
 
-    const match = lineText.match(/^(\s*)\\begin\{([^}]+)\}\s*$/);
-    if (!match) return false;
+    if (text === '}') {
+      const before = doc.sliceString(Math.max(0, from - 120), from);
+      const begun = before.match(/\\begin\{([A-Za-z*][A-Za-z0-9*]*)\s*$/);
+      if (!begun || hasMatchingEnd(doc, to, begun[1])) return false;
+      const end = doc.sliceString(to, to + 1) === '}' ? to + 1 : to;
+      snippet('\\}\n${}\n\\end\\{' + begun[1] + '\\}')(view, null, from, end);
+      return true;
+    }
 
-    const indent = match[1];
-    const envName = match[2];
-    const insertion = `\n${indent}  \n${indent}\\end{${envName}}`;
+    if (text === '\n') {
+      const line = doc.lineAt(from);
+      if (from < line.to && line.text.slice(from - line.from).trim() !== '') return false;
+      const match = line.text.match(/^(\s*)\\begin\{([A-Za-z*][A-Za-z0-9*]*)\}\s*$/);
+      if (!match || !ENV_NAME.test(match[2]) || hasMatchingEnd(doc, line.to, match[2])) return false;
+      snippet('\n${}\n\\end\\{' + match[2] + '\\}')(view, null, from, to);
+      return true;
+    }
 
-    view.dispatch({
-      changes: { from, to, insert: insertion },
-      selection: { anchor: from + 1 + indent.length + 2 }
-    });
-    return true;
+    return false;
   });
 }
 
@@ -86,6 +116,7 @@ export function createEditor(config: EditorConfig): EditorView {
     EditorState.allowMultipleSelections.of(true),
     indentOnInput(),
     bracketMatching(),
+    Prec.high(autoCloseLatex()),
     closeBrackets(),
     rectangularSelection(),
     crosshairCursor(),
@@ -124,7 +155,6 @@ export function createEditor(config: EditorConfig): EditorView {
     themeCompartment.of(editorThemeExtensions(config.dark)),
     latexAutocomplete,
     latexLintGutter(),
-    autoCloseEnvironment(),
     updateListener
   );
 
