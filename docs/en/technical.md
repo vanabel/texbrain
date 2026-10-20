@@ -14,7 +14,9 @@ The tabbed **sidebar** parses project `.tex` / `.bib` for:
 
 - **Outline** — section tree and `\input` / `\include` navigation
 - **References** — citation keys, `\label` targets, and numbered equations
-- In-editor completion for `\cite{…}` / `\ref{…}` / `\eqref{…}` (cite detail from `.bib` author/title)
+- In-editor completion for `\cite{…}` / `\cites{…}` / `\ref{…}` / `\eqref{…}` (cite detail from `.bib` author/title)
+
+Pair expansion, snippet fields (**Ctrl+J/K**), VimTeX insert maps, and optional Vim mode are described in [Editor completion](editor-completion.md). Implementation: `src/lib/editor/setup.ts`, `autocomplete.ts`, `vimtex-imaps.ts`, `key-conflicts.ts`; citation command names live in `src/lib/tex/cite-commands.ts`.
 
 **Navigation and diagnostics (client-side):**
 

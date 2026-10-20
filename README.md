@@ -67,10 +67,10 @@ Open a folder, edit, preview PDF, commit, push to GitHub—**from one tab**.
 | **Local files** | [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API) on Chromium—read/write your disk folder. |
 | **Projects** | Tree, tabs, drag-and-drop; `.tex`, `.bib`, `.sty`, `.cls`, and more. |
 | **Sidebar** | **Files**, **Outline** (sections + `\input` / `\include`), **References** (cites, `\label`s, numbered equations). **Ctrl+B** toggles the sidebar. |
-| **Editor** | CodeMirror 6—highlighting, completions, folding, snippets, themes, lint marks. Project-wide `\cite{…}` / `\ref{…}` / `\eqref{…}` completion (cite details from `.bib`). **Ctrl/⌘+click** follows cite/ref/input/include/includegraphics/url. |
+| **Editor** | CodeMirror 6—highlighting, completions, folding, snippets, themes, lint marks. Project-wide `\cite{…}` / `\cites{…}` / `\ref{…}` / `\eqref{…}` completion (cite details from `.bib`). Math and environments close around the cursor, **Ctrl+J/K** move between snippet fields, and VimTeX-style `` ` `` maps expand in math. Optional **Vim mode**. Details: [Editor completion](docs/en/editor-completion.md). **Ctrl/⌘+click** follows cite/ref/input/include/includegraphics/url. |
 | **Diagnostics & Log** | Structured Errors/Warnings/Log (first fatal promoted, click → source). Static checks for duplicate `\label` and undefined cite/ref. Stale PDF badge when the preview may be outdated. |
 | **Project search** | **Ctrl/⌘+Shift+F** — multi-file search and replace with preview; writes back to disk when a folder project is open. |
-| **Palette & snippets** | Command palette; searchable math/env snippets. |
+| **Palette & snippets** | Command palette (**⌘K**); searchable math/env snippets. |
 | **Offline** | After load, editing and compilation work without the network. |
 | **Templates** | Article, thesis, beamer, report, CV, letter, minimal. |
 | **SyncTeX** | Double-click editor → PDF; Ctrl/⌘+click PDF → source (**pdf.js** preview). See [FAQ](docs/en/faq.md#synctex-editor--pdf). |

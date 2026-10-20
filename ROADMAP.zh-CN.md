@@ -78,7 +78,7 @@ LatexCoder 是**自托管**协作工作区（Yjs + SQLite + 真实 Git + Tectoni
 
 ### P2：编辑体验增强
 
-- Vim 模式（先做基础，再逐步接近 vimtex 体验）
+- Vim 模式：基础模式切换与 vimtex 式数学插入映射已可用（见 [编辑器补全](docs/zh-CN/editor-completion.md)）；环境文本对象与 quickfix 仍在后续
 - 更强的命令面板与快捷键可配置
 - 在已交付 **大纲** 之外的结构导航（符号、TreeWriter 式论文视图）
 - 代码片段、自动补全的可扩展机制
@@ -90,7 +90,7 @@ LatexCoder 是**自托管**协作工作区（Yjs + SQLite + 真实 Git + Tectoni
 
 目标不是“直接运行 Neovim 插件”，而是逐步实现等价工作流：
 
-- 阶段 1：基础 Vim 键位与模式切换
+- 阶段 1：基础 Vim 键位与模式切换（工具栏已可开关）
 - 阶段 2：LaTeX 专项动作（环境操作、引用跳转、对象文本）
 - 阶段 3：quickfix / 跳转 / 视图联动等更完整体验
 

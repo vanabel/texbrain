@@ -78,7 +78,7 @@ Still open: rename/refactor across files; TreeWriter / review macros (A7).
 
 ### P2: Editing experience enhancements
 
-- Vim mode (start with core behavior, then move toward vimtex-like workflows)
+- Vim mode: core mode switching and vimtex-style math insert maps are available (see [Editor completion](docs/en/editor-completion.md)); text objects and quickfix remain later work
 - more configurable command palette and keybindings
 - structure-aware navigation beyond the shipped **Outline** tab (symbols, TreeWriter-style paper view)
 - extensible snippets and completion patterns
@@ -90,7 +90,7 @@ Still open: rename/refactor across files; TreeWriter / review macros (A7).
 
 Goal is not to run Neovim plugins directly in-browser, but to deliver equivalent workflows incrementally:
 
-- Phase 1: core Vim keymap and mode switching
+- Phase 1: core Vim keymap and mode switching (toolbar toggle is available)
 - Phase 2: LaTeX-specific actions (environment editing, reference jumps, text objects)
 - Phase 3: quickfix/jump/view linkage for fuller workflow coverage
 

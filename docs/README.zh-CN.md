@@ -2,11 +2,12 @@
 
 产品概览：[README.zh-CN.md](../README.zh-CN.md)（中文）· [README.md](../README.md)（English）
 
-编辑器相关说明亦见 README 与 FAQ：侧栏「引用」、Cmd/Ctrl+单击跟随、结构化 Log/诊断、过期 PDF、工程搜索（**Ctrl/⌘+Shift+F**）。编译引擎对照（SwiftLaTeX vs BusyTeX）见 [技术说明](zh-CN/technical.md#编译器--两套后端互补自动选择) 与 [FAQ](zh-CN/faq.md#两套编译引擎-swiftlatex--busytex)。
+编辑器相关说明亦见 README 与 FAQ：侧栏「引用」、Cmd/Ctrl+单击跟随、结构化 Log/诊断、过期 PDF、工程搜索（**Ctrl/⌘+Shift+F**）。补全、片段跳转、VimTeX 映射与 Vim 模式见 [编辑器补全与快捷键](zh-CN/editor-completion.md)。编译引擎对照（SwiftLaTeX vs BusyTeX）见 [技术说明](zh-CN/technical.md#编译器--两套后端互补自动选择) 与 [FAQ](zh-CN/faq.md#两套编译引擎-swiftlatex--busytex)。
 
 | 指南 | English | 中文 |
 | --- | --- | --- |
 | **技术说明** | [en/technical.md](en/technical.md) | [zh-CN/technical.md](zh-CN/technical.md) |
+| **编辑器补全** | [en/editor-completion.md](en/editor-completion.md) | [zh-CN/editor-completion.md](zh-CN/editor-completion.md) |
 | **部署** | [en/deployment.md](en/deployment.md) | [zh-CN/deployment.md](zh-CN/deployment.md) |
 | **常见问题** | [en/faq.md](en/faq.md) | [zh-CN/faq.md](zh-CN/faq.md) |
 | **多人协作流程** | [en/collaboration-workflow.md](en/collaboration-workflow.md) | [zh-CN/collaboration-workflow.md](zh-CN/collaboration-workflow.md) |

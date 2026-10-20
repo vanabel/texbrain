@@ -14,7 +14,9 @@ TeXbrain 是**纯静态** [SvelteKit](https://kit.svelte.dev/) 应用：编辑�
 
 - **大纲** — 章节树与 `\input` / `\include` 导航
 - **引用** — 文献键、`\label` 目标与带编号公式
-- 在 `\cite` / `\ref` / `\eqref` 等处的工程级补全（文献详情来自 `.bib` 作者/标题）
+- 在 `\cite` / `\cites` / `\ref` / `\eqref` 等处的工程级补全（文献详情来自 `.bib` 作者/标题）
+
+成对展开、片段字段（**Ctrl+J/K**）、VimTeX 插入映射与可选 Vim 模式的用户说明见 [编辑器补全与快捷键](editor-completion.md)。实现：`src/lib/editor/setup.ts`、`autocomplete.ts`、`vimtex-imaps.ts`、`key-conflicts.ts`，引用命令表在 `src/lib/tex/cite-commands.ts`。
 
 **导航与诊断（纯客户端）：**
 

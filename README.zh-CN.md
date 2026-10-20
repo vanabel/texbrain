@@ -65,10 +65,10 @@ TeXbrain 在**浏览器里**把 `.tex` 编译成 **PDF**，编辑器、编译器
 | **本地文件** | Chromium 系通过 [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API) 读写磁盘目录。 |
 | **多文件工程** | 文件树、标签页、拖拽；`.tex`、`.bib`、`.sty`、`.cls` 等。 |
 | **侧栏** | **文件**、**大纲**（章节 + `\input` / `\include`）、**引用**（文献键、`\label`、带编号公式）。**Ctrl+B** 切换侧栏。 |
-| **编辑器** | CodeMirror 6；补全、片段、lint 标记；工程级 `\cite` / `\ref` / `\eqref` 补全（文献含标题/作者）。编辑器内 **Ctrl/⌘+单击** 可跟随 cite/ref/input/include/includegraphics/url。 |
+| **编辑器** | CodeMirror 6；补全、片段、lint 标记；工程级 `\cite` / `\cites` / `\ref` / `\eqref` 补全（文献含标题/作者）。数学与环境成对展开，**Ctrl+J/K** 在片段字段间跳转，数学区内有 VimTeX 式 `` ` `` 映射。可选 **Vim 模式**。详见 [编辑器补全与快捷键](docs/zh-CN/editor-completion.md)。编辑器内 **Ctrl/⌘+单击** 可跟随 cite/ref/input/include/includegraphics/url。 |
 | **诊断与日志** | 结构化 Errors/Warnings/Log（置顶首致命错误，单击跳源）。静态检查重复 `\label`、未定义 cite/ref。PDF 可能过期时显示 **过期** 标记。 |
 | **工程搜索** | **Ctrl/⌘+Shift+F** — 多文件搜索与替换预览；打开文件夹工程时应用后写回磁盘。 |
-| **命令面板与片段** | 命令面板；可搜索片段。 |
+| **命令面板与片段** | 命令面板（**⌘K**）；可搜索片段。 |
 | **离线** | 加载后可离线编辑与编译。 |
 | **模板** | 文章、论文、Beamer、报告、简历等。 |
 | **SyncTeX** | 双击编辑器定位 PDF；pdf.js 预览上 Ctrl/⌘+单击回跳源码。见 [常见问题](docs/zh-CN/faq.md#synctex编辑器--pdf)。 |
