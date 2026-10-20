@@ -1,14 +1,9 @@
 import { type Completion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
 import { get } from 'svelte/store';
+import { activeKeyPrefix, CITE_IN_BRACE_RE, REF_IN_BRACE_RE } from '$lib/tex/cite-commands';
 import { projectBibKeys, projectEquations, projectLabels } from './project-sources';
 
-const CITE_IN_BRACE_RE =
-  /\\(?:cite|autocite|parencite|textcite|fullcite|citeauthor|citeyear|Cite|Autocite|Parencite|Textcite|Fullcite|citep|citet)(?:\*)?(?:\[[^\]]*\])*\{([^}]*)$/;
-
 const EQ_IN_BRACE_RE = /\\eq(?:ref)?\{([^}]*)$/;
-
-const REF_IN_BRACE_RE =
-  /\\(?:ref|autoref|cref|eqref|pageref)(?:\*)?(?:\[[^\]]*\])*\{([^}]*)$/;
 
 function filterOptions<T extends { label: string }>(
   options: T[],
@@ -32,7 +27,8 @@ export function citeKeyCompletions(context: CompletionContext): CompletionResult
   const match = context.matchBefore(CITE_IN_BRACE_RE);
   if (!match) return null;
 
-  const prefix = match.text.match(/\{([^}]*)$/)?.[1] ?? '';
+  const inside = match.text.match(/\{([^}]*)$/)?.[1] ?? '';
+  const prefix = activeKeyPrefix(inside);
   const from = context.pos - prefix.length;
   const keys = get(projectBibKeys);
   if (keys.length === 0) return null;

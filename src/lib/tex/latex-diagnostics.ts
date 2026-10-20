@@ -1,3 +1,4 @@
+import { CITE_ALT, REF_ALT } from './cite-commands';
 import { withoutComments, lineAtOffset } from './comments';
 
 export type LatexDiagnostic = {
@@ -63,14 +64,20 @@ export function latexDiagnostics(
       ...macroKeys(
         file.path,
         file.source,
-        /\\(?:ref|autoref|cref|eqref)\*?\s*(?:\[[^\]]*\]\s*)?\{([^{}]+)\}/g
+        new RegExp(
+          `\\\\(?:${REF_ALT})\\*?\\s*(?:\\[[^\\]]*\\]\\s*)?\\{([^{}]+)\\}`,
+          'g'
+        )
       )
     );
     citations.push(
       ...macroKeys(
         file.path,
         file.source,
-        /\\(?:cite|citep|citet|autocite|parencite|textcite|fullcite)\*?\s*(?:\[[^\]]*\]\s*){0,2}\{([^{}]+)\}/g
+        new RegExp(
+          `\\\\(?:${CITE_ALT})\\*?\\s*(?:\\[[^\\]]*\\]\\s*){0,2}\\{([^{}]+)\\}`,
+          'g'
+        )
       )
     );
   }

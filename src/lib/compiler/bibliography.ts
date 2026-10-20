@@ -1,3 +1,4 @@
+import { CITE_KEYS_RE } from '$lib/tex/cite-commands';
 import { projectUsesBiblatexBibliography } from './biblatex-detect';
 
 interface BibEntry {
@@ -75,9 +76,9 @@ function parseBibFile(content: string): Map<string, BibEntry> {
 
 function findCitations(text: string): string[] {
   const keys: string[] = [];
-  const re = /\\(?:cite|autocite|parencite|textcite|fullcite|citeauthor|citeyear|Cite|Autocite|Parencite|Textcite|Fullcite)(?:\*)?(?:\[[^\]]*\])*\{([^}]+)\}/g;
+  CITE_KEYS_RE.lastIndex = 0;
   let m;
-  while ((m = re.exec(text)) !== null) {
+  while ((m = CITE_KEYS_RE.exec(text)) !== null) {
     for (const k of m[1].split(',')) {
       const t = k.trim();
       if (t && !keys.includes(t)) keys.push(t);

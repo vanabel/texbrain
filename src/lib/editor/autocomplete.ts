@@ -1,33 +1,115 @@
-import { autocompletion, snippet, type Completion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
+import { autocompletion, insertCompletionText, pickedCompletion, snippet, type Completion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
 import type { EditorView } from '@codemirror/view';
+import type { Text } from '@codemirror/state';
 import { citeKeyCompletions, equationCompletions, labelKeyCompletions } from './project-autocomplete';
+
+/** True when an `\end{name}` ahead closes the begin at `pos`, rather than a later begin. */
+export function hasMatchingEnd(doc: Text, pos: number, name: string): boolean {
+  const after = doc.sliceString(pos, doc.length);
+  const endAt = after.indexOf(`\\end{${name}}`);
+  if (endAt < 0) return false;
+  const beginAt = after.indexOf(`\\begin{${name}}`);
+  return beginAt < 0 || endAt < beginAt;
+}
+
+/**
+ * `$` is the first placeholder. Each remaining empty `{}` is another.
+ * An extra field after the text keeps the snippet active on the last
+ * real placeholder, so Ctrl+K can jump back from it.
+ */
+function withCursor(template: string) {
+  let n = 0;
+  const marked = template
+    .replace(/\$/g, () => `\${${++n}}`)
+    .replace(/\{\}/g, () => `{\${${++n}}}`);
+  return snippet(n > 1 ? `${marked}\${${n + 1}}` : marked);
+}
+
+const beginEnvironment = snippet('\\begin{${1}}\n${2}\n\\end{${1}}${3}');
 
 
 const latexCommands = [
-  { label: '\\textbf', detail: 'Bold text', apply: '\\textbf{$}' },
-  { label: '\\textit', detail: 'Italic text', apply: '\\textit{$}' },
-  { label: '\\underline', detail: 'Underline text', apply: '\\underline{$}' },
-  { label: '\\emph', detail: 'Emphasis', apply: '\\emph{$}' },
-  { label: '\\section', detail: 'Section heading', apply: '\\section{$}' },
-  { label: '\\subsection', detail: 'Subsection heading', apply: '\\subsection{$}' },
-  { label: '\\subsubsection', detail: 'Sub-subsection', apply: '\\subsubsection{$}' },
-  { label: '\\chapter', detail: 'Chapter heading', apply: '\\chapter{$}' },
-  { label: '\\paragraph', detail: 'Paragraph heading', apply: '\\paragraph{$}' },
-  { label: '\\cite', detail: 'Citation', apply: '\\cite{$}' },
-  { label: '\\eq', detail: 'Equation ref (display number)', apply: '\\eq{$}' },
-  { label: '\\ref', detail: 'Reference', apply: '\\ref{$}' },
-  { label: '\\label', detail: 'Label', apply: '\\label{$}' },
-  { label: '\\footnote', detail: 'Footnote', apply: '\\footnote{$}' },
-  { label: '\\href', detail: 'Hyperlink', apply: '\\href{$}{}' },
-  { label: '\\url', detail: 'URL', apply: '\\url{$}' },
-  { label: '\\includegraphics', detail: 'Include image', apply: '\\includegraphics[width=\\textwidth]{$}' },
-  { label: '\\usepackage', detail: 'Import package', apply: '\\usepackage{$}' },
-  { label: '\\documentclass', detail: 'Document class', apply: '\\documentclass{$}' },
-  { label: '\\frac', detail: 'Fraction', apply: '\\frac{$}{}' },
-  { label: '\\sqrt', detail: 'Square root', apply: '\\sqrt{$}' },
-  { label: '\\sum', detail: 'Summation', apply: '\\sum_{$}^{}' },
-  { label: '\\int', detail: 'Integral', apply: '\\int_{$}^{}' },
-  { label: '\\lim', detail: 'Limit', apply: '\\lim_{$ \\to }' },
+  { label: '\\begin', detail: 'Begin environment', apply: beginEnvironment },
+  { label: '\\end', detail: 'End environment', apply: withCursor('\\end{$}') },
+  { label: '\\textbf', detail: 'Bold text', apply: withCursor('\\textbf{$}') },
+  { label: '\\textit', detail: 'Italic text', apply: withCursor('\\textit{$}') },
+  { label: '\\underline', detail: 'Underline text', apply: withCursor('\\underline{$}') },
+  { label: '\\emph', detail: 'Emphasis', apply: withCursor('\\emph{$}') },
+  { label: '\\section', detail: 'Section heading', apply: withCursor('\\section{$}') },
+  { label: '\\subsection', detail: 'Subsection heading', apply: withCursor('\\subsection{$}') },
+  { label: '\\subsubsection', detail: 'Sub-subsection', apply: withCursor('\\subsubsection{$}') },
+  { label: '\\chapter', detail: 'Chapter heading', apply: withCursor('\\chapter{$}') },
+  { label: '\\paragraph', detail: 'Paragraph heading', apply: withCursor('\\paragraph{$}') },
+  { label: '\\cite', detail: 'Citation', apply: withCursor('\\cite{$}') },
+  { label: '\\cites', detail: 'Multiple citations (amsrefs)', apply: withCursor('\\cites{$}') },
+  { label: '\\ocite', detail: 'Citation without brackets', apply: withCursor('\\ocite{$}') },
+  { label: '\\ocites', detail: 'Multiple citations without brackets', apply: withCursor('\\ocites{$}') },
+  { label: '\\citeauthor', detail: 'Cite author', apply: withCursor('\\citeauthor{$}') },
+  { label: '\\citeyear', detail: 'Cite year', apply: withCursor('\\citeyear{$}') },
+  { label: '\\nocite', detail: 'Cite without printing', apply: withCursor('\\nocite{$}') },
+  { label: '\\bibselect', detail: 'Select bibliography (amsrefs)', apply: withCursor('\\bibselect{$}') },
+  { label: '\\cref', detail: 'Clever reference', apply: withCursor('\\cref{$}') },
+  { label: '\\Cref', detail: 'Clever reference, capitalized', apply: withCursor('\\Cref{$}') },
+  { label: '\\crefrange', detail: 'Reference range', apply: withCursor('\\crefrange{$}{}') },
+  { label: '\\eqref', detail: 'Equation reference', apply: withCursor('\\eqref{$}') },
+  { label: '\\autoref', detail: 'Automatic reference', apply: withCursor('\\autoref{$}') },
+  { label: '\\namecref', detail: 'Reference name', apply: withCursor('\\namecref{$}') },
+  { label: '\\cpageref', detail: 'Page reference', apply: withCursor('\\cpageref{$}') },
+  { label: '\\step', detail: 'Proof step' },
+  { label: '\\lh', detail: 'Lie bracket' },
+  { label: '\\div', detail: 'Divergence' },
+  { label: '\\curl', detail: 'Curl' },
+  { label: '\\tr', detail: 'Trace' },
+  { label: '\\osc', detail: 'Oscillation' },
+  { label: '\\qedhere', detail: 'Place the QED mark here' },
+  { label: '\\tag', detail: 'Equation tag', apply: withCursor('\\tag{$}') },
+  { label: '\\notag', detail: 'Suppress equation number' },
+  { label: '\\intertext', detail: 'Text between aligned lines', apply: withCursor('\\intertext{$}') },
+  { label: '\\shortintertext', detail: 'Short intertext', apply: withCursor('\\shortintertext{$}') },
+  { label: '\\coloneqq', detail: 'Colon-equals' },
+  { label: '\\eqqcolon', detail: 'Equals-colon' },
+  { label: '\\mathclap', detail: 'Overlapping math', apply: withCursor('\\mathclap{$}') },
+  { label: '\\binom', detail: 'Binomial coefficient', apply: withCursor('\\binom{$}{}') },
+  { label: '\\substack', detail: 'Stacked subscript', apply: withCursor('\\substack{$}') },
+  { label: '\\DeclareMathOperator', detail: 'Named operator', apply: withCursor('\\DeclareMathOperator{$}{}') },
+  { label: '\\mathscr', detail: 'Script letters', apply: withCursor('\\mathscr{$}') },
+  { label: '\\mathfrak', detail: 'Fraktur letters', apply: withCursor('\\mathfrak{$}') },
+  { label: '\\textcolor', detail: 'Colored text', apply: withCursor('\\textcolor{$}{}') },
+  { label: '\\emptyset', detail: 'Empty set' },
+  { label: '\\in', detail: 'Element of' },
+  { label: '\\notin', detail: 'Not an element of' },
+  { label: '\\subset', detail: 'Subset' },
+  { label: '\\subseteq', detail: 'Subset or equal' },
+  { label: '\\supset', detail: 'Superset' },
+  { label: '\\supseteq', detail: 'Superset or equal' },
+  { label: '\\cup', detail: 'Union' },
+  { label: '\\cap', detail: 'Intersection' },
+  { label: '\\forall', detail: 'For all' },
+  { label: '\\exists', detail: 'There exists' },
+  { label: '\\implies', detail: 'Implies' },
+  { label: '\\iff', detail: 'If and only if' },
+  { label: '\\mapsto', detail: 'Maps to' },
+  { label: '\\to', detail: 'Right arrow' },
+  { label: '\\otimes', detail: 'Tensor product' },
+  { label: '\\oplus', detail: 'Direct sum' },
+  { label: '\\sim', detail: 'Similar' },
+  { label: '\\cong', detail: 'Congruent' },
+  { label: '\\equiv', detail: 'Equivalent' },
+  { label: '\\pm', detail: 'Plus-minus' },
+  { label: '\\eq', detail: 'Equation ref (display number)', apply: withCursor('\\eq{$}') },
+  { label: '\\ref', detail: 'Reference', apply: withCursor('\\ref{$}') },
+  { label: '\\label', detail: 'Label', apply: withCursor('\\label{$}') },
+  { label: '\\footnote', detail: 'Footnote', apply: withCursor('\\footnote{$}') },
+  { label: '\\href', detail: 'Hyperlink', apply: withCursor('\\href{$}{}') },
+  { label: '\\url', detail: 'URL', apply: withCursor('\\url{$}') },
+  { label: '\\includegraphics', detail: 'Include image', apply: withCursor('\\includegraphics[width=\\textwidth]{$}') },
+  { label: '\\usepackage', detail: 'Import package', apply: withCursor('\\usepackage{$}') },
+  { label: '\\documentclass', detail: 'Document class', apply: withCursor('\\documentclass{$}') },
+  { label: '\\frac', detail: 'Fraction', apply: withCursor('\\frac{$}{}') },
+  { label: '\\sqrt', detail: 'Square root', apply: withCursor('\\sqrt{$}') },
+  { label: '\\sum', detail: 'Summation', apply: withCursor('\\sum_{$}^{}') },
+  { label: '\\int', detail: 'Integral', apply: withCursor('\\int_{$}^{}') },
+  { label: '\\lim', detail: 'Limit', apply: withCursor('\\lim_{$ \\to }') },
   { label: '\\alpha', detail: 'Greek: alpha' },
   { label: '\\beta', detail: 'Greek: beta' },
   { label: '\\gamma', detail: 'Greek: gamma' },
@@ -52,25 +134,25 @@ const latexCommands = [
   { label: '\\rightarrow', detail: 'Right arrow' },
   { label: '\\leftarrow', detail: 'Left arrow' },
   { label: '\\Rightarrow', detail: 'Double right arrow' },
-  { label: '\\overline', detail: 'Overline', apply: '\\overline{$}' },
-  { label: '\\underbrace', detail: 'Underbrace', apply: '\\underbrace{$}_{}' },
-  { label: '\\overbrace', detail: 'Overbrace', apply: '\\overbrace{$}^{}' },
-  { label: '\\mathbb', detail: 'Blackboard bold', apply: '\\mathbb{$}' },
-  { label: '\\mathcal', detail: 'Calligraphic', apply: '\\mathcal{$}' },
-  { label: '\\mathrm', detail: 'Roman math', apply: '\\mathrm{$}' },
-  { label: '\\text', detail: 'Text in math', apply: '\\text{$}' },
+  { label: '\\overline', detail: 'Overline', apply: withCursor('\\overline{$}') },
+  { label: '\\underbrace', detail: 'Underbrace', apply: withCursor('\\underbrace{$}_{}') },
+  { label: '\\overbrace', detail: 'Overbrace', apply: withCursor('\\overbrace{$}^{}') },
+  { label: '\\mathbb', detail: 'Blackboard bold', apply: withCursor('\\mathbb{$}') },
+  { label: '\\mathcal', detail: 'Calligraphic', apply: withCursor('\\mathcal{$}') },
+  { label: '\\mathrm', detail: 'Roman math', apply: withCursor('\\mathrm{$}') },
+  { label: '\\text', detail: 'Text in math', apply: withCursor('\\text{$}') },
   { label: '\\item', detail: 'List item' },
-  { label: '\\hspace', detail: 'Horizontal space', apply: '\\hspace{$}' },
-  { label: '\\vspace', detail: 'Vertical space', apply: '\\vspace{$}' },
-  { label: '\\newcommand', detail: 'New command', apply: '\\newcommand{\\$}{}' },
-  { label: '\\renewcommand', detail: 'Renew command', apply: '\\renewcommand{\\$}{}' },
+  { label: '\\hspace', detail: 'Horizontal space', apply: withCursor('\\hspace{$}') },
+  { label: '\\vspace', detail: 'Vertical space', apply: withCursor('\\vspace{$}') },
+  { label: '\\newcommand', detail: 'New command', apply: withCursor('\\newcommand{$}{}') },
+  { label: '\\renewcommand', detail: 'Renew command', apply: withCursor('\\renewcommand{$}{}') },
   { label: '\\newpage', detail: 'New page' },
   { label: '\\clearpage', detail: 'Clear page' },
   { label: '\\tableofcontents', detail: 'Table of contents' },
   { label: '\\maketitle', detail: 'Make title' },
-  { label: '\\title', detail: 'Document title', apply: '\\title{$}' },
-  { label: '\\author', detail: 'Author', apply: '\\author{$}' },
-  { label: '\\date', detail: 'Date', apply: '\\date{$}' },
+  { label: '\\title', detail: 'Document title', apply: withCursor('\\title{$}') },
+  { label: '\\author', detail: 'Author', apply: withCursor('\\author{$}') },
+  { label: '\\date', detail: 'Date', apply: withCursor('\\date{$}') },
 ];
 
 const environments = [
@@ -78,22 +160,23 @@ const environments = [
   'align', 'align*', 'gather', 'gather*', 'itemize', 'enumerate',
   'description', 'abstract', 'center', 'flushleft', 'flushright',
   'minipage', 'frame', 'lstlisting', 'verbatim', 'quote',
-  'theorem', 'proof', 'lemma', 'definition', 'example', 'array', 'matrix',
+  'theorem', 'thm', 'lemma', 'lem', 'cor', 'prop',
+  'definition', 'defn', 'rmk', 'clm', 'proof', 'example', 'array', 'matrix',
   'bmatrix', 'pmatrix', 'cases', 'split', 'multline'
 ];
 
 function applyBeginEnvironment(view: EditorView, completion: Completion, from: number, to: number) {
   const name = completion.label;
-  const end = view.state.sliceDoc(to, to + 1) === '}' ? to + 1 : to;
-  const after = view.state.sliceDoc(end, Math.min(view.state.doc.length, end + 400));
-  if (after.includes(`\\end{${name}}`)) {
+  const braceAlreadyClosed = view.state.sliceDoc(to, to + 1) === '}';
+  const end = braceAlreadyClosed ? to + 1 : to;
+  if (braceAlreadyClosed || hasMatchingEnd(view.state.doc, end, name)) {
     view.dispatch({
-      changes: { from, to: end, insert: name },
-      selection: { anchor: from + name.length }
+      ...insertCompletionText(view.state, name, from, to),
+      annotations: pickedCompletion.of(completion)
     });
     return;
   }
-  snippet(`${name}\\}\n\${}\n\\end\\{${name}\\}`)(view, completion, from, end);
+  snippet(`${name}}\n\${1}\n\\end{${name}}\${2}`)(view, completion, from, end);
 }
 
 function latexCompletions(context: CompletionContext): CompletionResult | null {

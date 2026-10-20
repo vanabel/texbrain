@@ -6,7 +6,9 @@
   import { sidebarOpen, sidebarPanel, previewOpen, editorOpen, snippetPickerOpen, commandPaletteOpen, projectSearchOpen, compileStatus, compileLog, compileErrors, staticDiagnostics, pdfStale, previewTab, addToast } from '$lib/stores/app';
   import { files, activeFile, activeFileId, updateFileContent, projectHandle, projectTree, entryPoint, openFileTab } from '$lib/project/store';
   import { handleOpenFile, handleSaveFile, handleSaveFileAs, handleDroppedFiles, handleOpenDirectory, handleNewProject, cloneProject, loadBundledBibtexExample, refreshProjectTree } from '$lib/project/manager';
-  import { insertAtCursor, createEditor, replaceEditorContent, setEditorTheme } from '$lib/editor/setup';
+  import { insertAtCursor, createEditor, replaceEditorContent, setEditorTheme, setEditorBehavior } from '$lib/editor/setup';
+  import { snippetFieldKeys } from '$lib/editor/key-conflicts';
+  import { preferences } from '$lib/stores/preferences';
   import { insertCitationKey, insertEquationNumber, insertLabelRef } from '$lib/editor/citation-insert';
   import {
     getMergedProjectTextMap,
@@ -362,7 +364,8 @@
             dark: get(theme) !== 'light',
             onUpdate: handleEditorUpdate,
             collab: yCollab(data.ytext, awareness, { undoManager: data.undoManager }),
-            extraExtensions: editorExtraExtensions()
+            extraExtensions: editorExtraExtensions(),
+            vimMode: get(preferences).vimMode
           });
           setCurrentFile(file.path);
         }
@@ -372,7 +375,8 @@
           parent: editorContainer,
           dark: get(theme) !== 'light',
           onUpdate: handleEditorUpdate,
-          extraExtensions: editorExtraExtensions()
+          extraExtensions: editorExtraExtensions(),
+          vimMode: get(preferences).vimMode
         });
       }
     } catch (err) {
@@ -1282,11 +1286,28 @@
     { id: 'git', label: E.cmdToggleGit, shortcut: 'Ctrl+G', action: () => gitPanelOpen.update(v => !v), category: 'view' },
     { id: 'collab', label: E.cmdToggleCollab, shortcut: '', action: () => collabPanelOpen.update(v => !v), category: 'view' },
     { id: 'theme', label: E.cmdToggleTheme, shortcut: '', action: toggleTheme, category: 'view' },
+    { id: 'vim', label: E.cmdToggleVim, shortcut: '', action: toggleVimMode, category: 'edit' },
   ];
+
+  function toggleVimMode() {
+    preferences.update((prefs) => ({ ...prefs, vimMode: !prefs.vimMode }));
+  }
+
+  $: if (editorView) setEditorBehavior(editorView, $preferences.vimMode);
+
+  $: vimToggleTitle = (() => {
+    const fields = snippetFieldKeys($preferences.vimMode);
+    const base = $preferences.vimMode ? E.ttVimOn : E.ttVimOff;
+    if (!fields.remapped) return base;
+    return `${base} ${expandEditorTemplate(E.ttSnippetRemap, { next: fields.next, prev: fields.prev })}`;
+  })();
 
   function handleGlobalKeydown(e: KeyboardEvent) {
     const mod = e.ctrlKey || e.metaKey;
-    if (mod && e.key === 'k') { e.preventDefault(); commandPaletteOpen.update(v => !v); }
+    if (e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      commandPaletteOpen.update(v => !v);
+    }
     else if (mod && e.key === 's' && !e.shiftKey) { e.preventDefault(); saveAndCompile(); }
     else if (mod && e.key === 's' && e.shiftKey) { e.preventDefault(); handleSaveFileAs(); }
     else if (mod && e.key === 'o') { e.preventDefault(); handleOpenFile(); }
@@ -1764,12 +1785,19 @@
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M5.5 4L2 8l3.5 4M10.5 4L14 8l-3.5 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <span>{E.snippetsLabel}</span>
           </button>
+          <button
+            class="tool-btn"
+            class:active={$preferences.vimMode}
+            on:click={toggleVimMode}
+            title={vimToggleTitle}
+            aria-pressed={$preferences.vimMode}
+          >{E.ttVim}</button>
         </div>
         <TabBar />
         <div class="toolbar-group">
           <button class="tool-btn" on:click={() => commandPaletteOpen.set(true)} title={E.ttCommandPalette}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.2"/><path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-            <kbd>Ctrl+K</kbd>
+            <kbd>⌘K</kbd>
           </button>
           {#if !($activeFile && $previewOpen)}
             <div class="tool-sep"></div>

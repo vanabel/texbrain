@@ -1,10 +1,5 @@
 import type { EditorView } from '@codemirror/view';
-
-const CITE_CMD_RE =
-  /\\(?:cite|autocite|parencite|textcite|fullcite|citeauthor|citeyear|Cite|Autocite|Parencite|Textcite|Fullcite)(?:\*)?(?:\[[^\]]*\])*\{([^}]*)$/;
-
-const REF_CMD_RE =
-  /\\(?:ref|autoref|cref|eqref|pageref)(?:\*)?(?:\[[^\]]*\])*\{([^}]*)$/;
+import { CITE_IN_BRACE_RE, REF_IN_BRACE_RE } from '$lib/tex/cite-commands';
 
 const EQ_CMD_RE = /\\eq(?:ref)?\{([^}]*)$/;
 
@@ -13,11 +8,15 @@ export function insertCitationKey(view: EditorView, key: string): void {
   const pos = view.state.selection.main.head;
   const before = view.state.doc.sliceString(0, pos);
 
-  const citeMatch = before.match(CITE_CMD_RE);
+  const citeMatch = before.match(CITE_IN_BRACE_RE);
   if (citeMatch) {
     const existing = citeMatch[1];
     const insertText =
-      existing.trim() === '' ? key : existing.endsWith(',') ? key : `${existing},${key}`;
+      existing.trim() === ''
+        ? key
+        : /,\s*$/.test(existing)
+          ? existing.replace(/,\s*$/, ',') + key
+          : `${existing},${key}`;
     const from = pos - existing.length;
     view.dispatch({
       changes: { from, to: pos, insert: insertText },
@@ -40,7 +39,7 @@ export function insertLabelRef(view: EditorView, key: string): void {
   const pos = view.state.selection.main.head;
   const before = view.state.doc.sliceString(0, pos);
 
-  const refMatch = before.match(REF_CMD_RE);
+  const refMatch = before.match(REF_IN_BRACE_RE);
   if (refMatch) {
     const existing = refMatch[1];
     const from = pos - existing.length;

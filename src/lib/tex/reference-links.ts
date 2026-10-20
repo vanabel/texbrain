@@ -1,3 +1,4 @@
+import { CITE_ALT, isCiteCommand, REF_ALT } from './cite-commands';
 import { withoutComments } from './comments';
 
 export type ReferenceLinkKind = 'file' | 'asset' | 'url' | 'cite' | 'label';
@@ -9,8 +10,10 @@ export type ReferenceLink = {
   kind: ReferenceLinkKind;
 };
 
-const MACRO_RE =
-  /\\(includegraphics|include|input|url|citep|citet|cite|autocite|parencite|textcite|fullcite|autoref|cref|eqref|ref)\*?\s*(?:\[[^\]]*\]\s*)*\{([^{}]*)\}/g;
+const MACRO_RE = new RegExp(
+  `\\\\(includegraphics|include|input|url|${CITE_ALT}|${REF_ALT})\\*?\\s*(?:\\[[^\\]]*\\]\\s*)*\\{([^{}]*)\\}`,
+  'g'
+);
 
 export function referenceLinks(source: string): ReferenceLink[] {
   const result: ReferenceLink[] = [];
@@ -26,13 +29,7 @@ export function referenceLinks(source: string): ReferenceLink[] {
           ? 'url'
           : cmd === 'include' || cmd === 'input'
             ? 'file'
-            : cmd.startsWith('cite') ||
-                cmd === 'citep' ||
-                cmd === 'citet' ||
-                cmd === 'autocite' ||
-                cmd === 'parencite' ||
-                cmd === 'textcite' ||
-                cmd === 'fullcite'
+            : isCiteCommand(cmd)
               ? 'cite'
               : 'label';
     const keys =

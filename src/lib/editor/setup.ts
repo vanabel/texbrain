@@ -1,18 +1,21 @@
 import { EditorState, Compartment, Prec, type Extension } from '@codemirror/state';
 import { EditorView, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection, dropCursor, rectangularSelection, crosshairCursor, keymap } from '@codemirror/view';
-import { defaultKeymap as _defaultKeymap, history, historyKeymap } from '@codemirror/commands';
+import { defaultKeymap as _defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 
 // filter out Mod-/ (toggleComment), reserved for the snippet picker
 const defaultKeymap = _defaultKeymap.filter(k => k.key !== 'Mod-/');
 
 import { foldGutter, foldKeymap, bracketMatching, indentOnInput } from '@codemirror/language';
-import { closeBrackets, closeBracketsKeymap, snippet } from '@codemirror/autocomplete';
+import { acceptCompletion, clearSnippet, closeBrackets, closeBracketsKeymap, closeCompletion, nextSnippetField, prevSnippetField, selectedCompletion, snippet, snippetKeymap } from '@codemirror/autocomplete';
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
 import { latexLanguage } from './latex-language';
 import { darkEditorTheme, lightEditorTheme, darkHighlight, lightHighlight } from './theme';
 import { tabKeymap } from './keybindings';
-import { latexAutocomplete } from './autocomplete';
+import { hasMatchingEnd, latexAutocomplete } from './autocomplete';
 import { latexLintGutter } from './latex-lint';
+import { snippetFieldKeys } from './key-conflicts';
+import { expandVimtexImap } from './vimtex-imaps';
+import { getCM, vim } from '@replit/codemirror-vim';
 
 export interface EditorConfig {
   doc: string;
@@ -23,9 +26,18 @@ export interface EditorConfig {
   collab?: Extension;
   /** Extra CodeMirror extensions (e.g. Cmd/Ctrl+click reference follow). */
   extraExtensions?: Extension[];
+  /** Vim normal/insert mode. Snippet keys move when they clash with Vim. */
+  vimMode?: boolean;
 }
 
 const themeCompartment = new Compartment();
+const behaviorCompartment = new Compartment();
+
+function vimInsertMode(view: EditorView): boolean | null {
+  const cm = getCM(view);
+  if (!cm?.state.vim) return null;
+  return cm.state.vim.insertMode;
+}
 
 export function editorThemeExtensions(dark: boolean): Extension {
   return dark
@@ -41,9 +53,68 @@ export function setEditorTheme(view: EditorView, dark: boolean) {
 
 const ENV_NAME = /^[A-Za-z*][A-Za-z0-9*]*$/;
 
-function hasMatchingEnd(doc: EditorState['doc'], pos: number, name: string): boolean {
-  const after = doc.sliceString(pos, Math.min(doc.length, pos + 400));
-  return after.includes(`\\end{${name}}`);
+/** Enter on `\begin{name}` (cursor may sit just before the auto-closed `}`) inserts `\end`. */
+function expandBeginOnEnter(view: EditorView): boolean {
+  if (view.state.readOnly || !view.state.selection.main.empty) return false;
+  // Vim normal-mode Enter is `j^`. Only expand environments while typing.
+  if (vimInsertMode(view) === false) return false;
+  const head = view.state.selection.main.head;
+  const line = view.state.doc.lineAt(head);
+  const before = line.text.slice(0, head - line.from);
+  const after = line.text.slice(head - line.from);
+  if (!/^\s*\}?\s*$/.test(after)) return false;
+  const match = before.match(/^(\s*)\\begin\{([A-Za-z*][A-Za-z0-9*]*)\}?\s*$/);
+  if (!match || !ENV_NAME.test(match[2]) || hasMatchingEnd(view.state.doc, line.to, match[2])) return false;
+  snippet('\\begin\\{' + match[2] + '\\}\n${}\n\\end\\{' + match[2] + '\\}')(
+    view,
+    null,
+    line.from + match[1].length,
+    line.to
+  );
+  return true;
+}
+
+function tabSnippetOrComplete(view: EditorView): boolean {
+  if (acceptCompletion(view)) return true;
+  if (nextSnippetField(view)) return true;
+  const insert = vimInsertMode(view);
+  if (insert === null) return false;
+  if (insert) return indentWithTab.run?.(view) ?? false;
+  return true;
+}
+
+function escapeSnippet(view: EditorView): boolean {
+  if (closeCompletion(view)) return true;
+  if (vimInsertMode(view) !== null) {
+    clearSnippet(view);
+    return false;
+  }
+  return clearSnippet(view);
+}
+
+function editorBehavior(vimMode: boolean): Extension {
+  const fields = snippetFieldKeys(vimMode);
+  return [
+    vimMode ? vim({ status: true }) : [],
+    Prec.high(keymap.of([
+      { key: 'Enter', run: expandBeginOnEnter },
+      { key: 'Tab', run: tabSnippetOrComplete },
+      { key: 'Escape', run: escapeSnippet }
+    ])),
+    snippetKeymap.of([
+      { key: 'Tab', run: tabSnippetOrComplete, shift: prevSnippetField },
+      { key: fields.next, run: nextSnippetField },
+      { key: fields.prev, run: prevSnippetField },
+      { key: 'Escape', run: escapeSnippet }
+    ]),
+    vimMode ? [] : tabKeymap
+  ];
+}
+
+export function setEditorBehavior(view: EditorView, vimMode: boolean) {
+  view.dispatch({
+    effects: behaviorCompartment.reconfigure(editorBehavior(vimMode))
+  });
 }
 
 /** Expand display math and environments so the cursor lands inside the pair. */
@@ -51,6 +122,7 @@ function autoCloseLatex(): Extension {
   return EditorView.inputHandler.of((view, from, to, text) => {
     if (from !== to || view.state.readOnly || text.length !== 1) return false;
     const doc = view.state.doc;
+    if (expandVimtexImap(view, from, to, text)) return true;
 
     if (text === '[' || text === '(' || text === '$') {
       const prev = doc.sliceString(Math.max(0, from - 2), from);
@@ -73,7 +145,17 @@ function autoCloseLatex(): Extension {
     if (text === '}') {
       const before = doc.sliceString(Math.max(0, from - 120), from);
       const begun = before.match(/\\begin\{([A-Za-z*][A-Za-z0-9*]*)\s*$/);
-      if (!begun || hasMatchingEnd(doc, to, begun[1])) return false;
+      if (!begun || !ENV_NAME.test(begun[1])) return false;
+      const selected = selectedCompletion(view.state);
+      if (
+        selected &&
+        selected.label.startsWith(begun[1]) &&
+        selected.label.length > begun[1].length &&
+        acceptCompletion(view)
+      ) {
+        return true;
+      }
+      if (hasMatchingEnd(doc, to, begun[1])) return false;
       const end = doc.sliceString(to, to + 1) === '}' ? to + 1 : to;
       snippet('\\}\n${}\n\\end\\{' + begun[1] + '\\}')(view, null, from, end);
       return true;
@@ -117,6 +199,7 @@ export function createEditor(config: EditorConfig): EditorView {
     indentOnInput(),
     bracketMatching(),
     Prec.high(autoCloseLatex()),
+    behaviorCompartment.of(editorBehavior(config.vimMode ?? false)),
     closeBrackets(),
     rectangularSelection(),
     crosshairCursor(),
@@ -150,7 +233,6 @@ export function createEditor(config: EditorConfig): EditorView {
   }
 
   extensions.push(
-    tabKeymap,
     latexLanguage,
     themeCompartment.of(editorThemeExtensions(config.dark)),
     latexAutocomplete,

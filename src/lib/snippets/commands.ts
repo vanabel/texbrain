@@ -26,6 +26,12 @@ export const commandSnippets: Snippet[] = [
     code: '\\cite{|}'
   },
   {
+    name: 'Citations',
+    trigger: 'cites',
+    category: 'command',
+    code: '\\cites{|}'
+  },
+  {
     name: 'Reference',
     trigger: 'ref',
     category: 'command',

@@ -27,6 +27,7 @@ export type EditorUi = {
   cmdToggleGit: string;
   cmdToggleCollab: string;
   cmdToggleTheme: string;
+  cmdToggleVim: string;
   palettePlaceholder: string;
   paletteNoResults: string;
 
@@ -73,6 +74,10 @@ export type EditorUi = {
   ttSnippets: string;
   snippetsLabel: string;
   ttCommandPalette: string;
+  ttVim: string;
+  ttVimOff: string;
+  ttVimOn: string;
+  ttSnippetRemap: string;
   ttPreview: string;
   ttEditorOnly: string;
 
@@ -270,6 +275,7 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     cmdToggleGit: 'Toggle Git Panel',
     cmdToggleCollab: 'Toggle Collaboration Panel',
     cmdToggleTheme: 'Toggle Light / Dark',
+    cmdToggleVim: 'Toggle Vim mode',
     palettePlaceholder: 'Type a command...',
     paletteNoResults: 'No matching commands',
 
@@ -312,7 +318,13 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     ttUnderline: 'Underline',
     ttSnippets: 'Insert Snippet (Ctrl+/)',
     snippetsLabel: 'Snippets',
-    ttCommandPalette: 'Command Palette (Ctrl+K)',
+    ttCommandPalette: 'Command palette (⌘K)',
+    ttVim: 'Vim mode',
+    ttVimOff:
+      'Vim mode is off. Snippet fields: Ctrl+J next, Ctrl+K previous. Command palette: ⌘K.',
+    ttVimOn:
+      'Vim mode is on. Ctrl+J and Ctrl+K do not clash with Vim defaults, so they still move snippet fields. Escape closes the completion menu, then Vim leaves insert mode. Enter accepts a completion; in normal mode it stays with Vim. Arrow keys move the menu selection while it is open.',
+    ttSnippetRemap: 'Snippet jumps moved to {next} / {prev} because those keys clash with Vim.',
     ttPreview: 'Toggle Preview (Ctrl+P)',
     ttEditorOnly: 'Toggle source editor — PDF only (Ctrl+Shift+P)',
 
@@ -501,6 +513,7 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     cmdToggleGit: '切换 Git 面板',
     cmdToggleCollab: '切换协作面板',
     cmdToggleTheme: '切换浅色 / 深色',
+    cmdToggleVim: '切换 Vim 模式',
     palettePlaceholder: '输入命令…',
     paletteNoResults: '没有匹配的命令',
 
@@ -543,7 +556,12 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     ttUnderline: '下划线',
     ttSnippets: '插入片段 (Ctrl+/)',
     snippetsLabel: '片段',
-    ttCommandPalette: '命令面板 (Ctrl+K)',
+    ttCommandPalette: '命令面板 (⌘K)',
+    ttVim: 'Vim 模式',
+    ttVimOff: 'Vim 模式已关闭。片段字段：Ctrl+J 向后，Ctrl+K 向前。命令面板是 ⌘K。',
+    ttVimOn:
+      'Vim 模式已打开。Ctrl+J / Ctrl+K 与 Vim 默认键不冲突，仍用于跳片段字段。Esc 先关闭补全菜单，再交给 Vim 退出插入模式。Enter 在补全菜单里接受候选项，普通模式交给 Vim。方向键在菜单打开时移动选择。',
+    ttSnippetRemap: '片段跳转改为 {next} / {prev}，因为原快捷键与 Vim 冲突。',
     ttPreview: '切换预览 (Ctrl+P)',
     ttEditorOnly: '切换源码编辑区，仅显示 PDF (Ctrl+Shift+P)',
 
