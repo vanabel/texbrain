@@ -5,7 +5,7 @@ import { tags } from '@lezer/highlight';
 export const darkEditorTheme = EditorView.theme(
   {
     '&': {
-      color: '#d4d4d8',
+      color: '#f4f4f5',
       backgroundColor: '#19191c',
       fontSize: '14px',
       fontFamily: "'JetBrains Mono', monospace",
@@ -23,7 +23,7 @@ export const darkEditorTheme = EditorView.theme(
     '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
       backgroundColor: 'rgba(209, 154, 102, 0.20)'
     },
-    '.cm-panels': { backgroundColor: '#19191c', color: '#d4d4d8' },
+    '.cm-panels': { backgroundColor: '#19191c', color: '#f4f4f5' },
     '.cm-panels.cm-panels-top': { borderBottom: '1px solid #2e2e33' },
     '.cm-panels.cm-panels-bottom': { borderTop: '1px solid #2e2e33' },
     '.cm-searchMatch': {
@@ -41,17 +41,17 @@ export const darkEditorTheme = EditorView.theme(
     },
     '.cm-gutters': {
       backgroundColor: '#19191c',
-      color: '#4a4a50',
+      color: '#a3a3ab',
       border: 'none',
       paddingRight: '8px'
     },
     '.cm-activeLineGutter': {
       backgroundColor: 'transparent',
-      color: '#71717a'
+      color: '#e4e4e7'
     },
     '.cm-foldPlaceholder': {
       backgroundColor: '#2a2a2e',
-      color: '#71717a',
+      color: '#d4d4d8',
       border: 'none',
       padding: '0 6px',
       borderRadius: '2px'
@@ -59,7 +59,7 @@ export const darkEditorTheme = EditorView.theme(
     '.cm-tooltip': {
       border: '1px solid #2e2e33',
       backgroundColor: '#212124',
-      color: '#d4d4d8',
+      color: '#f4f4f5',
       borderRadius: '2px',
       boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)'
     },
@@ -74,7 +74,7 @@ export const darkEditorTheme = EditorView.theme(
     '.cm-tooltip-autocomplete': {
       '& > ul > li[aria-selected]': {
         backgroundColor: '#2a2a2e',
-        color: '#d4d4d8'
+        color: '#f4f4f5'
       }
     }
   },
@@ -153,7 +153,7 @@ export const lightEditorTheme = EditorView.theme(
 );
 
 const darkHighlightStyle = HighlightStyle.define([
-  { tag: tags.comment, color: '#5c6370', fontStyle: 'italic' },
+  { tag: tags.comment, color: '#b4bcc8', fontStyle: 'italic' },
   { tag: tags.keyword, color: '#c678dd' },
   { tag: tags.tagName, color: '#61afef' },
   { tag: tags.typeName, color: '#c678dd' },

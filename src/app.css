@@ -8,9 +8,9 @@
   --border: #2e2e33;
   --border-focus: #d19a66;
 
-  --text-primary: #d4d4d8;
-  --text-secondary: #71717a;
-  --text-muted: #4a4a50;
+  --text-primary: #f4f4f5;
+  --text-secondary: #c2c2ca;
+  --text-muted: #9a9aa3;
 
   --accent: #d19a66;
   --accent-hover: #c48b4f;
@@ -93,6 +93,12 @@ html, body {
   font-size: 13px;
   color: var(--text-primary);
   background: var(--bg-deep);
+  -webkit-font-smoothing: auto;
+  -moz-osx-font-smoothing: auto;
+}
+
+[data-theme='light'],
+[data-theme='light'] body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
