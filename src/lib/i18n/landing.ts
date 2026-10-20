@@ -81,8 +81,8 @@ export const landingCopy: Record<
         points: [
           '`\\[` `\\(` `$$` `\\begin` close around the cursor',
           '`Ctrl+J` next field, `Ctrl+K` previous field',
-          '`\\cites` completes keys; commands follow mathpaper',
-          'Backtick maps in math; Vim mode from the toolbar'
+          '`\\cites` completes keys; commands follow [mathpaper](https://github.com/vanabel/mathPaper)',
+          '[VimTeX shortcuts](https://github.com/lervag/vimtex); Vim mode from the toolbar'
         ]
       },
       {
@@ -156,8 +156,8 @@ export const landingCopy: Record<
         points: [
           '`\\[` `\\(` `$$` `\\begin` 成对展开，光标留在中间',
           '`Ctrl+J` 下一字段，`Ctrl+K` 上一字段',
-          '`\\cites` 补文献键；常用命令按 mathpaper',
-          '数学区反引号映射；工具栏可开 Vim 模式'
+          '`\\cites` 补文献键；常用命令按 [mathpaper](https://github.com/vanabel/mathPaper)',
+          '[VimTeX 快捷键](https://github.com/lervag/vimtex)；工具栏可开 Vim 模式'
         ]
       },
       {

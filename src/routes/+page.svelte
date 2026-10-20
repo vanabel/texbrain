@@ -139,9 +139,15 @@
           <ul class="feature-points">
             {#each L.features[0].points as point}
               <li>
-                {#each point.split(/(`[^`]+`)/) as part}
+                {#each point.split(/(`[^`]+`|\[[^\]]+\]\([^)]+\))/) as part}
                   {#if part.startsWith('`') && part.endsWith('`')}
                     <code>{part.slice(1, -1)}</code>
+                  {:else if part.startsWith('[') && part.includes('](')}
+                    <a
+                      class="feature-inline-link"
+                      href={part.slice(part.indexOf('](') + 2, -1)}
+                      target="_blank"
+                      rel="noopener">{part.slice(1, part.indexOf(']'))}</a>
                   {:else}
                     {part}
                   {/if}
@@ -640,6 +646,16 @@
     font-family: var(--font-editor);
     font-size: 0.95em;
     color: var(--syntax-command);
+  }
+
+  .feature-inline-link {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .feature-inline-link:hover {
+    color: var(--accent-hover);
   }
 
   .features-grid {
