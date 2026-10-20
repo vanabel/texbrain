@@ -28,6 +28,7 @@ export type EditorUi = {
   cmdToggleCollab: string;
   cmdToggleTheme: string;
   cmdToggleVim: string;
+  cmdToggleFullscreen: string;
   palettePlaceholder: string;
   paletteNoResults: string;
 
@@ -79,6 +80,7 @@ export type EditorUi = {
   ttVimOn: string;
   ttSnippetRemap: string;
   ttPreview: string;
+  ttFullscreen: string;
   ttEditorOnly: string;
 
   // Sidebar
@@ -276,6 +278,7 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     cmdToggleCollab: 'Toggle Collaboration Panel',
     cmdToggleTheme: 'Toggle Light / Dark',
     cmdToggleVim: 'Toggle Vim mode',
+    cmdToggleFullscreen: 'Toggle fullscreen',
     palettePlaceholder: 'Type a command...',
     paletteNoResults: 'No matching commands',
 
@@ -326,6 +329,7 @@ export const editorUi: Record<AppLocale, EditorUi> = {
       'Vim mode is on. Ctrl+J and Ctrl+K do not clash with Vim defaults, so they still move snippet fields. Escape closes the completion menu, then Vim leaves insert mode. Enter accepts a completion; in normal mode it stays with Vim. Arrow keys move the menu selection while it is open.',
     ttSnippetRemap: 'Snippet jumps moved to {next} / {prev} because those keys clash with Vim.',
     ttPreview: 'Toggle Preview (Ctrl+P)',
+    ttFullscreen: 'Fullscreen (Ctrl+Shift+Enter)',
     ttEditorOnly: 'Toggle source editor — PDF only (Ctrl+Shift+P)',
 
     sidebarTabFiles: 'Files',
@@ -514,6 +518,7 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     cmdToggleCollab: '切换协作面板',
     cmdToggleTheme: '切换浅色 / 深色',
     cmdToggleVim: '切换 Vim 模式',
+    cmdToggleFullscreen: '切换全屏',
     palettePlaceholder: '输入命令…',
     paletteNoResults: '没有匹配的命令',
 
@@ -563,6 +568,7 @@ export const editorUi: Record<AppLocale, EditorUi> = {
       'Vim 模式已打开。Ctrl+J / Ctrl+K 与 Vim 默认键不冲突，仍用于跳片段字段。Esc 先关闭补全菜单，再交给 Vim 退出插入模式。Enter 在补全菜单里接受候选项，普通模式交给 Vim。方向键在菜单打开时移动选择。',
     ttSnippetRemap: '片段跳转改为 {next} / {prev}，因为原快捷键与 Vim 冲突。',
     ttPreview: '切换预览 (Ctrl+P)',
+    ttFullscreen: '全屏 (Ctrl+Shift+Enter)',
     ttEditorOnly: '切换源码编辑区，仅显示 PDF (Ctrl+Shift+P)',
 
     sidebarTabFiles: '文件',

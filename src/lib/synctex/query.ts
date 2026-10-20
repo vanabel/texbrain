@@ -223,7 +223,7 @@ export function synctexForward(
   };
 }
 
-/** SyncTeX box in PDF user space (origin bottom-left). Matches LaTeX Workshop synctexjs inverse. */
+/** SyncTeX box in PDF user space (origin bottom-left, y upward), same as forward search. */
 type SyncRect = {
   top: number;
   bottom: number;
@@ -232,11 +232,17 @@ type SyncRect = {
 };
 
 function blockToSyncRect(block: Block): SyncRect {
-  const top = block.bottom - block.height;
-  const bottom = block.bottom;
+  const yBase = block.bottom;
+  const yFar = yBase + (block.height ?? 0);
+  const depth = Math.max(0, block.depth ?? 0);
   const left = block.left;
   const right = block.width !== undefined ? block.left + block.width : block.left;
-  return { top, bottom, left, right };
+  return {
+    bottom: Math.min(yBase, yFar) - depth,
+    top: Math.max(yBase, yFar),
+    left: Math.min(left, right),
+    right: Math.max(left, right)
+  };
 }
 
 function pointInSyncRect(x: number, y: number, rect: SyncRect): boolean {
@@ -264,6 +270,18 @@ type InverseCand = {
   inside: boolean;
   dist: number;
   area: number;
+  height: number;
+  left: number;
+  right: number;
+};
+
+export type SynctexInverseHit = {
+  synctexPath: string;
+  line: number;
+  /** 0 at the left edge of this line's boxes, 1 at the right edge. */
+  columnRatio: number;
+  /** Click is inside one small box on a single line; do not override with text search. */
+  confident: boolean;
 };
 
 /**
@@ -275,7 +293,7 @@ export function synctexInverse(
   page: number,
   xPt: number,
   yFromBottomPt: number
-): { synctexPath: string; line: number } | null {
+): SynctexInverseHit | null {
   const ox = obj.offset?.x ?? 0;
   const oy = obj.offset?.y ?? 0;
   const x0 = xPt - ox;
@@ -306,7 +324,10 @@ export function synctexInverse(
             line,
             inside,
             dist,
-            area: syncRectArea(rect)
+            area: syncRectArea(rect),
+            height: Math.max(0, rect.top - rect.bottom),
+            left: rect.left,
+            right: rect.right
           });
         }
       }
@@ -327,7 +348,123 @@ export function synctexInverse(
   });
 
   const best = pool[0];
-  return { synctexPath: best.path, line: best.line };
+  const insideLines = new Set(candidates.filter((c) => c.inside).map((c) => c.line));
+  const width = Math.max(0, best.right - best.left);
+  const small = best.inside && best.height <= 22 && best.area <= 2200 && width <= 200;
+  const confident = small && insideLines.size === 1;
+  return {
+    synctexPath: best.path,
+    line: best.line,
+    columnRatio: columnRatioOnLine(obj, best.path, page, best.line, x0, y0, candidates),
+    confident
+  };
+}
+
+function columnRatioOnLine(
+  obj: PdfSyncObject,
+  file: string,
+  page: number,
+  line: number,
+  x: number,
+  y: number,
+  fallback: InverseCand[]
+): number {
+  const hRects = (obj.hBlocks ?? [])
+    .filter((b) => b.page === page && b.line === line && b.file?.path === file && (b.width ?? 0) > 0.5)
+    .map(blockToSyncRect)
+    .filter((r) => r.right > r.left + 0.5);
+  const near = hRects.filter((r) => y >= r.bottom - 4 && y <= r.top + 4);
+  const fromH = ratioAcross(near.length ? near : hRects, x);
+  if (fromH != null) return fromH;
+
+  const boxes = fallback.filter((c) => c.line === line && c.right > c.left + 0.5);
+  return ratioAcross(boxes, x) ?? 0;
+}
+
+function ratioAcross(boxes: { left: number; right: number }[], x: number): number | null {
+  if (!boxes.length) return null;
+  const minL = Math.min(...boxes.map((b) => b.left));
+  const maxR = Math.max(...boxes.map((b) => b.right));
+  const span = maxR - minL;
+  if (span < 1) return null;
+  return Math.max(0, Math.min(1, (x - minL) / span));
+}
+
+/**
+ * 0-based caret offset on a source line.
+ * Prefer the PDF words under the click; otherwise the click's x among that line's h-boxes.
+ */
+export function columnOnSourceLine(
+  line: string,
+  pdfBefore: string,
+  pdfAfter: string,
+  columnRatio: number
+): number {
+  const geometric = columnFromRatio(line, columnRatio);
+  return snapColumnToPdfText(line, pdfBefore, pdfAfter, geometric) ?? geometric;
+}
+
+function columnFromRatio(line: string, ratio: number): number {
+  if (!line.length) return 0;
+  const start = line.search(/\S/);
+  if (start < 0) return 0;
+  let end = line.length;
+  while (end > start && /\s/.test(line[end - 1])) end--;
+  const span = Math.max(1, end - start);
+  const r = Math.max(0, Math.min(1, ratio));
+  return Math.min(line.length, start + Math.round(r * span));
+}
+
+function snapColumnToPdfText(
+  line: string,
+  pdfBefore: string,
+  pdfAfter: string,
+  near: number
+): number | null {
+  const before = pdfBefore.replace(/\s+/g, ' ').trimEnd();
+  const after = pdfAfter.replace(/\s+/g, ' ').trimStart();
+  if (before.length < 2 && after.length < 2) return null;
+
+  let bestAt: number | null = null;
+  let bestLen = 0;
+  let bestDist = Infinity;
+  const maxLen = Math.min(24, Math.max(before.length, after.length));
+
+  for (let len = maxLen; len >= 2; len--) {
+    const bs = before.slice(-len);
+    const as = after.slice(0, len);
+    const spots: number[] = [];
+    if (bs.length >= 2) {
+      let from = 0;
+      while (from < line.length) {
+        const i = line.indexOf(bs, from);
+        if (i < 0) break;
+        const at = i + bs.length;
+        const rest = line.slice(at).replace(/^\s+/, '');
+        if (as.length < 2 || rest.startsWith(as) || line.startsWith(as, at)) spots.push(at);
+        from = i + 1;
+      }
+    } else {
+      let from = 0;
+      while (from < line.length) {
+        const i = line.indexOf(as, from);
+        if (i < 0) break;
+        spots.push(i);
+        from = i + 1;
+      }
+    }
+    if (!spots.length) continue;
+    for (const at of spots) {
+      const d = Math.abs(at - near);
+      if (len > bestLen || (len === bestLen && d < bestDist)) {
+        bestLen = len;
+        bestDist = d;
+        bestAt = at;
+      }
+    }
+    if (bestLen >= 4) break;
+  }
+  return bestAt;
 }
 
 function normalizeSynctexMatchText(s: string): string {
@@ -351,7 +488,7 @@ export function refineSynctexLine(
   hintLine: number,
   pdfBefore: string,
   pdfAfter: string,
-  windowLines = 55
+  windowLines = 8
 ): number {
   const before = normalizeSynctexMatchText(pdfBefore).slice(-48);
   const after = normalizeSynctexMatchText(pdfAfter).slice(0, 48);

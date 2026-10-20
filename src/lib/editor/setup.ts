@@ -15,7 +15,7 @@ import { hasMatchingEnd, latexAutocomplete } from './autocomplete';
 import { latexLintGutter } from './latex-lint';
 import { snippetFieldKeys } from './key-conflicts';
 import { expandVimtexImap } from './vimtex-imaps';
-import { getCM, vim } from '@replit/codemirror-vim';
+import { CodeMirror, getCM, vim } from '@replit/codemirror-vim';
 
 export interface EditorConfig {
   doc: string;
@@ -32,6 +32,17 @@ export interface EditorConfig {
 
 const themeCompartment = new Compartment();
 const behaviorCompartment = new Compartment();
+
+let vimSave: ((view: EditorView) => void) | null = null;
+
+/** `:w` only runs if CodeMirror.commands.save is set; the stock adapter leaves it empty. */
+export function setVimSaveHandler(handler: ((view: EditorView) => void) | null) {
+  vimSave = handler;
+}
+
+CodeMirror.commands.save = (cm: { cm6?: EditorView }) => {
+  if (cm?.cm6) vimSave?.(cm.cm6);
+};
 
 function vimInsertMode(view: EditorView): boolean | null {
   const cm = getCM(view);

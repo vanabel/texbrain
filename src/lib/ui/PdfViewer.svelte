@@ -106,7 +106,7 @@
   let toolbarDocked = false;
 
   function dockToolbar(node: HTMLElement) {
-    const host = node.closest('.preview-pane')?.querySelector('.preview-zoom');
+    const host = node.closest('.workspace')?.querySelector('.preview-zoom');
     if (host) {
       toolbarDocked = true;
       host.appendChild(node);
@@ -551,6 +551,32 @@
     scrollToPagePosition(pageNum, yWithin);
   }
 
+  function isCjkChar(ch: string): boolean {
+    return /[\u3400-\u9fff\uf900-\ufaff\u3040-\u30ff\uac00-\ud7af]/.test(ch);
+  }
+
+  /** Space between PDF.js runs, except where either side is CJK or spacing is already present. */
+  function pdfRunGap(prev: string, next?: string): number {
+    if (!next) return 0;
+    if (/\s$/.test(prev) || /^\s/.test(next)) return 0;
+    const a = prev[prev.length - 1];
+    const b = next[0];
+    if (!a || !b) return 0;
+    if (isCjkChar(a) || isCjkChar(b)) return 0;
+    return 1;
+  }
+
+  function joinPdfRuns(runs: { str: string }[]): string {
+    let out = '';
+    for (let i = 0; i < runs.length; i++) {
+      const s = runs[i].str;
+      if (!s) continue;
+      if (out && pdfRunGap(out, s)) out += ' ';
+      out += s;
+    }
+    return out;
+  }
+
   /** Plain text around a PDF click (for inverse SyncTeX line refinement). */
   function getPdfTextAroundPoint(
     pageNum: number,
@@ -560,37 +586,67 @@
     const cached = pageTextCache[pageNum - 1];
     if (!cached?.items.length) return null;
 
-    let hit = 0;
-    let bestDist = Infinity;
-    for (let i = 0; i < cached.items.length; i++) {
-      const it = cached.items[i];
+    type Run = {
+      str: string;
+      left: number;
+      right: number;
+      top: number;
+      bottom: number;
+      cy: number;
+    };
+    const runs: Run[] = [];
+    for (const it of cached.items) {
+      const str = it.str || '';
+      if (!str) continue;
       const t = it.transform;
-      const w = it.width ?? Math.max(4, (it.str?.length ?? 1) * Math.abs(t[0] ?? 10) * 0.55);
+      const w = it.width ?? Math.max(4, str.length * Math.abs(t[0] ?? 10) * 0.55);
       const h = Math.abs(it.height ?? t[3] ?? t[0] ?? 12);
       const left = t[4];
-      const right = t[4] + w;
       const bottom = t[5] - h * 0.25;
       const top = t[5] + h * 0.15;
-      const cx = (left + right) / 2;
-      const cy = (bottom + top) / 2;
-      const d = Math.hypot(xPt - cx, yFromBottomPt - cy);
-      if (d < bestDist) {
-        bestDist = d;
-        hit = i;
-      }
+      runs.push({ str, left, right: left + w, top, bottom, cy: (top + bottom) / 2 });
     }
+    if (!runs.length) return null;
 
-    let pos = 0;
-    const parts: string[] = [];
-    for (let i = 0; i < cached.items.length; i++) {
-      if (i === hit) pos = parts.join(' ').length + (parts.length ? 1 : 0);
-      parts.push(cached.items[i].str || '');
+    const lines: Run[][] = [];
+    const byTop = [...runs].sort((a, b) => b.top - a.top || a.left - b.left);
+    for (const run of byTop) {
+      const line = lines.find((row) => Math.abs(row[0].cy - run.cy) < 4);
+      if (line) line.push(run);
+      else lines.push([run]);
     }
-    const full = parts.join(' ');
+    for (const line of lines) line.sort((a, b) => a.left - b.left);
+
+    const contains = (run: Run) =>
+      xPt >= run.left && xPt <= run.right && yFromBottomPt >= run.bottom && yFromBottomPt <= run.top;
+    let hitLine = lines.findIndex((row) => row.some(contains));
+    let hitInLine = hitLine >= 0 ? lines[hitLine].findIndex(contains) : -1;
+    if (hitLine < 0) {
+      let bestDist = Infinity;
+      lines.forEach((row, li) => {
+        row.forEach((run, ri) => {
+          const d = Math.hypot(xPt - (run.left + run.right) / 2, yFromBottomPt - run.cy);
+          if (d < bestDist) {
+            bestDist = d;
+            hitLine = li;
+            hitInLine = ri;
+          }
+        });
+      });
+    }
+    if (hitLine < 0 || hitInLine < 0) return null;
+
+    const nearby = lines.slice(Math.max(0, hitLine - 1), hitLine + 2);
+    const ordered = nearby.flat();
+    const hit =
+      lines.slice(Math.max(0, hitLine - 1), hitLine).reduce((n, row) => n + row.length, 0) + hitInLine;
+    const full = joinPdfRuns(ordered);
     if (!full) return null;
+    let pos = 0;
+    for (let i = 0; i < hit; i++) pos += pdfRunGap(ordered[i].str, ordered[i + 1]?.str) + ordered[i].str.length;
     return {
-      before: full.slice(Math.max(0, pos - 100), pos),
-      after: full.slice(pos, pos + 100)
+      before: full.slice(Math.max(0, pos - 80), pos),
+      after: full.slice(pos, pos + 80)
     };
   }
 
@@ -695,13 +751,6 @@
         title={E.ttPdfZoomFitWidth}
         on:click={() => setZoomMode('width-fit')}
       >{E.pdfZoomFitWidth}</button>
-      <button
-        type="button"
-        class="pdf-zoom-btn"
-        class:active={zoomMode === 'actual'}
-        title={E.ttPdfZoomActual}
-        on:click={() => setZoomMode('actual')}
-      >{E.pdfZoomActual}</button>
       <span class="pdf-zoom-sep"></span>
       <button type="button" class="pdf-zoom-btn icon" title={E.ttPdfZoomOut} on:click={() => zoomBy(0.9)} aria-label={E.ttPdfZoomOut}>{E.pdfZoomOut}</button>
       <span class="pdf-zoom-pct" title={zoomPercentLabel}>{zoomPercentLabel}</span>

@@ -6,7 +6,7 @@
   import { sidebarOpen, sidebarPanel, previewOpen, editorOpen, snippetPickerOpen, commandPaletteOpen, projectSearchOpen, compileStatus, compileLog, compileErrors, staticDiagnostics, pdfStale, previewTab, addToast } from '$lib/stores/app';
   import { files, activeFile, activeFileId, updateFileContent, projectHandle, projectTree, entryPoint, openFileTab } from '$lib/project/store';
   import { handleOpenFile, handleSaveFile, handleSaveFileAs, handleDroppedFiles, handleOpenDirectory, handleNewProject, cloneProject, loadBundledBibtexExample, refreshProjectTree } from '$lib/project/manager';
-  import { insertAtCursor, createEditor, replaceEditorContent, setEditorTheme, setEditorBehavior } from '$lib/editor/setup';
+  import { insertAtCursor, createEditor, replaceEditorContent, setEditorTheme, setEditorBehavior, setVimSaveHandler } from '$lib/editor/setup';
   import { snippetFieldKeys } from '$lib/editor/key-conflicts';
   import { preferences } from '$lib/stores/preferences';
   import { insertCitationKey, insertEquationNumber, insertLabelRef } from '$lib/editor/citation-insert';
@@ -77,10 +77,17 @@
     synctexForward,
     synctexInverse,
     refineSynctexLine,
+    columnOnSourceLine,
     resolveSynctexProjectPath
   } from '$lib/synctex/query';
 
   let editorView: EditorView | null = null;
+  setVimSaveHandler((view) => {
+    const file = get(activeFile);
+    if (!file) return;
+    updateFileContent(file.id, view.state.doc.toString());
+    void handleSaveFile();
+  });
   let pdfData: Uint8Array | undefined = undefined;
   let bblFile: { path: string; content: string } | undefined = undefined;
   let pdfViewer: PdfViewerComponent | undefined;
@@ -259,6 +266,7 @@
   $: splitLayout = $previewOpen && $editorOpen;
   $: editorPaneStyle = splitLayout ? `flex:0 0 ${editorWidth}%` : '';
   $: previewPaneStyle = splitLayout ? `flex:0 0 ${100 - editorWidth}%` : '';
+  $: alignChrome = splitLayout && !stackLayout;
 
   $: if (editorView) {
     $previewOpen;
@@ -738,9 +746,7 @@
           ...cleanedLines
         ]);
 
-        if (parsedErrors.some(e => e.type === 'error')) {
-          previewTab.set('errors');
-        }
+        previewTab.set(parsedErrors.some((e) => e.type === 'error') ? 'log' : 'preview');
 
         if (isCollabMode) {
           setCompileResult({ status: 'success', pdf: pdfData, log: cleanedLines, errors: parsedErrors, pageCount: pdfPageCount });
@@ -759,7 +765,7 @@
           ...ctanNoteLines,
           ...cleanedLines
         ]);
-        previewTab.set('errors');
+        previewTab.set('log');
 
         if (isCollabMode) {
           setCompileResult({ status: 'error', pdf: pdfData ?? null, log: cleanedLines, errors: parsedErrors, pageCount: pdfPageCount });
@@ -1001,18 +1007,17 @@
       return;
     }
     let line = inv.line;
-    if (e.pdfTextBefore !== undefined || e.pdfTextAfter !== undefined) {
+    if (!inv.confident && (e.pdfTextBefore || e.pdfTextAfter)) {
       const doc = await texContentAtPath(openPath);
       if (doc) {
-        line = refineSynctexLine(
-          doc,
-          line,
-          e.pdfTextBefore ?? '',
-          e.pdfTextAfter ?? ''
-        );
+        line = refineSynctexLine(doc, line, e.pdfTextBefore ?? '', e.pdfTextAfter ?? '');
       }
     }
-    await gotoEditorLocation(openPath, line);
+    await gotoEditorLocation(openPath, line, {
+      columnRatio: inv.columnRatio,
+      pdfBefore: e.pdfTextBefore,
+      pdfAfter: e.pdfTextAfter
+    });
     previewTab.set('preview');
   }
 
@@ -1020,10 +1025,23 @@
     if (editorView) insertAtCursor(editorView, snippet.code);
   }
 
-  function gotoEditorLine(line: number) {
+  function gotoEditorLine(
+    line: number,
+    caret?: { columnRatio: number; pdfBefore?: string; pdfAfter?: string }
+  ) {
     if (!editorView) return;
     const ln = Math.max(1, Math.min(line, editorView.state.doc.lines));
-    const pos = editorView.state.doc.line(ln).from;
+    const lineObj = editorView.state.doc.line(ln);
+    let pos = lineObj.from;
+    if (caret && lineObj.length > 0) {
+      const offset = columnOnSourceLine(
+        lineObj.text,
+        caret.pdfBefore ?? '',
+        caret.pdfAfter ?? '',
+        caret.columnRatio
+      );
+      pos = lineObj.from + Math.max(0, Math.min(lineObj.length, offset));
+    }
     editorView.dispatch({
       selection: EditorSelection.single(pos),
       effects: EditorView.scrollIntoView(pos, { y: 'start', yMargin: 0 })
@@ -1081,7 +1099,11 @@
     recomputeProjectSourcesNow();
   }
 
-  async function gotoEditorLocation(filePath: string, line: number) {
+  async function gotoEditorLocation(
+    filePath: string,
+    line: number,
+    caret?: { columnRatio: number; pdfBefore?: string; pdfAfter?: string }
+  ) {
     const prevId = get(activeFile)?.id;
     const existing = get(files).find((f) => (f.path || f.name) === filePath);
     if (existing) {
@@ -1101,7 +1123,7 @@
       await tick();
       editorView?.requestMeasure();
     }
-    gotoEditorLine(line);
+    gotoEditorLine(line, caret);
   }
 
   let resizing = false;
@@ -1287,10 +1309,26 @@
     { id: 'collab', label: E.cmdToggleCollab, shortcut: '', action: () => collabPanelOpen.update(v => !v), category: 'view' },
     { id: 'theme', label: E.cmdToggleTheme, shortcut: '', action: toggleTheme, category: 'view' },
     { id: 'vim', label: E.cmdToggleVim, shortcut: '', action: toggleVimMode, category: 'edit' },
+    { id: 'fullscreen', label: E.cmdToggleFullscreen, shortcut: 'Ctrl+Shift+Enter', action: toggleFullscreen, category: 'view' },
   ];
 
   function toggleVimMode() {
     preferences.update((prefs) => ({ ...prefs, vimMode: !prefs.vimMode }));
+  }
+
+  let isFullscreen = false;
+
+  function syncFullscreen() {
+    isFullscreen = document.fullscreenElement != null;
+  }
+
+  async function toggleFullscreen() {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.documentElement.requestFullscreen();
+    } catch {
+      /* browser denied fullscreen */
+    }
   }
 
   $: if (editorView) setEditorBehavior(editorView, $preferences.vimMode);
@@ -1302,8 +1340,16 @@
     return `${base} ${expandEditorTemplate(E.ttSnippetRemap, { next: fields.next, prev: fields.prev })}`;
   })();
 
+  /** Ctrl chords Vim binds, while the editor is focused. Cmd shortcuts stay available. */
+  function vimOwnsCtrl(e: KeyboardEvent): boolean {
+    if (!e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return false;
+    if (!get(preferences).vimMode || !editorView?.hasFocus) return false;
+    return e.key === 'o' || e.key === 'b' || e.key === 'p';
+  }
+
   function handleGlobalKeydown(e: KeyboardEvent) {
     const mod = e.ctrlKey || e.metaKey;
+    if (vimOwnsCtrl(e)) return;
     if (e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'k') {
       e.preventDefault();
       commandPaletteOpen.update(v => !v);
@@ -1311,6 +1357,7 @@
     else if (mod && e.key === 's' && !e.shiftKey) { e.preventDefault(); saveAndCompile(); }
     else if (mod && e.key === 's' && e.shiftKey) { e.preventDefault(); handleSaveFileAs(); }
     else if (mod && e.key === 'o') { e.preventDefault(); handleOpenFile(); }
+    else if (mod && e.shiftKey && e.key === 'Enter') { e.preventDefault(); void toggleFullscreen(); }
     else if (mod && e.key === 'Enter') { e.preventDefault(); compilePreview(); }
     else if (mod && e.key === 'b') { e.preventDefault(); sidebarOpen.update(v => !v); }
     else if (mod && e.key === '/') { e.preventDefault(); snippetPickerOpen.update(v => !v); }
@@ -1570,13 +1617,15 @@
               const parsedSteps = extractCompileSteps(log.join('\n'));
               compileSteps = parsedSteps.length > 0 ? parsedSteps : ['[remote] host compilation succeeded'];
               compileErrors.set(errors);
+              const hasError = errors.some((e) => e?.type === 'error');
+              previewTab.set(hasError ? 'log' : 'preview');
             } else {
               compileStatus.set('error');
               compileLog.set([`[${ts()}] compilation failed`, ...log]);
               const parsedSteps = extractCompileSteps(log.join('\n'));
               compileSteps = parsedSteps.length > 0 ? parsedSteps : ['[remote] host compilation failed'];
               compileErrors.set(errors);
-              previewTab.set('errors');
+              previewTab.set('log');
             }
           } catch (err) {
             console.error('failed to read compile result:', err);
@@ -1642,11 +1691,14 @@
       if ($files.some(f => f.dirty)) { e.preventDefault(); e.returnValue = ''; }
     }
     window.addEventListener('beforeunload', onBeforeUnload);
+    document.addEventListener('fullscreenchange', syncFullscreen);
+    syncFullscreen();
 
     return () => {
       unobserveCompile?.();
       if (gitSyncTimer) clearTimeout(gitSyncTimer);
       window.removeEventListener('beforeunload', onBeforeUnload);
+      document.removeEventListener('fullscreenchange', syncFullscreen);
     };
   });
 
@@ -1688,71 +1740,97 @@
       {/if}
     </div>
     <div class="topbar-actions">
-      <button class="action-btn" on:click={handleOpenDirectory} title={E.openFolder}>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 13V3a1 1 0 011-1h4l2 2h4a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1z" stroke="currentColor" stroke-width="1.3"/></svg>
-        <span>{E.openFolder}</span>
-      </button>
-      <button class="action-btn" on:click={handleOpenFile} title={E.ttOpenFileShortcut}>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 1h5l4 4v9a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1z" stroke="currentColor" stroke-width="1.3"/><path d="M9 1v4h4" stroke="currentColor" stroke-width="1.3"/></svg>
-        <span>{E.openFile}</span>
-      </button>
-      <button class="action-btn" on:click={handleSaveFile} title={E.ttSaveShortcut} disabled={!$activeFile}>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M12.5 14H3.5a1 1 0 01-1-1V3a1 1 0 011-1h7l3 3v8a1 1 0 01-1 1z" stroke="currentColor" stroke-width="1.3"/><path d="M11.5 14v-4h-7v4" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 2v3h4" stroke="currentColor" stroke-width="1.3"/></svg>
-        <span>{E.save}</span>
-      </button>
-      <button class="action-btn accent" on:click={compilePreview} title={E.ttCompileShortcut} disabled={!$activeFile || compiling}>
-        {#if compiling}
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3" stroke-dasharray="8 4" class="spin"/></svg>
-        {:else}
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M5 3l8 5-8 5V3z" fill="currentColor"/></svg>
-        {/if}
-        <span>{compiling ? (busytexWarming ? E.compilingBusyTex : E.compiling) : E.compile}</span>
-      </button>
-      <label class="engine-picker" title={`${E.ttEngine} — ${E.ttEngineBehavior}`} bind:this={enginePickerEl}>
-        <span>{E.engine}</span>
-        <select bind:value={compileEngine} disabled={compiling}>
-          <option value="xelatex">XeLaTeX</option>
-          <option value="pdflatex">pdfLaTeX</option>
-        </select>
+      <div class="topbar-group">
+        <button class="action-btn" on:click={handleOpenDirectory} title={E.openFolder}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 13V3a1 1 0 011-1h4l2 2h4a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1z" stroke="currentColor" stroke-width="1.3"/></svg>
+          <span>{E.openFolder}</span>
+        </button>
+        <button class="action-btn" on:click={handleOpenFile} title={E.ttOpenFileShortcut}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 1h5l4 4v9a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1z" stroke="currentColor" stroke-width="1.3"/><path d="M9 1v4h4" stroke="currentColor" stroke-width="1.3"/></svg>
+          <span>{E.openFile}</span>
+        </button>
+        <button class="action-btn" on:click={handleSaveFile} title={E.ttSaveShortcut} disabled={!$activeFile}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M12.5 14H3.5a1 1 0 01-1-1V3a1 1 0 011-1h7l3 3v8a1 1 0 01-1 1z" stroke="currentColor" stroke-width="1.3"/><path d="M11.5 14v-4h-7v4" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 2v3h4" stroke="currentColor" stroke-width="1.3"/></svg>
+          <span>{E.save}</span>
+        </button>
+      </div>
+      <div class="separator"></div>
+      <div class="topbar-group">
+        <button class="action-btn accent" on:click={compilePreview} title={E.ttCompileShortcut} disabled={!$activeFile || compiling}>
+          {#if compiling}
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3" stroke-dasharray="8 4" class="spin"/></svg>
+          {:else}
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M5 3l8 5-8 5V3z" fill="currentColor"/></svg>
+          {/if}
+          <span>{compiling ? (busytexWarming ? E.compilingBusyTex : E.compiling) : E.compile}</span>
+        </button>
+        <label class="engine-picker" title={`${E.ttEngine} — ${E.ttEngineBehavior}`} bind:this={enginePickerEl}>
+          <span>{E.engine}</span>
+          <select bind:value={compileEngine} disabled={compiling}>
+            <option value="xelatex">XeLaTeX</option>
+            <option value="pdflatex">pdfLaTeX</option>
+          </select>
+          <button
+            type="button"
+            class="engine-help-btn"
+            title={E.ttEngineBehavior}
+            aria-label={E.ttEngineBehavior}
+            on:click={() => (showEngineHelp = !showEngineHelp)}
+          >?</button>
+          {#if showEngineHelp}
+            <div class="engine-help-pop">{E.ttEngineBehavior}</div>
+          {/if}
+        </label>
+        <label class="engine-picker" title={E.ttCompileMode}>
+          <span>{E.compileMode}</span>
+          <select bind:value={compileMainMode} disabled={compiling}>
+            <option value="active-tab">{E.optActiveTab}</option>
+            <option value="entry-point">{E.optEntryPoint}</option>
+          </select>
+        </label>
+      </div>
+      <div class="separator"></div>
+      <div class="topbar-group">
+        <button class="action-btn" class:git-active={$gitEnabled} on:click={() => gitPanelOpen.update(v => !v)} title={E.ttGitShortcut} disabled={!$projectHandle}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M15 5.5a3.5 3.5 0 01-5.55 2.83L6.83 11H5v1.5H3.5V14H1v-2.5l5.17-5.17A3.5 3.5 0 1115 5.5zm-2 0a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" fill="currentColor"/></svg>
+          <span>{E.git}</span>
+          {#if $gitChangeCount > 0}<span class="git-change-badge">{$gitChangeCount}</span>{/if}
+        </button>
         <button
-          type="button"
-          class="engine-help-btn"
-          title={E.ttEngineBehavior}
-          aria-label={E.ttEngineBehavior}
-          on:click={() => (showEngineHelp = !showEngineHelp)}
-        >?</button>
-        {#if showEngineHelp}
-          <div class="engine-help-pop">{E.ttEngineBehavior}</div>
-        {/if}
-      </label>
-      <label class="engine-picker" title={E.ttCompileMode}>
-        <span>{E.compileMode}</span>
-        <select bind:value={compileMainMode} disabled={compiling}>
-          <option value="active-tab">{E.optActiveTab}</option>
-          <option value="entry-point">{E.optEntryPoint}</option>
-        </select>
-      </label>
+          class="action-btn"
+          class:collab-active={$collabPanelOpen || $collabActive}
+          on:click={() => collabPanelOpen.update((v) => !v)}
+          title={E.collabTooltip}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="6" cy="6" r="2.5" stroke="currentColor" stroke-width="1.2"/><path d="M1 13c0-2.2 2.2-4 5-4s5 1.8 5 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="11.5" cy="5" r="2" stroke="currentColor" stroke-width="1.1"/><path d="M14.5 12c0-1.7-1.3-3-3-3" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+          <span>{E.collab}</span>
+        </button>
+      </div>
       <div class="separator"></div>
-      <button class="action-btn" class:git-active={$gitEnabled} on:click={() => gitPanelOpen.update(v => !v)} title={E.ttGitShortcut} disabled={!$projectHandle}>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M15 5.5a3.5 3.5 0 01-5.55 2.83L6.83 11H5v1.5H3.5V14H1v-2.5l5.17-5.17A3.5 3.5 0 1115 5.5zm-2 0a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" fill="currentColor"/></svg>
-        <span>{E.git}</span>
-        {#if $gitChangeCount > 0}<span class="git-change-badge">{$gitChangeCount}</span>{/if}
-      </button>
-      <button
-        class="action-btn"
-        class:collab-active={$collabPanelOpen || $collabActive}
-        on:click={() => collabPanelOpen.update((v) => !v)}
-        title={E.collabTooltip}
-      >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="6" cy="6" r="2.5" stroke="currentColor" stroke-width="1.2"/><path d="M1 13c0-2.2 2.2-4 5-4s5 1.8 5 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="11.5" cy="5" r="2" stroke="currentColor" stroke-width="1.1"/><path d="M14.5 12c0-1.7-1.3-3-3-3" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
-        <span>{E.collab}</span>
-      </button>
-      <ThemeToggle />
-      <LanguageSwitch />
-      <div class="separator"></div>
-      <a href="https://github.com/vanabel/texbrain" target="_blank" rel="noopener" class="action-btn" title={E.github}>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-      </a>
+      <div class="topbar-group">
+        <button class="action-btn" on:click={() => commandPaletteOpen.set(true)} title={E.ttCommandPalette}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.2"/><path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+          <kbd>⌘K</kbd>
+        </button>
+        <button
+          class="action-btn"
+          class:collab-active={isFullscreen}
+          on:click={toggleFullscreen}
+          title={E.ttFullscreen}
+          aria-pressed={isFullscreen}
+        >
+          {#if isFullscreen}
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 2.5H2.5V6M10 2.5h3.5V6M6 13.5H2.5V10M10 13.5h3.5V10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          {:else}
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M2.5 10v3.5H6M10 13.5h3.5V10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          {/if}
+        </button>
+        <ThemeToggle />
+        <LanguageSwitch />
+        <a href="https://github.com/vanabel/texbrain" target="_blank" rel="noopener" class="action-btn" title={E.github}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        </a>
+      </div>
     </div>
   </header>
 
@@ -1769,7 +1847,8 @@
     {/if}
 
     <div class="workspace">
-      <div class="editor-chrome">
+      <div class="editor-chrome" class:aligned={alignChrome}>
+        <div class="chrome-side chrome-editor" style={alignChrome ? editorPaneStyle : ''}>
         <div class="toolbar-group">
           {#if !$sidebarOpen || isMobile}
             <button class="tool-btn edge-toggle" class:active={$sidebarOpen} on:click={() => sidebarOpen.update(v => !v)} title={E.ttSidebar} aria-label={E.ttSidebar}>
@@ -1794,18 +1873,52 @@
           >{E.ttVim}</button>
         </div>
         <TabBar />
-        <div class="toolbar-group">
-          <button class="tool-btn" on:click={() => commandPaletteOpen.set(true)} title={E.ttCommandPalette}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.2"/><path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-            <kbd>⌘K</kbd>
-          </button>
-          {#if !($activeFile && $previewOpen)}
-            <div class="tool-sep"></div>
-            <button class="tool-btn edge-toggle" class:active={$previewOpen} on:click={togglePreview} title={E.ttPreview} aria-label={E.ttPreview}>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2.5" width="13" height="11" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M10.5 2.5v11" stroke="currentColor" stroke-width="1.2"/></svg>
-            </button>
-          {/if}
         </div>
+        {#if alignChrome}
+          <div class="chrome-split" aria-hidden="true"></div>
+        {/if}
+        {#if $activeFile && $previewOpen}
+          <div class="chrome-side chrome-preview" style={alignChrome ? previewPaneStyle : ''}>
+          <div class="toolbar-group preview-header">
+            <button class="preview-tab" class:active={$previewTab === 'preview'} on:click={() => previewTab.set('preview')}>
+              {E.tabPreview}
+              {#if $pdfStale && pdfData}
+                <span class="stale-badge" title={E.pdfStaleTitle}>{E.pdfStaleBadge}</span>
+              {/if}
+            </button>
+            <button class="preview-tab" class:active={$previewTab === 'log'} on:click={() => previewTab.set('log')}>
+              {E.tabLog}
+              {#if displayErrors.length > 0}
+                <span class="error-badge has-errors">{displayErrors.length}</span>
+              {:else if displayWarnings.length > 0}
+                <span class="error-badge">{displayWarnings.length}</span>
+              {/if}
+            </button>
+            <button class="preview-tab" class:active={$previewTab === 'steps'} on:click={() => previewTab.set('steps')}>{E.tabSteps}</button>
+            <div class="preview-zoom"></div>
+            {#if pdfData}
+              <button class="preview-tab save-pdf" on:click={savePdf} title={E.ttSavePdf}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M4 7l4 4 4-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12v2h12v-2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span style="font-size:11px;margin-left:3px">{E.savePdf}</span>
+              </button>
+            {/if}
+            {#if hasDownloadableBbl()}
+              <button class="preview-tab save-pdf" on:click={saveBbl} title={E.ttDownloadBbl}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M4 7l4 4 4-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12v2h12v-2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span style="font-size:11px;margin-left:3px">{E.downloadBbl}</span>
+              </button>
+            {/if}
+          </div>
+          <div class="chrome-spacer"></div>
+          <button class="tool-btn edge-toggle" class:active={$previewOpen} on:click={togglePreview} title={E.ttPreview} aria-label={E.ttPreview}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2.5" width="13" height="11" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M10.5 2.5v11" stroke="currentColor" stroke-width="1.2"/></svg>
+          </button>
+          </div>
+        {:else}
+          <button class="tool-btn edge-toggle preview-edge" class:active={$previewOpen} on:click={togglePreview} title={E.ttPreview} aria-label={E.ttPreview}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2.5" width="13" height="11" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M10.5 2.5v11" stroke="currentColor" stroke-width="1.2"/></svg>
+          </button>
+        {/if}
       </div>
       <div class="editor-area" class:stacked={splitLayout && stackLayout} bind:this={editorAreaEl}>
         {#if $activeFile && activeIsDrawio && $editorOpen}
@@ -1833,51 +1946,6 @@
             <Resizer axis={stackLayout ? 'y' : 'x'} on:resize={(e) => handleResizeDelta(e.detail.delta)} on:resizestart={handleResizeStart} on:resizeend={handleResizeEnd} />
           {/if}
           <div class="preview-pane" class:preview-full={!splitLayout} style={previewPaneStyle}>
-            <div class="preview-header">
-              <button class="preview-tab" class:active={$previewTab === 'preview'} on:click={() => previewTab.set('preview')}>
-                {E.tabPreview}
-                {#if $pdfStale && pdfData}
-                  <span class="stale-badge" title={E.pdfStaleTitle}>{E.pdfStaleBadge}</span>
-                {/if}
-              </button>
-              <button class="preview-tab" class:active={$previewTab === 'errors'} on:click={() => previewTab.set('errors')}>
-                {E.tabErrors}
-                {#if displayErrors.length > 0}
-                  <span class="error-badge has-errors">{displayErrors.length}</span>
-                {/if}
-              </button>
-              <button class="preview-tab" class:active={$previewTab === 'warnings'} on:click={() => previewTab.set('warnings')}>
-                {E.tabWarnings}
-                {#if displayWarnings.length > 0}
-                  <span class="error-badge">{displayWarnings.length}</span>
-                {/if}
-              </button>
-              <button class="preview-tab" class:active={$previewTab === 'log'} on:click={() => previewTab.set('log')}>{E.tabLog}</button>
-              <button class="preview-tab" class:active={$previewTab === 'steps'} on:click={() => previewTab.set('steps')}>{E.tabSteps}</button>
-              <div class="preview-zoom"></div>
-              <div class="preview-spacer"></div>
-              {#if pdfData}
-                <button class="preview-tab save-pdf" on:click={savePdf} title={E.ttSavePdf}>
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M4 7l4 4 4-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12v2h12v-2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                  <span style="font-size:11px;margin-left:3px">{E.savePdf}</span>
-                </button>
-              {/if}
-              {#if $compileLog.length > 0}
-                <button class="preview-tab save-pdf" on:click={copyCompileLog} title={E.ttCopyLog}>
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="5" y="3" width="8" height="10" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="3" y="5" width="8" height="10" rx="1" stroke="currentColor" stroke-width="1.2"/></svg>
-                  <span style="font-size:11px;margin-left:3px">{E.copyLog}</span>
-                </button>
-              {/if}
-              {#if hasDownloadableBbl()}
-                <button class="preview-tab save-pdf" on:click={saveBbl} title={E.ttDownloadBbl}>
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M4 7l4 4 4-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12v2h12v-2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                  <span style="font-size:11px;margin-left:3px">{E.downloadBbl}</span>
-                </button>
-              {/if}
-              <button class="tool-btn edge-toggle" class:active={$previewOpen} on:click={togglePreview} title={E.ttPreview} aria-label={E.ttPreview}>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2.5" width="13" height="11" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M10.5 2.5v11" stroke="currentColor" stroke-width="1.2"/></svg>
-              </button>
-            </div>
             {#if $previewTab === 'preview'}
               <div class="preview-content" class:is-stale={$pdfStale && !!pdfData}>
                 {#if $pdfStale && pdfData}
@@ -1887,80 +1955,6 @@
                   {#await import('$lib/ui/PdfViewer.svelte') then { default: PdfViewer }}
                     <PdfViewer bind:this={pdfViewer} {pdfData} synctexPdfNavigate={handleSynctexPdfNavigate} />
                   {/await}
-                {/if}
-              </div>
-            {:else if $previewTab === 'errors'}
-              <div class="errors-content">
-                {#if displayErrors.length === 0}
-                  <div class="preview-empty"><p>{E.noErrors}</p></div>
-                {:else}
-                  {#if firstFatal}
-                    <button
-                      type="button"
-                      class="error-item is-error first-fatal"
-                      on:click={() => jumpToDiagnostic(firstFatal)}
-                    >
-                      <span class="error-type-badge err-badge">!</span>
-                      <div class="error-text">
-                        <span class="fatal-label">{E.firstFatal}</span>
-                        <span class="error-msg">{firstFatal.message}</span>
-                        {#if firstFatal.context}
-                          <div class="error-context">{firstFatal.context}</div>
-                        {/if}
-                      </div>
-                      <span class="error-line">
-                        {#if firstFatal.file}{firstFatal.file}:{/if}{#if firstFatal.line}{E.linePrefix} {firstFatal.line}{/if}
-                      </span>
-                    </button>
-                  {/if}
-                  {#each displayErrors.filter((e) => e !== firstFatal) as err, i (`e-${i}-${err.message}-${err.line ?? ''}`)}
-                    <button
-                      type="button"
-                      class="error-item is-error"
-                      class:clickable={!!err.line}
-                      on:click={() => jumpToDiagnostic(err)}
-                    >
-                      <span class="error-type-badge err-badge">E</span>
-                      <div class="error-text">
-                        {#if 'source' in err && err.source === 'latex'}
-                          <span class="diag-source">{E.diagnosticStatic}</span>
-                        {/if}
-                        <span class="error-msg">{err.message}</span>
-                        {#if err.context}
-                          <div class="error-context">{err.context}</div>
-                        {/if}
-                      </div>
-                      <span class="error-line">
-                        {#if err.file}{err.file} {/if}{#if err.line}{E.linePrefix} {err.line}{/if}
-                      </span>
-                    </button>
-                  {/each}
-                {/if}
-              </div>
-            {:else if $previewTab === 'warnings'}
-              <div class="errors-content">
-                {#if displayWarnings.length === 0}
-                  <div class="preview-empty"><p>{E.noWarnings}</p></div>
-                {:else}
-                  {#each displayWarnings as warn, i (`w-${i}-${warn.message}-${warn.line ?? ''}`)}
-                    <button
-                      type="button"
-                      class="error-item is-warning"
-                      class:clickable={!!warn.line}
-                      on:click={() => jumpToDiagnostic(warn)}
-                    >
-                      <span class="error-type-badge warn-badge">W</span>
-                      <div class="error-text">
-                        {#if 'source' in warn && warn.source === 'latex'}
-                          <span class="diag-source">{E.diagnosticStatic}</span>
-                        {/if}
-                        <span class="error-msg">{warn.message}</span>
-                      </div>
-                      <span class="error-line">
-                        {#if warn.file}{warn.file} {/if}{#if warn.line}{E.linePrefix} {warn.line}{/if}
-                      </span>
-                    </button>
-                  {/each}
                 {/if}
               </div>
             {:else if $previewTab === 'log'}
@@ -1999,12 +1993,14 @@
                         {item.kind === 'error' ? 'E' : 'W'}
                       </span>
                       <div class="error-text">
-                        {#if item.source === 'latex'}
-                          <span class="diag-source">{E.diagnosticStatic}</span>
-                        {:else if item.source === 'compiler' || !item.source}
-                          <span class="diag-source">{E.diagnosticCompiler}</span>
-                        {/if}
-                        <span class="error-msg">{item.message}</span>
+                        <div class="error-lead">
+                          {#if item.source === 'latex'}
+                            <span class="diag-source">{E.diagnosticStatic}</span>
+                          {:else if item.source === 'compiler' || !item.source}
+                            <span class="diag-source">{E.diagnosticCompiler}</span>
+                          {/if}
+                          <span class="error-msg">{item.message}</span>
+                        </div>
                         {#if item.context}
                           <div class="error-context">{item.context}</div>
                         {/if}
@@ -2015,7 +2011,15 @@
                     </button>
                   {/each}
                 {/if}
-                <div class="log-section-head">{E.logRawHeading}</div>
+                <div class="log-section-head">
+                  <span>{E.logRawHeading}</span>
+                  {#if $compileLog.length > 0}
+                    <button type="button" class="log-copy" on:click={copyCompileLog} title={E.ttCopyLog}>
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="5" y="3" width="8" height="10" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="3" y="5" width="8" height="10" rx="1" stroke="currentColor" stroke-width="1.2"/></svg>
+                      <span>{E.copyLog}</span>
+                    </button>
+                  {/if}
+                </div>
                 <div class="log-content log-raw">
                   {#each $compileLog as entry}
                     <div class="log-entry" class:error={entry.includes('[Error]') || entry.includes('!')} class:success={entry.includes('successful')}>{entry}</div>
@@ -2175,7 +2179,8 @@
   .save-dot.saved { background: var(--success); }
   .save-dot.unsaved { background: var(--accent); }
 
-  .topbar-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; flex-wrap: nowrap; }
+  .topbar-actions { display: flex; align-items: center; gap: 0; flex-shrink: 0; flex-wrap: nowrap; }
+  .topbar-group { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
   .action-btn { display: flex; align-items: center; gap: 5px; padding: 5px 10px; font-size: 11.5px; font-weight: 500; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
   .action-btn:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
   .action-btn:disabled { opacity: 0.35; cursor: default; }
@@ -2183,7 +2188,7 @@
   .action-btn.accent:hover:not(:disabled) { background: var(--accent-hover); color: #111; }
   .action-btn span { display: none; }
   @media (min-width: 768px) { .action-btn span { display: inline; } }
-  .engine-picker { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text-muted); margin-left: 4px; white-space: nowrap; flex-shrink: 0; }
+  .engine-picker { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text-muted); margin-left: 6px; white-space: nowrap; flex-shrink: 0; }
   .engine-picker { position: relative; }
   .engine-picker select {
     background: var(--bg-hover);
@@ -2223,9 +2228,19 @@
     z-index: 20;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
   }
-  .separator { width: 1px; height: 16px; background: var(--border); margin: 0 3px; }
+  .separator { width: 1px; height: 16px; background: var(--border); margin: 0 8px; flex-shrink: 0; }
 
   .editor-chrome { height: 32px; background: var(--bg-surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0; flex-shrink: 0; gap: 2px; min-width: 0; flex-wrap: nowrap; overflow-x: auto; }
+  .editor-chrome.aligned { gap: 0; overflow: hidden; }
+  .chrome-side { display: flex; align-items: center; min-width: 0; height: 100%; }
+  .chrome-editor { flex: 1; overflow: hidden; }
+  .editor-chrome.aligned .chrome-editor,
+  .editor-chrome.aligned .chrome-preview { flex: 0 0 auto; overflow-x: auto; }
+  .chrome-preview { flex: 0 0 auto; margin-left: auto; }
+  .editor-chrome.aligned .chrome-preview { margin-left: 0; }
+  .chrome-split { width: 3px; align-self: stretch; flex-shrink: 0; background: var(--border); }
+  .chrome-spacer { flex: 1; min-width: 8px; }
+  .preview-edge { margin-left: auto; }
   .toolbar-group:first-child { padding-left: 4px; }
   .toolbar-group:first-child:has(.edge-toggle) { padding-left: 0; }
   .editor-chrome :global(.tab-bar) { flex: 1; min-width: 0; height: 100%; background: transparent; border-bottom: none; }
@@ -2250,12 +2265,20 @@
   .resize-overlay.row { cursor: row-resize; }
   .cm-wrapper { flex: 1; overflow: hidden; }
   .cm-wrapper :global(.cm-editor) { height: 100%; }
+  .cm-wrapper :global(.cm-scroller) {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .cm-wrapper :global(.cm-scroller)::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
 
   .preview-pane { display: flex; flex-direction: column; flex: 1; min-width: 280px; overflow: hidden; background: var(--bg-elevated); }
-  .preview-header { display: flex; align-items: center; height: 32px; border-bottom: 1px solid var(--border); padding: 0 3px; flex-shrink: 0; min-width: 0; overflow-x: auto; flex-wrap: nowrap; }
+  .editor-chrome .preview-header { height: 100%; border-bottom: none; padding: 0; overflow: visible; }
   .preview-zoom { display: flex; align-items: center; flex-shrink: 0; min-width: 0; }
   .preview-zoom:empty { display: none; }
-  .preview-spacer { flex: 1; min-width: 8px; }
   .preview-tab { padding: 5px 12px; font-size: 11px; font-weight: 500; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
   .preview-tab:hover { color: var(--text-secondary); }
   .preview-tab.active { color: var(--text-primary); background: var(--bg-hover); }
@@ -2271,6 +2294,9 @@
   }
   .log-section-head {
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
     padding: 8px 10px 4px;
     font-size: 10px;
     font-weight: 600;
@@ -2279,6 +2305,19 @@
     color: var(--text-muted);
     border-bottom: 1px solid var(--border);
   }
+  .log-copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--text-secondary);
+  }
+  .log-copy:hover { color: var(--text-primary); background: var(--bg-hover); }
   .log-structured .error-item {
     flex-shrink: 0;
   }
@@ -2403,13 +2442,19 @@
     color: var(--error, #e06c75);
     margin-bottom: 2px;
   }
+  .error-lead {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    min-width: 0;
+  }
   .diag-source {
-    display: inline-block;
+    flex-shrink: 0;
     font-size: 9px;
+    line-height: 1.6;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--text-muted);
-    margin-right: 6px;
     border: 1px solid var(--border);
     border-radius: 3px;
     padding: 0 4px;
@@ -2455,7 +2500,7 @@
     flex-direction: column;
     gap: 3px;
   }
-  .error-msg { color: var(--text-primary); word-break: break-word; }
+  .error-msg { flex: 1; min-width: 0; color: var(--text-primary); white-space: normal; word-break: break-word; }
   .error-context {
     font-family: ui-monospace, monospace;
     font-size: 10.5px;

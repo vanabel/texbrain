@@ -18,6 +18,9 @@
   let bibFilter = '';
   let eqFilter = '';
   let labelFilter = '';
+  let openCitations = true;
+  let openLabels = true;
+  let openEquations = true;
 
   $: filteredBib = bibFilter.trim()
     ? bibKeys.filter(
@@ -81,11 +84,20 @@
 </script>
 
 <div class="refs-panel">
-  <section class="refs-section">
-    <div class="refs-section-head">
+  <section class="refs-section" class:collapsed={!openCitations}>
+    <button
+      type="button"
+      class="refs-section-head"
+      aria-expanded={openCitations}
+      on:click={() => (openCitations = !openCitations)}
+    >
+      <svg width="10" height="10" viewBox="0 0 10 10" class="chevron" class:open={openCitations} aria-hidden="true">
+        <path d="M3 2l4 3-4 3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
       <span class="refs-section-title">{E.refsCitations}</span>
       <span class="refs-count">{filteredBib.length}</span>
-    </div>
+    </button>
+    {#if openCitations}
     {#if !hasProject}
       <p class="refs-empty">{E.refsNoProject}</p>
     {:else if bibKeys.length === 0}
@@ -125,13 +137,23 @@
         {/each}
       </ul>
     {/if}
+    {/if}
   </section>
 
-  <section class="refs-section">
-    <div class="refs-section-head">
+  <section class="refs-section" class:collapsed={!openLabels}>
+    <button
+      type="button"
+      class="refs-section-head"
+      aria-expanded={openLabels}
+      on:click={() => (openLabels = !openLabels)}
+    >
+      <svg width="10" height="10" viewBox="0 0 10 10" class="chevron" class:open={openLabels} aria-hidden="true">
+        <path d="M3 2l4 3-4 3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
       <span class="refs-section-title">{E.refsLabels}</span>
       <span class="refs-count">{filteredLabels.length}</span>
-    </div>
+    </button>
+    {#if openLabels}
     {#if !hasProject}
       <p class="refs-empty">{E.refsNoProject}</p>
     {:else if labels.length === 0}
@@ -171,13 +193,23 @@
         {/each}
       </ul>
     {/if}
+    {/if}
   </section>
 
-  <section class="refs-section">
-    <div class="refs-section-head">
+  <section class="refs-section" class:collapsed={!openEquations}>
+    <button
+      type="button"
+      class="refs-section-head"
+      aria-expanded={openEquations}
+      on:click={() => (openEquations = !openEquations)}
+    >
+      <svg width="10" height="10" viewBox="0 0 10 10" class="chevron" class:open={openEquations} aria-hidden="true">
+        <path d="M3 2l4 3-4 3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
       <span class="refs-section-title">{E.refsEquations}</span>
       <span class="refs-count">{filteredEq.length}</span>
-    </div>
+    </button>
+    {#if openEquations}
     {#if !hasProject}
       <p class="refs-empty">{E.refsNoProject}</p>
     {:else if uniqueEquations.length === 0}
@@ -221,6 +253,7 @@
         {/each}
       </ul>
     {/if}
+    {/if}
   </section>
 </div>
 
@@ -239,17 +272,40 @@
     flex-direction: column;
     border-bottom: 1px solid var(--border);
   }
+  .refs-section.collapsed {
+    flex: 0 0 auto;
+  }
   .refs-section:last-child {
     border-bottom: none;
   }
   .refs-section-head {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 8px 10px 4px;
+    gap: 6px;
+    width: 100%;
+    padding: 8px 10px;
     flex-shrink: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+  }
+  .refs-section-head:hover {
+    background: var(--bg-hover);
+  }
+  .chevron {
+    flex-shrink: 0;
+    color: var(--text-muted);
+    transition: transform 100ms ease;
+  }
+  .chevron.open {
+    transform: rotate(90deg);
   }
   .refs-section-title {
+    flex: 1;
+    min-width: 0;
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.06em;

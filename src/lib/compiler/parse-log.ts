@@ -54,26 +54,52 @@ function isSuppressedWarning(msg: string): boolean {
   return patterns.some((p) => p.test(msg));
 }
 
+/** LaTeX wraps long warnings onto indented or `(package)` continuation lines. */
+function joinWrappedWarning(rows: string[], start: number): { text: string; end: number } {
+  const parts = [rows[start].trim()];
+  let end = start;
+  for (let j = start + 1; j < rows.length; j++) {
+    const raw = rows[j];
+    const trimmed = raw.trim();
+    if (!trimmed) break;
+    if (/^(?:LaTeX|Package \w+) Warning:/i.test(trimmed)) break;
+    if (trimmed.startsWith('! ') || /^pdfTeX warning:/i.test(trimmed)) break;
+    const indented = /^\s+\S/.test(raw);
+    const pkgCont = /^\([A-Za-z][\w.-]*\)\s+\S/.test(trimmed);
+    if (!indented && !pkgCont) break;
+    const piece = pkgCont ? trimmed.replace(/^\([A-Za-z][\w.-]*\)\s+/, '') : trimmed;
+    if (!piece) break;
+    parts.push(piece);
+    end = j;
+  }
+  return { text: parts.join(' '), end };
+}
+
 function collectWarningsFromText(
   text: string,
   defaultFile: string
 ): CompileDiagnostic[] {
   const out: CompileDiagnostic[] = [];
+  const rows = text.split('\n');
   let currentFile = defaultFile;
-  for (const row of text.split('\n')) {
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
     const opening = /\((?:\.\/)?([^\s()]+\.tex)\b/.exec(row);
     if (opening) currentFile = opening[1];
     const trimmed = row.trim();
     if (/LaTeX Warning:/i.test(trimmed) || /Package \w+ Warning:/i.test(trimmed)) {
-      const warnMatch = trimmed.match(/Warning:\s*(.+)/i);
-      const msg = warnMatch ? warnMatch[1] : trimmed;
-      if (isSuppressedWarning(trimmed) || isSuppressedWarning(msg)) continue;
+      const joined = joinWrappedWarning(rows, i);
+      i = joined.end;
+      const full = joined.text;
+      const warnMatch = full.match(/Warning:\s*(.+)/i);
+      const msg = warnMatch ? warnMatch[1] : full;
+      if (isSuppressedWarning(full) || isSuppressedWarning(msg)) continue;
       let lineNum: number | undefined;
-      const lm = trimmed.match(/on input line (\d+)/);
+      const lm = full.match(/on input line (\d+)/);
       if (lm) lineNum = parseInt(lm[1], 10);
       out.push({
         type: 'warning',
-        message: msg.replace(/\s+$/, ''),
+        message: msg.replace(/\s+/g, ' ').trim(),
         line: lineNum,
         file: currentFile
       });

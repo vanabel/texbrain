@@ -107,7 +107,7 @@ export function latexDiagnostics(
       .map((reference) => diagnostic(reference, `Undefined reference: ${reference.key}`)),
     ...(bibliographyKeys.size > 0
       ? citations
-          .filter((citation) => !bibliographyKeys.has(citation.key))
+          .filter((citation) => citation.key !== '*' && !bibliographyKeys.has(citation.key))
           .map((citation) => diagnostic(citation, `Undefined citation: ${citation.key}`))
       : []),
   ].sort(

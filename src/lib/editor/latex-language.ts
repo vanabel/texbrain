@@ -1,10 +1,69 @@
-import { StreamLanguage } from '@codemirror/language';
+import { StreamLanguage, type IndentContext } from '@codemirror/language';
+
+type EnvFrame = { name: string; verbatim: boolean };
+
+type LatexState = {
+  inMath: boolean;
+  mathDelim: string;
+  /** `\begin` / `\end` waiting for its `{name}`. */
+  pendingEnv: 'begin' | 'end' | null;
+  envStack: EnvFrame[];
+};
+
+/** Body of these stays at column 0; inner environments still indent. */
+const FLAT_ENVS = new Set(['document']);
+
+/** Contents are not reindented. The closing `\end` still lines up with `\begin`. */
+const VERBATIM_ENVS = new Set([
+  'verbatim',
+  'Verbatim',
+  'lstlisting',
+  'minted',
+  'comment',
+  'filecontents',
+  'filecontents*'
+]);
+
+function takeEnvironment(stream: any, state: LatexState): string | null | false {
+  if (state.pendingEnv) {
+    if (stream.eatSpace()) return null;
+    const nameMatch = stream.match(/^\{([^{}]*)\}/);
+    if (nameMatch) {
+      const name = nameMatch[1] as string;
+      if (!FLAT_ENVS.has(name)) {
+        if (state.pendingEnv === 'begin') {
+          state.envStack.push({ name, verbatim: VERBATIM_ENVS.has(name) });
+        } else if (state.envStack.length) {
+          state.envStack.pop();
+        }
+      }
+      state.pendingEnv = null;
+      return 'typeName';
+    }
+    state.pendingEnv = null;
+  }
+  const cmd = stream.match(/^\\(begin|end)\b/);
+  if (!cmd) return false;
+  state.pendingEnv = cmd[1] === 'begin' ? 'begin' : 'end';
+  return 'keyword';
+}
 
 const latexStreamParser = {
-  startState() {
-    return { inMath: false, mathDelim: '' as string };
+  languageData: {
+    commentTokens: { line: '%' }
   },
-  token(stream: any, state: any): string | null {
+  startState(): LatexState {
+    return { inMath: false, mathDelim: '', pendingEnv: null, envStack: [] };
+  },
+  /** `=` / `V=` reindents from environment nesting. `document` itself stays flat. */
+  indent(state: LatexState, textAfter: string, context: IndentContext): number | null {
+    const closing = /^\s*\\end\b/.test(textAfter);
+    const depth = state.envStack.length;
+    if (closing && depth > 0) return (depth - 1) * context.unit;
+    if (state.envStack.some((frame) => frame.verbatim)) return null;
+    return depth * context.unit;
+  },
+  token(stream: any, state: LatexState): string | null {
     if (stream.match('%')) {
       stream.skipToEnd();
       return 'comment';
@@ -48,21 +107,15 @@ const latexStreamParser = {
       return 'keyword';
     }
 
+    const envToken = takeEnvironment(stream, state);
+    if (envToken !== false) return envToken;
+
     if (state.inMath) {
       if (stream.match(/^\\[a-zA-Z@]+/)) return 'atom';
       if (stream.match(/^[{}]/)) return 'bracket';
       if (stream.match(/^[0-9]+(\.[0-9]+)?/)) return 'number';
       stream.next();
       return 'string';
-    }
-
-    if (stream.match(/^\\(begin|end)\b/)) {
-      return 'keyword';
-    }
-
-    // environment name in braces after \begin or \end
-    if (stream.match(/^\{[a-zA-Z*]+\}/)) {
-      return 'typeName';
     }
 
     if (stream.match(/^\\[a-zA-Z@]+\*?/)) {
