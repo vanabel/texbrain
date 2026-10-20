@@ -11,6 +11,8 @@ export interface Preferences {
   autoSave: boolean;
   autoSaveDelay: number;
   previewDelay: number;
+  /** `null` follows the window width. `true` stacks the preview under the editor. */
+  splitVertical: boolean | null;
 }
 
 const defaults: Preferences = {
@@ -22,7 +24,8 @@ const defaults: Preferences = {
   emacsMode: false,
   autoSave: true,
   autoSaveDelay: 2000,
-  previewDelay: 500
+  previewDelay: 500,
+  splitVertical: null
 };
 
 function createPreferencesStore() {

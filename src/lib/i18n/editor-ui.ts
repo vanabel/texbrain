@@ -29,6 +29,7 @@ export type EditorUi = {
   cmdToggleTheme: string;
   cmdToggleVim: string;
   cmdToggleFullscreen: string;
+  cmdToggleSplit: string;
   palettePlaceholder: string;
   paletteNoResults: string;
 
@@ -81,6 +82,8 @@ export type EditorUi = {
   ttSnippetRemap: string;
   ttPreview: string;
   ttFullscreen: string;
+  ttSplitVertical: string;
+  ttSplitHorizontal: string;
   ttEditorOnly: string;
 
   // Sidebar
@@ -279,6 +282,7 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     cmdToggleTheme: 'Toggle Light / Dark',
     cmdToggleVim: 'Toggle Vim mode',
     cmdToggleFullscreen: 'Toggle fullscreen',
+    cmdToggleSplit: 'Toggle side-by-side / stacked layout',
     palettePlaceholder: 'Type a command...',
     paletteNoResults: 'No matching commands',
 
@@ -330,6 +334,8 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     ttSnippetRemap: 'Snippet jumps moved to {next} / {prev} because those keys clash with Vim.',
     ttPreview: 'Toggle Preview (Ctrl+P)',
     ttFullscreen: 'Fullscreen (Ctrl+Shift+Enter)',
+    ttSplitVertical: 'Stack editor and preview',
+    ttSplitHorizontal: 'Place editor and preview side by side',
     ttEditorOnly: 'Toggle source editor — PDF only (Ctrl+Shift+P)',
 
     sidebarTabFiles: 'Files',
@@ -519,6 +525,7 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     cmdToggleTheme: '切换浅色 / 深色',
     cmdToggleVim: '切换 Vim 模式',
     cmdToggleFullscreen: '切换全屏',
+    cmdToggleSplit: '切换左右 / 上下排列',
     palettePlaceholder: '输入命令…',
     paletteNoResults: '没有匹配的命令',
 
@@ -569,6 +576,8 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     ttSnippetRemap: '片段跳转改为 {next} / {prev}，因为原快捷键与 Vim 冲突。',
     ttPreview: '切换预览 (Ctrl+P)',
     ttFullscreen: '全屏 (Ctrl+Shift+Enter)',
+    ttSplitVertical: '上下排列代码和预览',
+    ttSplitHorizontal: '左右排列代码和预览',
     ttEditorOnly: '切换源码编辑区，仅显示 PDF (Ctrl+Shift+P)',
 
     sidebarTabFiles: '文件',

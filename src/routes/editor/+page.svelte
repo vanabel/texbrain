@@ -262,7 +262,7 @@
 
   $: isMobile = windowWidth < 900;
   $: workspaceWidth = Math.max(0, windowWidth - ($sidebarOpen && !isMobile ? SIDEBAR_W : 0));
-  $: stackLayout = workspaceWidth < STACK_BELOW;
+  $: stackLayout = $preferences.splitVertical ?? workspaceWidth < STACK_BELOW;
   $: splitLayout = $previewOpen && $editorOpen;
   $: editorPaneStyle = splitLayout ? `flex:0 0 ${editorWidth}%` : '';
   $: previewPaneStyle = splitLayout ? `flex:0 0 ${100 - editorWidth}%` : '';
@@ -1310,10 +1310,15 @@
     { id: 'theme', label: E.cmdToggleTheme, shortcut: '', action: toggleTheme, category: 'view' },
     { id: 'vim', label: E.cmdToggleVim, shortcut: '', action: toggleVimMode, category: 'edit' },
     { id: 'fullscreen', label: E.cmdToggleFullscreen, shortcut: 'Ctrl+Shift+Enter', action: toggleFullscreen, category: 'view' },
+    { id: 'splitaxis', label: E.cmdToggleSplit, shortcut: '', action: toggleSplitAxis, category: 'view' },
   ];
 
   function toggleVimMode() {
     preferences.update((prefs) => ({ ...prefs, vimMode: !prefs.vimMode }));
+  }
+
+  function toggleSplitAxis() {
+    preferences.update((prefs) => ({ ...prefs, splitVertical: !stackLayout }));
   }
 
   let isFullscreen = false;
@@ -1823,6 +1828,18 @@
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 2.5H2.5V6M10 2.5h3.5V6M6 13.5H2.5V10M10 13.5h3.5V10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
           {:else}
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M2.5 10v3.5H6M10 13.5h3.5V10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          {/if}
+        </button>
+        <button
+          class="action-btn"
+          on:click={toggleSplitAxis}
+          title={stackLayout ? E.ttSplitHorizontal : E.ttSplitVertical}
+          aria-label={stackLayout ? E.ttSplitHorizontal : E.ttSplitVertical}
+        >
+          {#if stackLayout}
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="2.5" width="5.5" height="11" rx="0.8" stroke="currentColor" stroke-width="1.3"/><rect x="9" y="2.5" width="5.5" height="11" rx="0.8" stroke="currentColor" stroke-width="1.3"/></svg>
+          {:else}
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="5.5" rx="0.8" stroke="currentColor" stroke-width="1.3"/><rect x="1.5" y="9" width="13" height="5.5" rx="0.8" stroke="currentColor" stroke-width="1.3"/></svg>
           {/if}
         </button>
         <ThemeToggle />
