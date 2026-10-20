@@ -127,8 +127,29 @@
   <section class="features">
     <div class="features-inner">
       <h2 class="features-heading">{L.featuresHeading}</h2>
+      {#if L.features[0]?.points}
+        <article class="feature-lead">
+          <div>
+            <h3>{L.features[0].title}</h3>
+            <p>{L.features[0].body}</p>
+          </div>
+          <ul class="feature-points">
+            {#each L.features[0].points as point}
+              <li>
+                {#each point.split(/(`[^`]+`)/) as part}
+                  {#if part.startsWith('`') && part.endsWith('`')}
+                    <code>{part.slice(1, -1)}</code>
+                  {:else}
+                    {part}
+                  {/if}
+                {/each}
+              </li>
+            {/each}
+          </ul>
+        </article>
+      {/if}
       <div class="features-grid">
-        {#each L.features as feat}
+        {#each L.features.slice(L.features[0]?.points ? 1 : 0) as feat}
           <div class="feature">
             <h3>{feat.title}</h3>
             <p>{feat.body}</p>
@@ -452,26 +473,96 @@
     font-size: 24px;
     font-weight: 600;
     color: var(--text-primary);
-    margin-bottom: 40px;
+    margin-bottom: 28px;
     letter-spacing: -0.02em;
+  }
+
+  .feature-lead {
+    display: grid;
+    grid-template-columns: minmax(220px, 280px) 1fr;
+    gap: 12px 48px;
+    align-items: start;
+    margin-bottom: 16px;
+    padding: 28px 32px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-surface);
+  }
+
+  .feature-lead h3 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+    margin: 0 0 8px;
+  }
+
+  .feature-lead p {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+  }
+
+  .feature-points {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 28px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .feature-points li {
+    position: relative;
+    padding-left: 14px;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--text-primary);
+  }
+
+  .feature-points li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .feature-points code {
+    font-family: var(--font-editor);
+    font-size: 0.92em;
+    color: var(--syntax-command);
   }
 
   .features-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 32px;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .features-grid .feature {
+    background: var(--bg-deep);
+    padding: 20px 22px 22px;
   }
 
   .feature h3 {
     font-size: 14px;
     font-weight: 600;
     color: var(--text-primary);
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
 
   .feature p {
     font-size: 13px;
-    line-height: 1.6;
+    line-height: 1.55;
     color: var(--text-secondary);
   }
 
@@ -654,9 +745,10 @@
       padding: 48px 20px;
     }
 
+    .feature-lead,
+    .feature-points,
     .features-grid {
       grid-template-columns: 1fr;
-      gap: 24px;
     }
 
     .demo-content {

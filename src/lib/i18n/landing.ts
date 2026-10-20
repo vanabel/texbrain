@@ -28,7 +28,7 @@ export const landingCopy: Record<
     demoTexSection: string;
     demoTexHello: string;
     featuresHeading: string;
-    features: { title: string; body: string }[];
+    features: { title: string; body: string; points?: string[] }[];
     footerPrivacy: string;
     footerTerms: string;
     footerImprint: string;
@@ -56,7 +56,8 @@ export const landingCopy: Record<
       'Built-in git integration',
       'Real-time collaboration',
       'Works offline',
-      'Local file system access'
+      'Local file system access',
+      'Math and environment completion, snippet jumps, and optional Vim mode'
     ],
     navOpenEditor: 'Open Editor',
     langSwitchLabel: 'Language',
@@ -75,28 +76,38 @@ export const landingCopy: Record<
     featuresHeading: 'What you get',
     features: [
       {
+        title: 'Completions as you type',
+        body: 'The cursor is already inside the formula.',
+        points: [
+          '`\\[` `\\(` `$$` `\\begin` close around the cursor',
+          '`Ctrl+J` next field, `Ctrl+K` previous field',
+          '`\\cites` completes keys; commands follow mathpaper',
+          'Backtick maps in math; Vim mode from the toolbar'
+        ]
+      },
+      {
         title: 'Compiles in your browser',
-        body: 'A full pdfTeX engine compiled to WebAssembly. Your .tex files turn into PDFs right here, no server involved.'
+        body: 'pdfTeX turns .tex into PDF on this machine.'
       },
       {
         title: 'Live PDF preview',
-        body: 'The PDF updates while you type. Zoom, scroll, click links. Multiple pages render side by side.'
+        body: 'See the PDF as you write. Zoom, page, and follow links.'
       },
       {
         title: 'Git built in',
-        body: 'Clone repos, make branches, commit, and push to GitHub without leaving the editor. Version control that just works.'
+        body: 'Clone, branch, commit, and push without leaving the tab.'
       },
       {
         title: 'Your files stay local',
-        body: 'Open project folders straight from your file system. Nothing gets uploaded anywhere unless you push it yourself.'
+        body: 'Open a folder on disk. Nothing is uploaded unless you push.'
       },
       {
         title: 'Collaborate live',
-        body: 'Share a join code and edit the same project together. Peer-to-peer; no account on either side.'
+        body: 'A join code is enough. No account on either side.'
       },
       {
         title: 'Works offline',
-        body: 'Once loaded, the whole thing runs locally. You can keep writing on a plane or anywhere else without internet.'
+        body: 'After the page loads, writing continues without a network.'
       }
     ],
     footerPrivacy: 'Privacy',
@@ -121,7 +132,8 @@ export const landingCopy: Record<
       '内置 Git',
       '实时协作',
       '离线可用',
-      '本地文件系统访问'
+      '本地文件系统访问',
+      '数学与环境补全、片段跳转和可选 Vim 模式'
     ],
     navOpenEditor: '打开编辑器',
     langSwitchLabel: '语言',
@@ -139,28 +151,38 @@ export const landingCopy: Record<
     featuresHeading: '你能获得什么',
     features: [
       {
+        title: '边写边补全',
+        body: '公式写到一半，光标已经在里面。',
+        points: [
+          '`\\[` `\\(` `$$` `\\begin` 成对展开，光标留在中间',
+          '`Ctrl+J` 下一字段，`Ctrl+K` 上一字段',
+          '`\\cites` 补文献键；常用命令按 mathpaper',
+          '数学区反引号映射；工具栏可开 Vim 模式'
+        ]
+      },
+      {
         title: '在浏览器中编译',
-        body: '完整的 pdfTeX 引擎以 WebAssembly 运行。你的 .tex 在此直接变为 PDF，不经服务器处理。'
+        body: 'pdfTeX 在本机把 .tex 编成 PDF。'
       },
       {
         title: '实时 PDF 预览',
-        body: '输入时 PDF 随之更新。可缩放、滚动、点击链接，多页并排显示。'
+        body: '边写边看。可缩放、翻页、点链接。'
       },
       {
         title: '内置 Git',
-        body: '克隆仓库、建分支、提交并推送到 GitHub，无需离开编辑器，版本控制顺手完成。'
+        body: '克隆、分支、提交、推送，不离开这一页。'
       },
       {
         title: '文件留在本地',
-        body: '直接从本机文件系统打开项目文件夹。除非你自行推送，否则内容不会上传到别处。'
+        body: '打开本机文件夹。不推送，就不上传。'
       },
       {
         title: '实时协作',
-        body: '把加入码发给对方，即可共同编辑同一工程。点对点连接，双方都不需要注册账号。'
+        body: '用加入码同编，不用注册。'
       },
       {
         title: '离线可用',
-        body: '页面加载后整体在本地运行。在飞机上或没有网络时也可以继续写作。'
+        body: '加载之后，断网也能写。'
       }
     ],
     footerPrivacy: '隐私',
