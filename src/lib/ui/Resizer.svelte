@@ -1,21 +1,26 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
 
+  /** `x` splits left/right. `y` splits top/bottom. */
+  export let axis: 'x' | 'y' = 'x';
+
   const dispatch = createEventDispatcher<{ resize: { delta: number }; resizestart: void; resizeend: void }>();
 
   let dragging = false;
-  let startX = 0;
+  let start = 0;
 
   function onMouseDown(e: MouseEvent) {
+    const vertical = axis === 'y';
     dragging = true;
-    startX = e.clientX;
-    document.body.style.cursor = 'col-resize';
+    start = vertical ? e.clientY : e.clientX;
+    document.body.style.cursor = vertical ? 'row-resize' : 'col-resize';
     document.body.style.userSelect = 'none';
     dispatch('resizestart');
 
-    function onMouseMove(e: MouseEvent) {
-      const delta = e.clientX - startX;
-      startX = e.clientX;
+    function onMouseMove(ev: MouseEvent) {
+      const next = vertical ? ev.clientY : ev.clientX;
+      const delta = next - start;
+      start = next;
       dispatch('resize', { delta });
     }
 
@@ -36,10 +41,11 @@
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div
   class="resizer"
+  class:axis-y={axis === 'y'}
   class:active={dragging}
   on:mousedown={onMouseDown}
   role="separator"
-  aria-orientation="vertical"
+  aria-orientation={axis === 'y' ? 'horizontal' : 'vertical'}
   tabindex="-1"
 ></div>
 
@@ -50,6 +56,12 @@
     background: var(--border);
     flex-shrink: 0;
     position: relative;
+  }
+
+  .resizer.axis-y {
+    width: 100%;
+    height: 3px;
+    cursor: row-resize;
   }
 
   .resizer:hover,
@@ -64,5 +76,12 @@
     bottom: 0;
     left: -4px;
     right: -4px;
+  }
+
+  .resizer.axis-y::after {
+    left: 0;
+    right: 0;
+    top: -4px;
+    bottom: -4px;
   }
 </style>

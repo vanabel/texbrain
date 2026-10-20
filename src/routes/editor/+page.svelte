@@ -234,6 +234,10 @@
 
   let editorWidth = 50;
   let windowWidth = 1200;
+  let editorAreaEl: HTMLDivElement | null = null;
+  /** Side-by-side editor and PDF need about this much workspace width; narrower stacks them. */
+  const STACK_BELOW = 900;
+  const SIDEBAR_W = 240;
   let lastActiveFileId: string | null = null;
   let editorContainer: HTMLDivElement | null = null;
 
@@ -248,7 +252,9 @@
   let loadingBundledExample = false;
 
   $: isMobile = windowWidth < 900;
-  $: splitLayout = !isMobile && $previewOpen && $editorOpen;
+  $: workspaceWidth = Math.max(0, windowWidth - ($sidebarOpen && !isMobile ? SIDEBAR_W : 0));
+  $: stackLayout = workspaceWidth < STACK_BELOW;
+  $: splitLayout = $previewOpen && $editorOpen;
   $: editorPaneStyle = splitLayout ? `flex:0 0 ${editorWidth}%` : '';
   $: previewPaneStyle = splitLayout ? `flex:0 0 ${100 - editorWidth}%` : '';
 
@@ -256,6 +262,7 @@
     $previewOpen;
     $editorOpen;
     isMobile;
+    stackLayout;
     void tick().then(() => editorView?.requestMeasure());
   }
 
@@ -1099,8 +1106,10 @@
   function handleResizeEnd() { resizing = false; }
 
   function handleResizeDelta(delta: number) {
-    const cw = windowWidth - ($sidebarOpen ? 260 : 0);
-    editorWidth = Math.max(25, Math.min(75, editorWidth + (delta / cw) * 100));
+    const rect = editorAreaEl?.getBoundingClientRect();
+    const span = stackLayout ? rect?.height : rect?.width;
+    if (!span) return;
+    editorWidth = Math.max(25, Math.min(75, editorWidth + (delta / span) * 100));
   }
 
   function savePdf() {
@@ -1762,7 +1771,7 @@
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.2"/><path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
             <kbd>Ctrl+K</kbd>
           </button>
-          {#if !($activeFile && $previewOpen && !isMobile)}
+          {#if !($activeFile && $previewOpen)}
             <div class="tool-sep"></div>
             <button class="tool-btn edge-toggle" class:active={$previewOpen} on:click={togglePreview} title={E.ttPreview} aria-label={E.ttPreview}>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2.5" width="13" height="11" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M10.5 2.5v11" stroke="currentColor" stroke-width="1.2"/></svg>
@@ -1770,7 +1779,7 @@
           {/if}
         </div>
       </div>
-      <div class="editor-area">
+      <div class="editor-area" class:stacked={splitLayout && stackLayout} bind:this={editorAreaEl}>
         {#if $activeFile && activeIsDrawio && $editorOpen}
           <div class="editor-pane" style={editorPaneStyle}>
             {#await import('$lib/ui/DrawioEditor.svelte') then { default: DrawioEditor }}
@@ -1791,9 +1800,9 @@
           </div>
         {/if}
 
-        {#if $activeFile && $previewOpen && !isMobile}
+        {#if $activeFile && $previewOpen}
           {#if splitLayout}
-            <Resizer on:resize={(e) => handleResizeDelta(e.detail.delta)} on:resizestart={handleResizeStart} on:resizeend={handleResizeEnd} />
+            <Resizer axis={stackLayout ? 'y' : 'x'} on:resize={(e) => handleResizeDelta(e.detail.delta)} on:resizestart={handleResizeStart} on:resizeend={handleResizeEnd} />
           {/if}
           <div class="preview-pane" class:preview-full={!splitLayout} style={previewPaneStyle}>
             <div class="preview-header">
@@ -2002,7 +2011,7 @@
         {/if}
 
         {#if resizing}
-          <div class="resize-overlay"></div>
+          <div class="resize-overlay" class:row={stackLayout}></div>
         {/if}
 
         {#if !$activeFile}
@@ -2204,9 +2213,13 @@
   .sidebar { width: var(--sidebar-w); background: var(--bg-surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
   .workspace { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
   .editor-area { flex: 1; display: flex; overflow: hidden; min-height: 0; position: relative; background: var(--bg-deep); }
+  .editor-area.stacked { flex-direction: column; }
+  .editor-area.stacked .editor-pane,
+  .editor-area.stacked .preview-pane { min-width: 0; min-height: 0; width: 100%; max-width: 100%; }
   .editor-pane { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
   .preview-pane.preview-full { flex: 1; min-width: 0; width: auto; }
   .resize-overlay { position: absolute; inset: 0; z-index: 10; cursor: col-resize; }
+  .resize-overlay.row { cursor: row-resize; }
   .cm-wrapper { flex: 1; overflow: hidden; }
   .cm-wrapper :global(.cm-editor) { height: 100%; }
 
