@@ -2,7 +2,7 @@
   import FileTree from '$lib/ui/FileTree.svelte';
   import TocPanel from '$lib/ui/TocPanel.svelte';
   import ReferencesPanel from '$lib/ui/ReferencesPanel.svelte';
-  import { sidebarPanel } from '$lib/stores/app';
+  import { sidebarOpen, sidebarPanel } from '$lib/stores/app';
   import { editorUi } from '$lib/i18n/editor-ui';
   import { locale } from '$lib/i18n/locale';
 
@@ -16,6 +16,16 @@
 
 <div class="sidebar-inner">
   <div class="sidebar-tabs" role="tablist">
+    <button
+      type="button"
+      class="pane-toggle"
+      class:active={$sidebarOpen}
+      title={E.ttSidebar}
+      aria-label={E.ttSidebar}
+      on:click={() => sidebarOpen.update((v) => !v)}
+    >
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M5.5 2.5v11" stroke="currentColor" stroke-width="1.2"/></svg>
+    </button>
     <button
       type="button"
       class="sidebar-tab"
@@ -74,11 +84,32 @@
   .sidebar-tabs {
     display: flex;
     flex-shrink: 0;
+    align-items: stretch;
+    height: 32px;
     border-bottom: 1px solid var(--border);
-    padding: 0 4px;
+    padding: 0 2px 0 0;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+  .pane-toggle {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    color: var(--text-muted);
+    background: transparent;
+    border-right: 1px solid var(--border);
+  }
+  .pane-toggle:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+  .pane-toggle.active {
+    color: var(--accent);
   }
   .sidebar-tab {
-    flex: 1;
+    flex: 1 0 auto;
     min-width: 0;
     border: none;
     background: transparent;
@@ -86,11 +117,12 @@
     font-size: 11px;
     font-weight: 500;
     letter-spacing: 0.02em;
-    padding: 8px 6px;
+    padding: 0 8px;
     cursor: pointer;
     font-family: inherit;
     border-bottom: 2px solid transparent;
     margin-bottom: -1px;
+    white-space: nowrap;
   }
   .sidebar-tab:hover {
     color: var(--text);

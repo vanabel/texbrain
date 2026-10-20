@@ -1726,33 +1726,6 @@
     </div>
   </header>
 
-  <div class="toolbar">
-    <div class="toolbar-group">
-      <button class="tool-btn" class:active={$sidebarOpen} on:click={() => sidebarOpen.update(v => !v)} title={E.ttSidebar}>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2.5" width="13" height="11" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M5.5 2.5v11" stroke="currentColor" stroke-width="1.2"/></svg>
-      </button>
-      <div class="tool-sep"></div>
-      <button class="tool-btn" on:click={() => { if (editorView) insertAtCursor(editorView, '\\textbf{|}') }} title={E.ttBold}><strong style="font-size:13px">B</strong></button>
-      <button class="tool-btn" on:click={() => { if (editorView) insertAtCursor(editorView, '\\textit{|}') }} title={E.ttItalic}><em style="font-size:13px">I</em></button>
-      <button class="tool-btn" on:click={() => { if (editorView) insertAtCursor(editorView, '\\underline{|}') }} title={E.ttUnderline}><span style="font-size:13px;text-decoration:underline">U</span></button>
-      <div class="tool-sep"></div>
-      <button class="tool-btn" on:click={() => snippetPickerOpen.set(true)} title={E.ttSnippets}>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M5.5 4L2 8l3.5 4M10.5 4L14 8l-3.5 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span style="font-size:11px;margin-left:2px">{E.snippetsLabel}</span>
-      </button>
-    </div>
-    <div class="toolbar-group">
-      <button class="tool-btn" on:click={() => commandPaletteOpen.set(true)} title={E.ttCommandPalette}>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.2"/><path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-        <kbd style="margin-left:4px">Ctrl+K</kbd>
-      </button>
-      <div class="tool-sep"></div>
-      <button class="tool-btn" class:active={$previewOpen} on:click={togglePreview} title={E.ttPreview}>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2.5" width="13" height="11" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M10.5 2.5v11" stroke="currentColor" stroke-width="1.2"/></svg>
-      </button>
-    </div>
-  </div>
-
   <div class="main-area">
     {#if $sidebarOpen && !isMobile}
       <aside class="sidebar">
@@ -1766,7 +1739,37 @@
     {/if}
 
     <div class="workspace">
-      <TabBar />
+      <div class="editor-chrome">
+        <div class="toolbar-group">
+          {#if !$sidebarOpen || isMobile}
+            <button class="tool-btn edge-toggle" class:active={$sidebarOpen} on:click={() => sidebarOpen.update(v => !v)} title={E.ttSidebar} aria-label={E.ttSidebar}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2.5" width="13" height="11" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M5.5 2.5v11" stroke="currentColor" stroke-width="1.2"/></svg>
+            </button>
+            <div class="tool-sep"></div>
+          {/if}
+          <button class="tool-btn" on:click={() => { if (editorView) insertAtCursor(editorView, '\\textbf{|}') }} title={E.ttBold}><strong>B</strong></button>
+          <button class="tool-btn" on:click={() => { if (editorView) insertAtCursor(editorView, '\\textit{|}') }} title={E.ttItalic}><em>I</em></button>
+          <button class="tool-btn" on:click={() => { if (editorView) insertAtCursor(editorView, '\\underline{|}') }} title={E.ttUnderline}><span style="text-decoration:underline">U</span></button>
+          <div class="tool-sep"></div>
+          <button class="tool-btn" on:click={() => snippetPickerOpen.set(true)} title={E.ttSnippets}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M5.5 4L2 8l3.5 4M10.5 4L14 8l-3.5 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>{E.snippetsLabel}</span>
+          </button>
+        </div>
+        <TabBar />
+        <div class="toolbar-group">
+          <button class="tool-btn" on:click={() => commandPaletteOpen.set(true)} title={E.ttCommandPalette}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.2"/><path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+            <kbd>Ctrl+K</kbd>
+          </button>
+          {#if !($activeFile && $previewOpen && !isMobile)}
+            <div class="tool-sep"></div>
+            <button class="tool-btn edge-toggle" class:active={$previewOpen} on:click={togglePreview} title={E.ttPreview} aria-label={E.ttPreview}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2.5" width="13" height="11" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M10.5 2.5v11" stroke="currentColor" stroke-width="1.2"/></svg>
+            </button>
+          {/if}
+        </div>
+      </div>
       <div class="editor-area">
         {#if $activeFile && activeIsDrawio && $editorOpen}
           <div class="editor-pane" style={editorPaneStyle}>
@@ -1814,7 +1817,8 @@
               </button>
               <button class="preview-tab" class:active={$previewTab === 'log'} on:click={() => previewTab.set('log')}>{E.tabLog}</button>
               <button class="preview-tab" class:active={$previewTab === 'steps'} on:click={() => previewTab.set('steps')}>{E.tabSteps}</button>
-              <div style="flex:1"></div>
+              <div class="preview-zoom"></div>
+              <div class="preview-spacer"></div>
               {#if pdfData}
                 <button class="preview-tab save-pdf" on:click={savePdf} title={E.ttSavePdf}>
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M4 7l4 4 4-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12v2h12v-2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1833,6 +1837,9 @@
                   <span style="font-size:11px;margin-left:3px">{E.downloadBbl}</span>
                 </button>
               {/if}
+              <button class="tool-btn edge-toggle" class:active={$previewOpen} on:click={togglePreview} title={E.ttPreview} aria-label={E.ttPreview}>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2.5" width="13" height="11" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M10.5 2.5v11" stroke="currentColor" stroke-width="1.2"/></svg>
+              </button>
             </div>
             {#if $previewTab === 'preview'}
               <div class="preview-content" class:is-stale={$pdfStale && !!pdfData}>
@@ -2120,7 +2127,7 @@
 <style>
   .editor-app { height: 100vh; display: flex; flex-direction: column; background: var(--bg-deep); overflow: hidden; }
 
-  .topbar { height: var(--topbar-h); background: var(--bg-surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 10px; flex-shrink: 0; gap: 10px; }
+  .topbar { height: var(--topbar-h); background: var(--bg-surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 10px; flex-shrink: 0; gap: 10px; flex-wrap: nowrap; overflow-x: auto; }
   .topbar-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
   .logo { display: flex; align-items: center; gap: 6px; text-decoration: none; flex-shrink: 0; }
   .logo-icon { display: flex; align-items: center; color: var(--accent); }
@@ -2131,15 +2138,15 @@
   .save-dot.saved { background: var(--success); }
   .save-dot.unsaved { background: var(--accent); }
 
-  .topbar-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
-  .action-btn { display: flex; align-items: center; gap: 5px; padding: 5px 10px; font-size: 11.5px; font-weight: 500; color: var(--text-muted); }
+  .topbar-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; flex-wrap: nowrap; }
+  .action-btn { display: flex; align-items: center; gap: 5px; padding: 5px 10px; font-size: 11.5px; font-weight: 500; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
   .action-btn:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
   .action-btn:disabled { opacity: 0.35; cursor: default; }
   .action-btn.accent { background: var(--accent); color: #111; }
   .action-btn.accent:hover:not(:disabled) { background: var(--accent-hover); color: #111; }
   .action-btn span { display: none; }
   @media (min-width: 768px) { .action-btn span { display: inline; } }
-  .engine-picker { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text-muted); margin-left: 4px; }
+  .engine-picker { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text-muted); margin-left: 4px; white-space: nowrap; flex-shrink: 0; }
   .engine-picker { position: relative; }
   .engine-picker select {
     background: var(--bg-hover);
@@ -2181,9 +2188,14 @@
   }
   .separator { width: 1px; height: 16px; background: var(--border); margin: 0 3px; }
 
-  .toolbar { height: var(--toolbar-h); background: var(--bg-surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 10px; flex-shrink: 0; gap: 6px; }
-  .toolbar-group { display: flex; align-items: center; gap: 1px; }
-  .tool-btn { display: flex; align-items: center; gap: 3px; padding: 4px 7px; color: var(--text-muted); font-size: 11.5px; }
+  .editor-chrome { height: 32px; background: var(--bg-surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0; flex-shrink: 0; gap: 2px; min-width: 0; flex-wrap: nowrap; overflow-x: auto; }
+  .toolbar-group:first-child { padding-left: 4px; }
+  .toolbar-group:first-child:has(.edge-toggle) { padding-left: 0; }
+  .editor-chrome :global(.tab-bar) { flex: 1; min-width: 0; height: 100%; background: transparent; border-bottom: none; }
+  .toolbar-group { display: flex; align-items: center; gap: 1px; flex-shrink: 0; flex-wrap: nowrap; }
+  .tool-btn { display: flex; align-items: center; gap: 3px; padding: 4px 7px; color: var(--text-muted); font-size: 11.5px; white-space: nowrap; flex-shrink: 0; }
+  .edge-toggle { align-self: stretch; width: 32px; height: auto; justify-content: center; padding: 0; border-left: 1px solid var(--border); border-radius: 0; }
+  .toolbar-group:first-child .edge-toggle { border-left: none; border-right: 1px solid var(--border); }
   .tool-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
   .tool-btn.active { background: var(--accent-dim); color: var(--accent); }
   .tool-sep { width: 1px; height: 14px; background: var(--border); margin: 0 3px; }
@@ -2199,7 +2211,10 @@
   .cm-wrapper :global(.cm-editor) { height: 100%; }
 
   .preview-pane { display: flex; flex-direction: column; flex: 1; min-width: 280px; overflow: hidden; background: var(--bg-elevated); }
-  .preview-header { display: flex; align-items: center; height: 32px; border-bottom: 1px solid var(--border); padding: 0 3px; flex-shrink: 0; min-width: 0; overflow-x: auto; }
+  .preview-header { display: flex; align-items: center; height: 32px; border-bottom: 1px solid var(--border); padding: 0 3px; flex-shrink: 0; min-width: 0; overflow-x: auto; flex-wrap: nowrap; }
+  .preview-zoom { display: flex; align-items: center; flex-shrink: 0; min-width: 0; }
+  .preview-zoom:empty { display: none; }
+  .preview-spacer { flex: 1; min-width: 8px; }
   .preview-tab { padding: 5px 12px; font-size: 11px; font-weight: 500; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
   .preview-tab:hover { color: var(--text-secondary); }
   .preview-tab.active { color: var(--text-primary); background: var(--bg-hover); }

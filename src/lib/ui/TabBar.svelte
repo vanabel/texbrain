@@ -11,9 +11,8 @@
   }
 </script>
 
-{#if $files.length > 0}
-  <div class="tab-bar">
-    {#each $files as file (file.id)}
+<div class="tab-bar">
+  {#each $files as file (file.id)}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
         class="tab"
@@ -35,9 +34,8 @@
           aria-label="Close tab"
         >&#xd7;</button>
       </div>
-    {/each}
-  </div>
-{/if}
+  {/each}
+</div>
 
 <style>
   .tab-bar {

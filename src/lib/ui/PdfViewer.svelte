@@ -101,6 +101,19 @@
   type PdfZoomMode = 'page-fit' | 'width-fit' | 'actual' | 'custom';
 
   export let pdfData: Uint8Array | undefined = undefined;
+
+  function dockToolbar(node: HTMLElement) {
+    const host = node.closest('.preview-pane')?.querySelector('.preview-zoom');
+    if (host) {
+      node.classList.add('docked');
+      host.appendChild(node);
+    }
+    return {
+      destroy() {
+        node.remove();
+      }
+    };
+  }
   /** Ctrl/Cmd+click on the rendered page: PDF coordinates in points (origin bottom-left). */
   export let synctexPdfNavigate:
     | ((e: {
@@ -663,7 +676,7 @@
 
 <div class="pdf-wrap">
   {#if pdfData}
-    <div class="pdf-toolbar" role="toolbar" aria-label="PDF zoom">
+    <div class="pdf-toolbar" role="toolbar" aria-label="PDF zoom" use:dockToolbar>
       <button
         type="button"
         class="pdf-zoom-btn"
@@ -721,9 +734,16 @@
     align-items: center;
     gap: 2px;
     flex-shrink: 0;
+    flex-wrap: nowrap;
     padding: 4px 8px;
     border-bottom: 1px solid var(--border);
     background: var(--bg-surface);
+  }
+
+  .pdf-toolbar.docked {
+    padding: 0 4px;
+    border-bottom: none;
+    background: transparent;
   }
 
   .pdf-zoom-btn {
@@ -732,6 +752,8 @@
     font-weight: 500;
     color: var(--text-muted);
     border-radius: 3px;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .pdf-zoom-btn:hover {
