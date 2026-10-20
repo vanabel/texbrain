@@ -720,6 +720,7 @@
   {/if}
 </div>
 
+<!-- svelte-ignore css_unused_selector -->
 <style>
   .pdf-wrap {
     flex: 1;
