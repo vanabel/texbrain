@@ -65,11 +65,14 @@ const texbrainCtanProxy = {
 
 export default defineConfig({
   plugins: [
-    // Must run before SvelteKit: provides global process / Buffer for crypto-browserify → readable-stream
+    // Must run before SvelteKit: provides process / Buffer for crypto-browserify → readable-stream
     nodePolyfills({
       globals: {
         Buffer: true,
-        global: true,
+        // `define.global` below already rewrites the identifier to `globalThis`.
+        // Injecting the shim as well leaves an unused default import in Svelte's
+        // SSR renderer, whose class field is also named `global`.
+        global: false,
         process: true
       },
       protocolImports: true
@@ -143,7 +146,7 @@ export default defineConfig({
     }
   },
   optimizeDeps: {
-    include: ['isomorphic-git', 'buffer', 'process'],
+    include: ['isomorphic-git', 'buffer', 'process', '@replit/codemirror-vim'],
     esbuildOptions: {
       loader: {
         '.keep': 'text'
