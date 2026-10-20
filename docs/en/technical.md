@@ -21,8 +21,8 @@ Pair expansion, snippet fields (**Ctrl+J/K**), VimTeX insert maps, and optional 
 **Navigation and diagnostics (client-side):**
 
 - **Cmd/Ctrl+click** in the editor follows `\cite` / `\ref` / `\input` / `\include` / `\includegraphics` / `\url` (`reference-links.ts` + `reference-follow.ts`)
-- **Static diagnostics** (`latex-diagnostics.ts`) flag duplicate `\label` and undefined cite/ref; results feed the Warnings/Log panels and CodeMirror lint (`latex-lint.ts`)
-- **Compile log parsing** (`parse-log.ts`) structures Errors/Warnings and promotes the first fatal error; the Log tab shows Diagnostics + raw transcript
+- **Static diagnostics** (`latex-diagnostics.ts`) flag duplicate `\label` and undefined cite/ref (`\nocite{*}` excluded); results feed the Log diagnostics list and CodeMirror lint (`latex-lint.ts`)
+- **Compile log parsing** (`parse-log.ts`) joins wrapped warnings and promotes the first fatal error; the Log tab shows Diagnostics + raw transcript
 - **Stale PDF** keeps the last successful preview after failed compiles or edits until the next success
 - **Project search/replace** (`search-replace.ts`, **Ctrl/⌘+Shift+F**) runs in memory; with an open folder it writes via `writeTextAtProjectPath`
 

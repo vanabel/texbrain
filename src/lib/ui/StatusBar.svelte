@@ -213,9 +213,4 @@
   .credit a:hover {
     color: var(--accent-hover);
   }
-
-  .heart {
-    color: var(--error);
-    font-size: 11px;
-  }
 </style>

@@ -68,7 +68,7 @@ Open a folder, edit, preview PDF, commit, push to GitHub—**from one tab**.
 | **Projects** | Tree, tabs, drag-and-drop; `.tex`, `.bib`, `.sty`, `.cls`, and more. |
 | **Sidebar** | **Files**, **Outline** (sections + `\input` / `\include`), **References** (cites, `\label`s, numbered equations). **Ctrl+B** toggles the sidebar. |
 | **Editor** | CodeMirror 6—highlighting, completions, folding, snippets, themes, lint marks. Project-wide `\cite{…}` / `\cites{…}` / `\ref{…}` / `\eqref{…}` completion (cite details from `.bib`). Math and environments close around the cursor, **Ctrl+J/K** move between snippet fields, and VimTeX-style `` ` `` maps expand in math. Optional **Vim mode**. Details: [Editor completion](docs/en/editor-completion.md). **Ctrl/⌘+click** follows cite/ref/input/include/includegraphics/url. |
-| **Diagnostics & Log** | Structured Errors/Warnings/Log (first fatal promoted, click → source). Static checks for duplicate `\label` and undefined cite/ref. Stale PDF badge when the preview may be outdated. |
+| **Diagnostics & Log** | The **Log** tab lists diagnostics (first fatal promoted, click → source) above the raw transcript. Static checks for duplicate `\label` and undefined cite/ref. Stale PDF badge when the preview may be outdated. |
 | **Project search** | **Ctrl/⌘+Shift+F** — multi-file search and replace with preview; writes back to disk when a folder project is open. |
 | **Palette & snippets** | Command palette (**⌘K**); searchable math/env snippets. |
 | **Offline** | After load, editing and compilation work without the network. |
@@ -87,6 +87,7 @@ The left sidebar has three tabs (**Ctrl+B**):
 | **Outline** | `\part` … `\subparagraph` from the **active** `.tex`, including `\input` / `\include`. Click to jump. |
 | **References** | Citation keys (`.bib` / `.bbl`), `\label{…}` targets, and numbered equations (equations skipped when the project has more than 120 `.tex` paths). |
 
+- Click the **Citations**, **Labels**, or **Equations** heading to expand or collapse that list.
 - **Click** a key, label, or equation number → jump to source.
 - **Ctrl+click** / **⌘+click** on a References row → insert `\cite{key}`, `\ref{label}`, or `\eq{number}`.
 - In the **editor**, hold **Ctrl/⌘** and click a `\cite` / `\ref` / `\input` / `\include` / `\includegraphics` / `\url` argument to follow it.
@@ -97,8 +98,7 @@ The left sidebar has three tabs (**Ctrl+B**):
 
 | Area | Behavior |
 | --- | --- |
-| **Errors / Warnings** | Compiler diagnostics plus static checks (duplicate labels, undefined cites/refs). Click a row to jump to file + line. First fatal error is promoted at the top. |
-| **Log** | Structured **Diagnostics** list (same jump behavior) above the raw compiler transcript. |
+| **Log** | Structured **Diagnostics** (compiler and static checks; first fatal error promoted) above the raw compiler transcript. Click a row to jump to file and line. |
 | **Editor lint** | Underlines / gutter marks for issues in the active file. |
 | **Stale PDF** | Last successful PDF is kept after a failed compile or while you edit; the Preview tab shows a **stale** badge until the next successful build. |
 | **Search** | Command palette → **Search in Project…**, or **Ctrl/⌘+Shift+F**. Optional replace with preview; apply writes open tabs and, with **Open Folder**, the disk files. |

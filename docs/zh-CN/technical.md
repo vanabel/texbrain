@@ -21,8 +21,8 @@ TeXbrain 是**纯静态** [SvelteKit](https://kit.svelte.dev/) 应用：编辑�
 **导航与诊断（纯客户端）：**
 
 - 编辑器内 **Cmd/Ctrl+单击** 跟随 `\cite` / `\ref` / `\input` / `\include` / `\includegraphics` / `\url`（`reference-links.ts` + `reference-follow.ts`）
-- **静态诊断**（`latex-diagnostics.ts`）检测重复 `\label`、未定义 cite/ref；进入警告/日志面板，并以 CodeMirror lint（`latex-lint.ts`）标在当前文件
-- **编译日志解析**（`parse-log.ts`）结构化 Errors/Warnings 并置顶首个致命错误；Log 标签为「诊断」+ 原始输出
+- **静态诊断**（`latex-diagnostics.ts`）检测重复 `\label`、未定义 cite/ref（`\nocite{*}` 除外）；进入日志的诊断列表，并以 CodeMirror lint（`latex-lint.ts`）标在当前文件
+- **编译日志解析**（`parse-log.ts`）把折行警告拼成一条并置顶首个致命错误；日志标签为「诊断」+ 原始输出
 - **过期 PDF**：编译失败或继续编辑时保留上次成功预览，直到下次成功编译
 - **工程搜索/替换**（`search-replace.ts`，**Ctrl/⌘+Shift+F**）在内存中运行；打开文件夹时经 `writeTextAtProjectPath` 写回磁盘
 

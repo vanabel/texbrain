@@ -170,6 +170,7 @@ For thesis/class templates: prefer the maintainer’s **`online-texbrain`** bran
 
 ## Sidebar references panel
 
+- Click the **Citations**, **Labels**, or **Equations** heading to expand or collapse that list.
 - **Click** citation key, `\label`, or equation number → jump to source line.
 - **Ctrl+click** (Windows/Linux) or **⌘+click** (macOS) on a References row → insert `\cite{key}`, `\ref{label}`, or `\eq{number}` at the cursor.
 - In the **editor**, hold **Ctrl/⌘** and click a `\cite` / `\ref` / `\input` / `\include` / `\includegraphics` / `\url` argument to follow it (highlight while the modifier is held).
@@ -181,16 +182,16 @@ For thesis/class templates: prefer the maintainer’s **`online-texbrain`** bran
 
 ### Structured Log and Errors
 
-After compile, the **Errors** and **Warnings** tabs list parsed compiler messages. The **Log** tab shows:
+The preview **Log** tab shows:
 
-1. **Diagnostics** — same structured items (first fatal error promoted), including **static** checks; click to jump to file + line when location is known.
-2. **Raw log** — the cleaned compiler transcript.
+1. **Diagnostics** — compiler messages and **static** checks (labeled compiler or static). The first fatal error is promoted; click a row to jump to file and line when the location is known. Wrapped LaTeX warnings are joined into one sentence. A compile with no errors (warnings are fine) switches to **Preview**; errors open **Log**.
+2. **Raw log** — the cleaned compiler transcript. When it is non-empty, Copy sits to the right of the Raw log heading.
 
 Static diagnostics (no compile required) include:
 
 - Duplicate `\label{…}`
 - `\ref` / `\autoref` / `\cref` / `\eqref` to unknown labels
-- `\cite` / `\citep` / `\citet` (and common variants) to unknown bibliography keys (when `.bib` / `.bbl` keys are available)
+- `\cite` / `\citep` / `\citet` (and common variants) to unknown bibliography keys (when `.bib` / `.bbl` keys are available). The `*` in `\nocite{*}` means every entry and is not reported as a missing key.
 
 Matching issues in the **active** file also appear as CodeMirror **lint** underlines / gutter marks.
 

@@ -77,3 +77,11 @@ Completion keys are compared with Vim’s default map (`src/lib/editor/key-confl
 - **Esc** closes an open completion menu. With the menu closed, Vim leaves insert mode and any active snippet is cleared.
 - **Enter** accepts a completion while the menu is open, still expands `\begin` in insert mode, and stays with Vim in normal mode.
 - **Arrow keys** move the menu selection while it is open, and otherwise stay with Vim.
+
+While Vim mode is on and the editor is focused, these **Ctrl** chords stay with Vim instead of the page shortcuts: **Ctrl+O** walks the jump list backward (one normal command from insert mode), **Ctrl+B** pages up, and **Ctrl+P** moves up a line. The matching **⌘** shortcuts on macOS are unchanged (open file, toggle the sidebar, toggle the preview).
+
+Editing commands that write through this editor:
+
+- **`:w`** writes the current buffer to the open file, the same path as the toolbar Save button.
+- **`=`** / **`V=`** reindents from environment nesting. The body of `document` stays at column 0; contents of verbatim-like environments are left as typed, and only the closing `\end` lines up with `\begin`. **`>>`** / **`<<`** still shift by one indent level.
+- **`gc`** / **`gcc`** toggle a `%` line comment.

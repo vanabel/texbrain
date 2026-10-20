@@ -2401,7 +2401,6 @@
     color: white;
   }
 
-  .errors-content { flex: 1; overflow-y: auto; padding: 6px; }
   .error-item {
     display: flex;
     align-items: flex-start;
