@@ -102,10 +102,12 @@
 
   export let pdfData: Uint8Array | undefined = undefined;
 
+  let toolbarDocked = false;
+
   function dockToolbar(node: HTMLElement) {
     const host = node.closest('.preview-pane')?.querySelector('.preview-zoom');
     if (host) {
-      node.classList.add('docked');
+      toolbarDocked = true;
       host.appendChild(node);
     }
     return {
@@ -676,7 +678,7 @@
 
 <div class="pdf-wrap">
   {#if pdfData}
-    <div class="pdf-toolbar" role="toolbar" aria-label="PDF zoom" use:dockToolbar>
+    <div class="pdf-toolbar" class:docked={toolbarDocked} role="toolbar" aria-label="PDF zoom" use:dockToolbar>
       <button
         type="button"
         class="pdf-zoom-btn"
@@ -720,7 +722,6 @@
   {/if}
 </div>
 
-<!-- svelte-ignore css_unused_selector -->
 <style>
   .pdf-wrap {
     flex: 1;
