@@ -93,20 +93,20 @@
           <div class="demo-content">
             <div class="demo-editor">
               <div class="line-numbers">
-                {#each Array(9) as _, i}
+                {#each Array(12) as _, i}
                   <span>{i + 1}</span>
                 {/each}
               </div>
               <!-- whitespace-sensitive: keep tags flush so pre-wrap does not indent lines -->
               <code
                 ><span class="c-cmd">\documentclass</span><span class="c-brace">{'{'}article{'}'}</span
-                >{'\n'}<span class="c-cmd">\title</span><span class="c-brace">{'{'}{L.demoTexTitle}{'}'}</span
+                >{'\n\n'}<span class="c-cmd">\title</span><span class="c-brace">{'{'}{L.demoTexTitle}{'}'}</span
                 >{'\n'}<span class="c-cmd">\author</span><span class="c-brace">{'{'}{L.demoTexAuthor}{'}'}</span
                 >{'\n'}<span class="c-cmd">\date</span><span class="c-brace">{'{'}</span
                 ><span class="c-cmd">\today</span><span class="c-brace">{'}'}</span
-                >{'\n'}<span class="c-env">\begin</span><span class="c-brace">{'{'}document{'}'}</span
+                >{'\n\n'}<span class="c-env">\begin</span><span class="c-brace">{'{'}document{'}'}</span
                 >{'\n'}<span class="c-cmd">\maketitle</span
-                >{'\n'}<span class="c-cmd">\section</span><span class="c-brace">{'{'}{L.demoTexSection}{'}'}</span
+                >{'\n\n'}<span class="c-cmd">\section</span><span class="c-brace">{'{'}{L.demoTexSection}{'}'}</span
                 >{'\n'}{L.demoTexHello}<span class="c-math">$E = mc^2$</span
                 >{$locale === 'zh' ? '。' : '.'}{'\n'}<span class="c-env">\end</span
                 ><span class="c-brace">{'{'}document{'}'}</span
@@ -446,7 +446,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr);
     min-height: 0;
-    height: clamp(236px, 28vh, 268px);
+    height: clamp(260px, 32vh, 300px);
   }
 
   .demo-editor {
