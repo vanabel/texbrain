@@ -1,14 +1,15 @@
 import { EditorState, Compartment, Prec, type Extension } from '@codemirror/state';
 import { EditorView, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection, dropCursor, rectangularSelection, crosshairCursor, keymap } from '@codemirror/view';
-import { defaultKeymap as _defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+import { defaultKeymap as _defaultKeymap, history, historyKeymap, indentSelection, indentWithTab } from '@codemirror/commands';
 
 // filter out Mod-/ (toggleComment), reserved for the snippet picker
 const defaultKeymap = _defaultKeymap.filter(k => k.key !== 'Mod-/');
 
-import { foldable, foldAll, foldEffect, foldGutter, foldKeymap, foldedRanges, bracketMatching, indentOnInput, unfoldAll, unfoldEffect } from '@codemirror/language';
+import { codeFolding, foldable, foldAll, foldEffect, foldGutter, foldKeymap, foldedRanges, bracketMatching, indentOnInput, unfoldAll, unfoldEffect } from '@codemirror/language';
 import { acceptCompletion, clearSnippet, closeBrackets, closeBracketsKeymap, closeCompletion, nextSnippetField, prevSnippetField, selectedCompletion, snippet, snippetKeymap } from '@codemirror/autocomplete';
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
-import { latexFolding, latexLanguage } from './latex-language';
+import { bibAlignChanges, latexFolding, latexLanguage } from './latex-language';
+import { jumpEnvironment, jumpParagraph, jumpSection, jumpSentence } from './vim-motions';
 import { darkEditorTheme, lightEditorTheme, darkHighlight, lightHighlight } from './theme';
 import { tabKeymap } from './keybindings';
 import { hasMatchingEnd, latexAutocomplete } from './autocomplete';
@@ -42,6 +43,22 @@ export function setVimSaveHandler(handler: ((view: EditorView) => void) | null) 
 
 CodeMirror.commands.save = (cm: { cm6?: EditorView }) => {
   if (cm?.cm6) vimSave?.(cm.cm6);
+};
+
+/** Vim `=` indents, then lines up `=` inside any BibTeX entry the motion touched. */
+CodeMirror.commands.indentAuto = (cm: { cm6?: EditorView }) => {
+  const view = cm?.cm6;
+  if (!view) return;
+  const selected = new Set<number>();
+  for (const range of view.state.selection.ranges) {
+    const doc = view.state.doc;
+    const start = doc.lineAt(range.from).number;
+    const end = doc.lineAt(range.to > range.from ? range.to - 1 : range.from).number;
+    for (let n = start; n <= end; n++) selected.add(n);
+  }
+  indentSelection(view);
+  const changes = bibAlignChanges(view.state.doc, selected);
+  if (changes.length) view.dispatch({ changes });
 };
 
 type FoldRange = { from: number; to: number };
@@ -115,6 +132,62 @@ if (!foldFlag.__texbrainVimFolds) {
   Vim.mapCommand('zo', 'action', 'texbrainOpenFold', {}, {});
   Vim.mapCommand('zM', 'action', 'texbrainFoldAll', {}, {});
   Vim.mapCommand('zR', 'action', 'texbrainUnfoldAll', {}, {});
+}
+
+type MotionCm = {
+  getLine(row: number): string;
+  firstLine(): number;
+  lastLine(): number;
+};
+
+function motionLines(cm: MotionCm): string[] {
+  const lines: string[] = [];
+  for (let i = cm.firstLine(); i <= cm.lastLine(); i++) lines.push(cm.getLine(i) || '');
+  return lines;
+}
+
+const motionFlag = globalThis as { __texbrainVimMotions?: boolean };
+if (!motionFlag.__texbrainVimMotions) {
+  motionFlag.__texbrainVimMotions = true;
+  const here = (head: { line: number; ch: number }) => ({ line: head.line, ch: head.ch });
+  const repeatOf = (args: { repeat?: number }) => args.repeat || 1;
+  Vim.defineMotion('texbrainNextSection', (cm, head, args) =>
+    jumpSection(motionLines(cm as MotionCm), here(head), true, false, repeatOf(args)));
+  Vim.defineMotion('texbrainPrevSection', (cm, head, args) =>
+    jumpSection(motionLines(cm as MotionCm), here(head), false, false, repeatOf(args)));
+  Vim.defineMotion('texbrainNextSectionEnd', (cm, head, args) =>
+    jumpSection(motionLines(cm as MotionCm), here(head), true, true, repeatOf(args)));
+  Vim.defineMotion('texbrainPrevSectionEnd', (cm, head, args) =>
+    jumpSection(motionLines(cm as MotionCm), here(head), false, true, repeatOf(args)));
+  Vim.defineMotion('texbrainNextSentence', (cm, head, args) =>
+    jumpSentence(motionLines(cm as MotionCm), here(head), true, repeatOf(args)));
+  Vim.defineMotion('texbrainPrevSentence', (cm, head, args) =>
+    jumpSentence(motionLines(cm as MotionCm), here(head), false, repeatOf(args)));
+  Vim.defineMotion('texbrainNextParagraph', (cm, head, args) =>
+    jumpParagraph(motionLines(cm as MotionCm), here(head), true, repeatOf(args)));
+  Vim.defineMotion('texbrainPrevParagraph', (cm, head, args) =>
+    jumpParagraph(motionLines(cm as MotionCm), here(head), false, repeatOf(args)));
+  Vim.defineMotion('texbrainNextBegin', (cm, head, args) =>
+    jumpEnvironment(motionLines(cm as MotionCm), here(head), true, true, repeatOf(args)));
+  Vim.defineMotion('texbrainPrevBegin', (cm, head, args) =>
+    jumpEnvironment(motionLines(cm as MotionCm), here(head), false, true, repeatOf(args)));
+  Vim.defineMotion('texbrainNextEnd', (cm, head, args) =>
+    jumpEnvironment(motionLines(cm as MotionCm), here(head), true, false, repeatOf(args)));
+  Vim.defineMotion('texbrainPrevEnd', (cm, head, args) =>
+    jumpEnvironment(motionLines(cm as MotionCm), here(head), false, false, repeatOf(args)));
+  const jump = { toJumplist: true };
+  Vim.mapCommand(']]', 'motion', 'texbrainNextSection', { ...jump, forward: true }, {});
+  Vim.mapCommand('[[', 'motion', 'texbrainPrevSection', { ...jump, forward: false }, {});
+  Vim.mapCommand('][', 'motion', 'texbrainNextSectionEnd', { ...jump, forward: true }, {});
+  Vim.mapCommand('[]', 'motion', 'texbrainPrevSectionEnd', { ...jump, forward: false }, {});
+  Vim.mapCommand(')', 'motion', 'texbrainNextSentence', { ...jump, forward: true }, {});
+  Vim.mapCommand('(', 'motion', 'texbrainPrevSentence', { ...jump, forward: false }, {});
+  Vim.mapCommand('}', 'motion', 'texbrainNextParagraph', { ...jump, forward: true }, {});
+  Vim.mapCommand('{', 'motion', 'texbrainPrevParagraph', { ...jump, forward: false }, {});
+  Vim.mapCommand(']m', 'motion', 'texbrainNextBegin', { ...jump, forward: true }, {});
+  Vim.mapCommand('[m', 'motion', 'texbrainPrevBegin', { ...jump, forward: false }, {});
+  Vim.mapCommand(']M', 'motion', 'texbrainNextEnd', { ...jump, forward: true }, {});
+  Vim.mapCommand('[M', 'motion', 'texbrainPrevEnd', { ...jump, forward: false }, {});
 }
 
 function vimInsertMode(view: EditorView): boolean | null {
@@ -277,6 +350,7 @@ export function createEditor(config: EditorConfig): EditorView {
 
   extensions.push(
     foldGutter(),
+    codeFolding({ placeholderText: '====' }),
     drawSelection(),
     dropCursor(),
     EditorState.allowMultipleSelections.of(true),

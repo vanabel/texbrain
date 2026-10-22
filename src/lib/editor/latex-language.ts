@@ -1,5 +1,5 @@
 import { foldService, StreamLanguage, type IndentContext } from '@codemirror/language';
-import type { EditorState } from '@codemirror/state';
+import type { ChangeSpec, EditorState, Text } from '@codemirror/state';
 
 type EnvFrame = { name: string; verbatim: boolean };
 
@@ -217,9 +217,14 @@ function stripLineComment(line: string): string {
   return out;
 }
 
-function foldPastLine(lineTo: number, to: number): { from: number; to: number } | null {
+function foldThrough(lineTo: number, to: number): { from: number; to: number } | null {
   if (to <= lineTo) return null;
   return { from: lineTo, to };
+}
+
+/** Hide up to the break before `nextLineFrom`, so that line stays on the next row. */
+function foldBeforeNextLine(lineTo: number, nextLineFrom: number): { from: number; to: number } | null {
+  return foldThrough(lineTo, nextLineFrom - 1);
 }
 
 /** Folds that start on a line: environments, section headings, and BibTeX entries. */
@@ -242,7 +247,7 @@ export function latexFold(
       while ((match = re.exec(row))) {
         if (match[2] !== name) continue;
         if (match[1] === 'begin') depth++;
-        else if (--depth === 0) return foldPastLine(line.to, doc.line(n).from);
+        else if (--depth === 0) return foldBeforeNextLine(line.to, doc.line(n).from);
       }
     }
   }
@@ -253,9 +258,9 @@ export function latexFold(
     for (let n = line.number + 1; n <= doc.lines; n++) {
       const row = stripLineComment(doc.line(n).text);
       const next = row.match(SECTION_RE);
-      if (next && SECTION_RANK[next[1]] <= rank) return foldPastLine(line.to, doc.line(n).from);
+      if (next && SECTION_RANK[next[1]] <= rank) return foldBeforeNextLine(line.to, doc.line(n).from);
     }
-    return foldPastLine(line.to, doc.length);
+    return foldThrough(line.to, doc.length);
   }
 
   if (/^\s*@\w+\s*\{/.test(text)) {
@@ -264,7 +269,7 @@ export function latexFold(
       const row = stripLineComment(doc.line(n).text);
       for (const ch of row) {
         if (ch === '{') depth++;
-        else if (ch === '}' && depth > 0 && --depth === 0) return foldPastLine(line.to, doc.line(n).from);
+        else if (ch === '}' && depth > 0 && --depth === 0) return foldBeforeNextLine(line.to, doc.line(n).from);
       }
     }
   }
@@ -273,3 +278,94 @@ export function latexFold(
 }
 
 export const latexFolding = foldService.of((state, lineStart) => latexFold(state, lineStart));
+
+type BibField = {
+  from: number;
+  to: number;
+  original: string;
+  indent: string;
+  name: string;
+  value: string;
+  comment: string;
+};
+
+function splitBibComment(line: string): { code: string; comment: string } {
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '%' && line[i - 1] !== '\\') {
+      return { code: line.slice(0, i), comment: line.slice(i) };
+    }
+  }
+  return { code: line, comment: '' };
+}
+
+/**
+ * Pad field names in each BibTeX entry that touches `selectedLines` so the
+ * `=` signs share one column. `=` inside a field value is left as written.
+ */
+export function bibAlignChanges(doc: Text, selectedLines: Set<number>): ChangeSpec[] {
+  const changes: ChangeSpec[] = [];
+  let depth = 0;
+  let inEntry = false;
+  let touched = false;
+  let fields: BibField[] = [];
+
+  const flush = () => {
+    if (touched && fields.length) {
+      const width = fields.reduce((max, field) => Math.max(max, field.name.length), 0);
+      for (const field of fields) {
+        const pad = ' '.repeat(width - field.name.length);
+        const body = field.comment
+          ? `${field.value}${field.value ? ' ' : ''}${field.comment.trim()}`
+          : field.value;
+        const next = `${field.indent}${field.name}${pad} = ${body}`;
+        if (next !== field.original) {
+          changes.push({ from: field.from, to: field.to, insert: next });
+        }
+      }
+    }
+    fields = [];
+    touched = false;
+    inEntry = false;
+    depth = 0;
+  };
+
+  for (let n = 1; n <= doc.lines; n++) {
+    const line = doc.line(n);
+    const { code, comment } = splitBibComment(line.text);
+    if (!inEntry) {
+      if (!/^\s*@\w+\s*\{/.test(code)) continue;
+      inEntry = true;
+      touched = selectedLines.has(n);
+      depth = 0;
+      for (const ch of code) {
+        if (ch === '{') depth++;
+        else if (ch === '}' && depth > 0) depth--;
+      }
+      if (depth === 0) flush();
+      continue;
+    }
+
+    touched = touched || selectedLines.has(n);
+    const lineDepth = depth;
+    const trimmed = code.trimEnd();
+    const match = trimmed.match(/^(\s*)([A-Za-z][\w-]*)\s*=\s*(.*)$/);
+    if (match && lineDepth === 1) {
+      fields.push({
+        from: line.from,
+        to: line.to,
+        original: line.text,
+        indent: match[1],
+        name: match[2],
+        value: match[3],
+        comment
+      });
+    }
+    for (const ch of code) {
+      if (ch === '{') depth++;
+      else if (ch === '}' && depth > 0) depth--;
+    }
+    if (depth === 0) flush();
+  }
+  if (inEntry) flush();
+  return changes;
+}

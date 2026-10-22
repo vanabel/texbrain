@@ -49,12 +49,14 @@ export const darkEditorTheme = EditorView.theme(
       backgroundColor: 'transparent',
       color: '#e4e4e7'
     },
-    '.cm-foldPlaceholder': {
-      backgroundColor: '#2a2a2e',
-      color: '#d4d4d8',
+    '.cm-line .cm-foldPlaceholder': {
+      float: 'right',
+      backgroundColor: 'transparent',
+      color: '#a3a3ab',
       border: 'none',
-      padding: '0 6px',
-      borderRadius: '2px'
+      margin: '0 0 0 1em',
+      padding: '0',
+      letterSpacing: '0.12em'
     },
     '.cm-foldGutter': { width: '16px' },
     '.cm-foldGutter .cm-gutterElement': { cursor: 'pointer' },
@@ -130,12 +132,14 @@ export const lightEditorTheme = EditorView.theme(
       backgroundColor: 'transparent',
       color: '#57575e'
     },
-    '.cm-foldPlaceholder': {
-      backgroundColor: '#eeeeec',
-      color: '#57575e',
+    '.cm-line .cm-foldPlaceholder': {
+      float: 'right',
+      backgroundColor: 'transparent',
+      color: '#94949c',
       border: 'none',
-      padding: '0 6px',
-      borderRadius: '2px'
+      margin: '0 0 0 1em',
+      padding: '0',
+      letterSpacing: '0.12em'
     },
     '.cm-foldGutter': { width: '16px' },
     '.cm-foldGutter .cm-gutterElement': { cursor: 'pointer' },
