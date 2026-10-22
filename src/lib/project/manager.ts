@@ -2,7 +2,7 @@ import { get } from 'svelte/store';
 import { base } from '$app/paths';
 import { unzipSync } from 'fflate';
 import { openFileTab, activeFile, markFileSaved, projectTree, projectName, projectHandle, entryPoint, pendingTexFiles, files, closeFileTab } from './store';
-import { openLocalFile, saveLocalFile, saveLocalFileAs, openDirectory, readFileFromHandle } from '../fs/local-fs';
+import { openLocalFile, saveLocalFile, saveLocalFileAs, openDirectory, readDirectoryTree, readFileFromHandle } from '../fs/local-fs';
 import { openFileFallback, saveFileFallback } from '../fs/fallback-fs';
 import { addToast } from '../stores/app';
 import { initFs as gitInitFs, cloneRepo, readAllFilesFromGit, checkAndLoadGit, syncFilesToGit } from '../git/load-engine';
@@ -511,36 +511,6 @@ export async function refreshProjectTree() {
   projectTree.set(tree);
 }
 
-async function readTreeFromHandle(dirHandle: FileSystemDirectoryHandle): Promise<TreeEntry[]> {
-  const entries: TreeEntry[] = [];
-  for await (const entry of (dirHandle as any).values()) {
-    const entryPath = entry.name;
-    if (entry.kind === 'directory') {
-      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
-      const subDir = entry as FileSystemDirectoryHandle;
-      const children = await readSubTree(subDir, entryPath);
-      entries.push({ name: entry.name, path: entryPath, type: 'directory', children, dirHandle: subDir });
-    } else {
-      entries.push({ name: entry.name, path: entryPath, type: 'file', children: [], handle: entry as FileSystemFileHandle });
-    }
-  }
-  entries.sort((a, b) => { if (a.type !== b.type) return a.type === 'directory' ? -1 : 1; return a.name.localeCompare(b.name); });
-  return entries;
-}
-
-async function readSubTree(dirHandle: FileSystemDirectoryHandle, basePath: string): Promise<TreeEntry[]> {
-  const entries: TreeEntry[] = [];
-  for await (const entry of (dirHandle as any).values()) {
-    const entryPath = `${basePath}/${entry.name}`;
-    if (entry.kind === 'directory') {
-      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
-      const subDir = entry as FileSystemDirectoryHandle;
-      const children = await readSubTree(subDir, entryPath);
-      entries.push({ name: entry.name, path: entryPath, type: 'directory', children, dirHandle: subDir });
-    } else {
-      entries.push({ name: entry.name, path: entryPath, type: 'file', children: [], handle: entry as FileSystemFileHandle });
-    }
-  }
-  entries.sort((a, b) => { if (a.type !== b.type) return a.type === 'directory' ? -1 : 1; return a.name.localeCompare(b.name); });
-  return entries;
+function readTreeFromHandle(dirHandle: FileSystemDirectoryHandle): Promise<TreeEntry[]> {
+  return readDirectoryTree(dirHandle, '');
 }

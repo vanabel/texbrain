@@ -32,13 +32,17 @@ export async function openDirectory(): Promise<{
   return { dirHandle, tree, name: dirHandle.name };
 }
 
-async function readDirectoryTree(
+export async function readDirectoryTree(
   dirHandle: FileSystemDirectoryHandle,
   basePath: string
 ): Promise<TreeEntry[]> {
-  const entries: TreeEntry[] = [];
+  // Finish this directory's iterator before awaiting children. Awaiting inside
+  // `for await` drops later siblings, so a folder can show only subfolders.
+  const handles: FileSystemHandle[] = [];
+  for await (const entry of dirHandle.values()) handles.push(entry);
 
-  for await (const entry of dirHandle.values()) {
+  const entries: TreeEntry[] = [];
+  for (const entry of handles) {
     const entryPath = basePath ? `${basePath}/${entry.name}` : entry.name;
 
     if (entry.kind === 'directory') {

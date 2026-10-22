@@ -5,17 +5,17 @@ import { defaultKeymap as _defaultKeymap, history, historyKeymap, indentWithTab 
 // filter out Mod-/ (toggleComment), reserved for the snippet picker
 const defaultKeymap = _defaultKeymap.filter(k => k.key !== 'Mod-/');
 
-import { foldGutter, foldKeymap, bracketMatching, indentOnInput } from '@codemirror/language';
+import { foldable, foldAll, foldEffect, foldGutter, foldKeymap, foldedRanges, bracketMatching, indentOnInput, unfoldAll, unfoldEffect } from '@codemirror/language';
 import { acceptCompletion, clearSnippet, closeBrackets, closeBracketsKeymap, closeCompletion, nextSnippetField, prevSnippetField, selectedCompletion, snippet, snippetKeymap } from '@codemirror/autocomplete';
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
-import { latexLanguage } from './latex-language';
+import { latexFolding, latexLanguage } from './latex-language';
 import { darkEditorTheme, lightEditorTheme, darkHighlight, lightHighlight } from './theme';
 import { tabKeymap } from './keybindings';
 import { hasMatchingEnd, latexAutocomplete } from './autocomplete';
 import { latexLintGutter } from './latex-lint';
 import { snippetFieldKeys } from './key-conflicts';
 import { expandVimtexImap } from './vimtex-imaps';
-import { CodeMirror, getCM, vim } from '@replit/codemirror-vim';
+import { CodeMirror, getCM, Vim, vim } from '@replit/codemirror-vim';
 
 export interface EditorConfig {
   doc: string;
@@ -43,6 +43,79 @@ export function setVimSaveHandler(handler: ((view: EditorView) => void) | null) 
 CodeMirror.commands.save = (cm: { cm6?: EditorView }) => {
   if (cm?.cm6) vimSave?.(cm.cm6);
 };
+
+type FoldRange = { from: number; to: number };
+
+function foldRangeAtCursor(view: EditorView): FoldRange | null {
+  const pos = view.state.selection.main.head;
+  const cursorLine = view.state.doc.lineAt(pos);
+  for (let n = cursorLine.number; n >= 1; n--) {
+    const line = view.state.doc.line(n);
+    const range = foldable(view.state, line.from, line.to);
+    if (!range) continue;
+    const startsHere = view.state.doc.lineAt(range.from).number === cursorLine.number;
+    if (range.to > pos && (range.from <= pos || startsHere)) return range;
+  }
+  return null;
+}
+
+function foldedAtCursor(view: EditorView): FoldRange | null {
+  const pos = view.state.selection.main.head;
+  const cursorLine = view.state.doc.lineAt(pos);
+  const hits: FoldRange[] = [];
+  foldedRanges(view.state).between(0, view.state.doc.length, (from, to) => {
+    if (to <= pos) return;
+    const startsHere = view.state.doc.lineAt(from).number === cursorLine.number;
+    if (from <= pos || startsHere) hits.push({ from, to });
+  });
+  let best: FoldRange | null = null;
+  for (const range of hits) {
+    if (!best || range.from > best.from) best = range;
+  }
+  return best;
+}
+
+function vimEditor(cm: { cm6?: EditorView }): EditorView | null {
+  return cm.cm6 ?? null;
+}
+
+const foldFlag = globalThis as { __texbrainVimFolds?: boolean };
+if (!foldFlag.__texbrainVimFolds) {
+  foldFlag.__texbrainVimFolds = true;
+  Vim.defineAction('texbrainToggleFold', (cm) => {
+    const view = vimEditor(cm as { cm6?: EditorView });
+    if (!view) return;
+    const open = foldedAtCursor(view);
+    if (open) view.dispatch({ effects: unfoldEffect.of(open) });
+    else {
+      const range = foldRangeAtCursor(view);
+      if (range) view.dispatch({ effects: foldEffect.of(range) });
+    }
+  });
+  Vim.defineAction('texbrainCloseFold', (cm) => {
+    const view = vimEditor(cm as { cm6?: EditorView });
+    const range = view && foldRangeAtCursor(view);
+    if (view && range) view.dispatch({ effects: foldEffect.of(range) });
+  });
+  Vim.defineAction('texbrainOpenFold', (cm) => {
+    const view = vimEditor(cm as { cm6?: EditorView });
+    const open = view && foldedAtCursor(view);
+    if (view && open) view.dispatch({ effects: unfoldEffect.of(open) });
+  });
+  Vim.defineAction('texbrainFoldAll', (cm) => {
+    const view = vimEditor(cm as { cm6?: EditorView });
+    if (view) foldAll(view);
+  });
+  Vim.defineAction('texbrainUnfoldAll', (cm) => {
+    const view = vimEditor(cm as { cm6?: EditorView });
+    if (view) unfoldAll(view);
+  });
+  Vim.mapCommand('za', 'action', 'texbrainToggleFold', {}, {});
+  Vim.mapCommand('zc', 'action', 'texbrainCloseFold', {}, {});
+  Vim.mapCommand('zo', 'action', 'texbrainOpenFold', {}, {});
+  Vim.mapCommand('zM', 'action', 'texbrainFoldAll', {}, {});
+  Vim.mapCommand('zR', 'action', 'texbrainUnfoldAll', {}, {});
+}
 
 function vimInsertMode(view: EditorView): boolean | null {
   const cm = getCM(view);
@@ -245,6 +318,7 @@ export function createEditor(config: EditorConfig): EditorView {
 
   extensions.push(
     latexLanguage,
+    latexFolding,
     themeCompartment.of(editorThemeExtensions(config.dark)),
     latexAutocomplete,
     latexLintGutter(),

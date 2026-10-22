@@ -29,13 +29,19 @@
 
   let expandedDirs: Record<string, boolean> = {};
 
+  /** Top-level folders start open so their files are on screen. Nested folders start closed. */
+  function dirOpen(path: string, map: Record<string, boolean>): boolean {
+    if (map[path] !== undefined) return map[path];
+    return !path.includes('/');
+  }
+
   function toggleDir(path: string) {
-    expandedDirs[path] = !expandedDirs[path];
+    expandedDirs[path] = !dirOpen(path, expandedDirs);
     expandedDirs = expandedDirs;
   }
 
   function isExpanded(path: string): boolean {
-    return expandedDirs[path] !== false;
+    return dirOpen(path, expandedDirs);
   }
 
   interface FlatEntry {
@@ -47,7 +53,7 @@
     const result: FlatEntry[] = [];
     for (const entry of entries) {
       result.push({ entry, depth });
-      if (entry.type === 'directory' && _expanded[entry.path] !== false) {
+      if (entry.type === 'directory' && dirOpen(entry.path, _expanded)) {
         result.push(...flattenTree(entry.children, depth + 1, _expanded));
       }
     }

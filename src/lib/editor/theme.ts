@@ -56,6 +56,8 @@ export const darkEditorTheme = EditorView.theme(
       padding: '0 6px',
       borderRadius: '2px'
     },
+    '.cm-foldGutter': { width: '16px' },
+    '.cm-foldGutter .cm-gutterElement': { cursor: 'pointer' },
     '.cm-tooltip': {
       border: '1px solid #2e2e33',
       backgroundColor: '#212124',
@@ -135,6 +137,8 @@ export const lightEditorTheme = EditorView.theme(
       padding: '0 6px',
       borderRadius: '2px'
     },
+    '.cm-foldGutter': { width: '16px' },
+    '.cm-foldGutter .cm-gutterElement': { cursor: 'pointer' },
     '.cm-tooltip': {
       border: '1px solid #d4d4d0',
       backgroundColor: '#fafaf9',
