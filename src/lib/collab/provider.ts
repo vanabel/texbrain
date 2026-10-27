@@ -52,6 +52,37 @@ let peerPollTimer: ReturnType<typeof setInterval> | null = null;
 const userColor = COLORS[Math.floor(Math.random() * COLORS.length)];
 const undoManagers = new Map<string, Y.UndoManager>();
 
+/** Last peer snapshot — only log refreshPeerUi when counts change. */
+let lastPeerLogKey = '';
+
+function collabLog(event: string, detail?: Record<string, unknown>) {
+  if (detail && Object.keys(detail).length > 0) {
+    console.info(`[texbrain:collab] ${event}`, detail);
+  } else {
+    console.info(`[texbrain:collab] ${event}`);
+  }
+}
+
+function linkSnapshot(): Record<string, unknown> {
+  const room = provider?.room;
+  let webrtcConnected = 0;
+  let webrtcSynced = 0;
+  room?.webrtcConns?.forEach((conn) => {
+    if (conn.connected) webrtcConnected += 1;
+    if (conn.synced) webrtcSynced += 1;
+  });
+  return {
+    signaling: collabSignalingUrls(),
+    roomSynced: room?.synced ?? false,
+    webrtcConns: room?.webrtcConns?.size ?? 0,
+    webrtcConnected,
+    webrtcSynced,
+    bcConns: room?.bcConns?.size ?? 0,
+    awarenessClients: provider?.awareness.getStates().size ?? 0,
+    fileList: getSharedFileList().length
+  };
+}
+
 function announceLocalUser(force = false) {
   if (!provider) return;
   // Changing `t` forces an awareness update broadcast (same name alone may no-op).
@@ -117,8 +148,21 @@ function refreshPeerUi() {
   linked += room?.bcConns?.size ?? 0;
 
   // Awareness list wins; otherwise surface WebRTC links so UI matches “already connected”.
-  collabPeers.set(peers.length > 0 ? peers : fromWebrtc);
+  const shown = peers.length > 0 ? peers : fromWebrtc;
+  collabPeers.set(shown);
   collabLinkCount.set(linked);
+
+  const key = `${linked}|${peers.length}|${fromWebrtc.length}|${shown.map((p) => p.user.name).join(',')}`;
+  if (key !== lastPeerLogKey) {
+    lastPeerLogKey = key;
+    collabLog('peers', {
+      linked,
+      awarenessPeers: peers.map((p) => ({ id: p.clientId, name: p.user.name, file: p.currentFile })),
+      webrtcFallback: fromWebrtc.map((p) => p.user.name),
+      showing: shown.map((p) => p.user.name),
+      ...linkSnapshot()
+    });
+  }
 }
 
 function getUserName(): string {
@@ -303,6 +347,15 @@ export function createRoom(
     }
   });
 
+  collabLog('host:create', {
+    shareCode,
+    signalingId,
+    textFiles: projectFiles.size,
+    binaryFiles: binaryFiles.size,
+    entryPoint: entryPointPath,
+    signaling: collabSignalingUrls()
+  });
+
   provider = new WebrtcProvider(signalingId, doc, {
     signaling: collabSignalingUrls(),
     maxConns: 20,
@@ -323,6 +376,7 @@ export function createRoom(
     isHost: true
   });
   refreshPeerUi();
+  collabLog('host:ready', { shareCode, files: getSharedFileList().length });
 
   return shareCode;
 }
@@ -335,6 +389,12 @@ export function joinRoom(shareCodeOrCombined: string, accessPin: string | null):
 
   const { shareCode, accessPin: pin, signalingId } = parsed;
   const encryptionKey = deriveEncryptionKey(pin);
+
+  collabLog('guest:join', {
+    shareCode,
+    signalingId,
+    signaling: collabSignalingUrls()
+  });
 
   return new Promise((resolve) => {
     const doc = new Y.Doc();
@@ -361,26 +421,31 @@ export function joinRoom(shareCodeOrCombined: string, accessPin: string | null):
     refreshPeerUi();
 
     let resolved = false;
-    const done = () => {
+    const done = (reason: string) => {
       if (resolved) return;
       resolved = true;
       announceLocalUser();
       refreshPeerUi();
       collabConnected.set(true);
+      collabLog('guest:joined', { reason, ...linkSnapshot() });
       resolve();
     };
 
     provider.on('synced', (e: { synced: boolean }) => {
+      collabLog('guest:synced-event', { synced: e.synced, ...linkSnapshot() });
       if (!e.synced) return;
       // Empty peer set reports synced=true immediately — wait until a link exists
       // or fileList arrives, otherwise guests open zero tabs before the host syncs.
       const links = provider?.room?.webrtcConns?.size ?? 0;
-      if (links === 0 && getSharedFileList().length === 0) return;
-      done();
+      if (links === 0 && getSharedFileList().length === 0) {
+        collabLog('guest:synced-ignored', { reason: 'no peers and empty fileList' });
+        return;
+      }
+      done('synced');
     });
 
     // Host may be offline; still enter the room so the UI can show status.
-    setTimeout(done, 15000);
+    setTimeout(() => done('timeout-15s'), 15000);
   });
 }
 
@@ -390,26 +455,35 @@ export function joinRoom(shareCodeOrCombined: string, accessPin: string | null):
  */
 export function waitForSharedFileList(timeoutMs = 30000): Promise<string[]> {
   const immediate = getSharedFileList();
-  if (immediate.length > 0) return Promise.resolve(immediate);
-  if (!ydoc) return Promise.resolve([]);
+  if (immediate.length > 0) {
+    collabLog('files:already-present', { count: immediate.length, paths: immediate });
+    return Promise.resolve(immediate);
+  }
+  if (!ydoc) {
+    collabLog('files:wait-aborted', { reason: 'no ydoc' });
+    return Promise.resolve([]);
+  }
 
+  collabLog('files:waiting', { timeoutMs });
   return new Promise((resolve) => {
     const doc = ydoc!;
     const fileMap = doc.getMap('project-files');
     let settled = false;
-    const finish = () => {
+    const finish = (reason: string) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       fileMap.unobserve(onMap);
       doc.off('update', onUpdate);
-      resolve(getSharedFileList());
+      const list = getSharedFileList();
+      collabLog('files:wait-done', { reason, count: list.length, paths: list });
+      resolve(list);
     };
     const onMap = () => {
-      if (getSharedFileList().length > 0) finish();
+      if (getSharedFileList().length > 0) finish('map-update');
     };
     const onUpdate = () => onMap();
-    const timer = setTimeout(finish, timeoutMs);
+    const timer = setTimeout(() => finish('timeout'), timeoutMs);
     fileMap.observe(onMap);
     doc.on('update', onUpdate);
   });
@@ -420,13 +494,23 @@ export function observeSharedFileList(onFiles: (paths: string[]) => void): () =>
   if (!ydoc) return () => {};
   const doc = ydoc;
   const fileMap = doc.getMap('project-files');
-  const emit = () => onFiles(getSharedFileList());
+  let lastEmit = '';
+  const emit = () => {
+    const paths = getSharedFileList();
+    const key = paths.join('\0');
+    if (key !== lastEmit) {
+      lastEmit = key;
+      collabLog('files:observe', { count: paths.length, paths });
+    }
+    onFiles(paths);
+  };
   fileMap.observe(emit);
   doc.on('update', emit);
   emit();
   return () => {
     fileMap.unobserve(emit);
     doc.off('update', emit);
+    collabLog('files:observe-stop');
   };
 }
 
@@ -435,15 +519,23 @@ function setupPeerListeners() {
 
   const awareness = provider.awareness;
   awareness.on('change', refreshPeerUi);
-  provider.on('synced', () => {
+  provider.on('synced', (e: { synced: boolean }) => {
+    collabLog('provider:synced', { synced: e.synced, ...linkSnapshot() });
     announceLocalUser();
     refreshPeerUi();
   });
-  provider.on('peers', () => {
+  provider.on('peers', (e: { added: string[]; removed: string[]; webrtcPeers: string[]; bcPeers: string[] }) => {
+    collabLog('provider:peers', {
+      added: e.added,
+      removed: e.removed,
+      webrtcPeers: e.webrtcPeers,
+      bcPeers: e.bcPeers
+    });
     announceLocalUser();
     refreshPeerUi();
   });
-  provider.on('status', () => {
+  provider.on('status', (e: { connected: boolean }) => {
+    collabLog('provider:status', { connected: e.connected, ...linkSnapshot() });
     refreshPeerUi();
   });
 
@@ -603,6 +695,8 @@ export function observeCompileState(callback: (key: string, value: unknown) => v
 }
 
 export function leaveRoom() {
+  collabLog('leave');
+  lastPeerLogKey = '';
   if (peerPollTimer) {
     clearInterval(peerPollTimer);
     peerPollTimer = null;

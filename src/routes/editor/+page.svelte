@@ -1422,9 +1422,13 @@
 
   function applySharedProjectToTabs(fileList: string[]) {
     const ep = getSharedEntryPoint();
+    console.info('[texbrain:collab] ui:apply-tabs', { count: fileList.length, paths: fileList, entryPoint: ep });
     for (const path of fileList) {
       const data = getYTextWithUndo(path);
-      if (!data) continue;
+      if (!data) {
+        console.info('[texbrain:collab] ui:skip-tab-no-ytext', { path });
+        continue;
+      }
       const content = data.ytext.toString();
       const name = path.split('/').pop() || path;
       openFileTab(name, content, null, path);
@@ -1434,6 +1438,7 @@
   }
 
   async function handleJoinCollabRoom(shareCode: string, accessPin: string) {
+    console.info('[texbrain:collab] ui:join-start', { shareCode });
     await joinRoom(shareCode, accessPin);
 
     addToast(uiMsg().toastCollabWaitingHostFiles, 'info');
