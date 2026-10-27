@@ -48,6 +48,18 @@ const latexCommands = [
   { label: '\\citeyear', detail: 'Cite year', apply: withCursor('\\citeyear{$}') },
   { label: '\\nocite', detail: 'Cite without printing', apply: withCursor('\\nocite{$}') },
   { label: '\\bibselect', detail: 'Select bibliography (amsrefs)', apply: withCursor('\\bibselect{$}') },
+  { label: '\\bibliography', detail: 'BibTeX bibliography files', apply: withCursor('\\bibliography{$}') },
+  { label: '\\bibliographystyle', detail: 'BibTeX style', apply: withCursor('\\bibliographystyle{$}') },
+  { label: '\\addbibresource', detail: 'biblatex bibliography file', apply: withCursor('\\addbibresource{$}') },
+  { label: '\\printbibliography', detail: 'Print bibliography (biblatex)' },
+  { label: '\\bibitem', detail: 'Manual bibliography item', apply: withCursor('\\bibitem{$}') },
+  { label: '\\parencite', detail: 'Parenthetical citation (biblatex)', apply: withCursor('\\parencite{$}') },
+  { label: '\\textcite', detail: 'Textual citation (biblatex)', apply: withCursor('\\textcite{$}') },
+  { label: '\\autocite', detail: 'Automatic citation (biblatex)', apply: withCursor('\\autocite{$}') },
+  { label: '\\footcite', detail: 'Footnote citation (biblatex)', apply: withCursor('\\footcite{$}') },
+  { label: '\\fullcite', detail: 'Full citation (biblatex)', apply: withCursor('\\fullcite{$}') },
+  { label: '\\citep', detail: 'Parenthetical citation (natbib)', apply: withCursor('\\citep{$}') },
+  { label: '\\citet', detail: 'Textual citation (natbib)', apply: withCursor('\\citet{$}') },
   { label: '\\cref', detail: 'Clever reference', apply: withCursor('\\cref{$}') },
   { label: '\\Cref', detail: 'Clever reference, capitalized', apply: withCursor('\\Cref{$}') },
   { label: '\\crefrange', detail: 'Reference range', apply: withCursor('\\crefrange{$}{}') },
@@ -162,7 +174,7 @@ const environments = [
   'minipage', 'frame', 'lstlisting', 'verbatim', 'quote',
   'theorem', 'thm', 'lemma', 'lem', 'cor', 'prop',
   'definition', 'defn', 'rmk', 'clm', 'proof', 'example', 'array', 'matrix',
-  'bmatrix', 'pmatrix', 'cases', 'split', 'multline'
+  'bmatrix', 'pmatrix', 'cases', 'split', 'multline', 'thebibliography'
 ];
 
 function applyBeginEnvironment(view: EditorView, completion: Completion, from: number, to: number) {

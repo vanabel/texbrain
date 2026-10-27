@@ -16,6 +16,7 @@ const CITE_NAMES = [
   'autocite',
   'parencite',
   'textcite',
+  'footcite',
   'citep',
   'citet',
   'Cite',

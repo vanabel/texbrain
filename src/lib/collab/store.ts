@@ -6,6 +6,8 @@ export const collabRoom = writable<CollabRoomInfo | null>(null);
 export const collabPeers = writable<CollabPeer[]>([]);
 export const collabConnected = writable(false);
 export const collabPanelOpen = writable(false);
+/** Prefill join fields after opening `/editor?join=…&pin=…`. */
+export const pendingJoin = writable<{ shareCode: string; accessPin: string } | null>(null);
 
 const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('texbrain-collab-name') : null;
 export const collabUserName = writable(stored || '');

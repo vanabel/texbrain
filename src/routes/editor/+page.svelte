@@ -35,9 +35,8 @@
   import { resolveCompileMainFile, type CompileMainMode } from '$lib/compiler/compile-main';
   import { compileRootDirOf, sliceProjectToCompileRoot } from '$lib/compiler/compile-root';
   import { yCollab } from 'y-codemirror.next';
-  import { collabActive, collabPanelOpen, collabPeers, collabConnected } from '$lib/collab/store';
-  import { createRoom, joinRoom, leaveRoom, getYTextWithUndo, getAwareness, setCurrentFile, getSharedFileList, getSharedEntryPoint, isHost, requestCompile, setCompileStatus, setCompileResult, observeCompileState, readCompileState, collectFilesFromYjs } from '$lib/collab/provider';
-  import { collabRoom } from '$lib/collab/store';
+  import { collabActive, collabPanelOpen, collabPeers, collabConnected, collabRoom, pendingJoin } from '$lib/collab/store';
+  import { createRoom, joinRoom, leaveRoom, getYTextWithUndo, getAwareness, setCurrentFile, getSharedFileList, getSharedEntryPoint, isHost, requestCompile, setCompileStatus, setCompileResult, observeCompileState, readCompileState, collectFilesFromYjs, readJoinFromSearch, clearJoinParamsFromUrl } from '$lib/collab/provider';
   import { gitPanelOpen, gitEnabled, gitChangeCount, getEffectiveGitCorsProxy } from '$lib/git/store';
   import {
     initFs as gitInitFs, initRepo as gitInitRepo, syncFilesToGit,
@@ -1389,7 +1388,7 @@
   function handleDragOver(e: DragEvent) { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'; }
   function handleDrop(e: DragEvent) { e.preventDefault(); if (e.dataTransfer) handleDroppedFiles(e.dataTransfer); }
 
-  async function handleCreateCollabRoom(password: string | null) {
+  async function handleCreateCollabRoom() {
     let projectFiles = new Map<string, string>();
     try {
       const collected = await collectProjectFiles();
@@ -1402,13 +1401,13 @@
     }
 
     const ep = get(entryPoint);
-    createRoom(password, projectFiles, ep);
+    createRoom(projectFiles, ep);
     addToast(uiMsg().toastCollabStarted, 'success');
     buildEditor();
   }
 
-  async function handleJoinCollabRoom(shareCode: string, password: string | null) {
-    await joinRoom(shareCode, password);
+  async function handleJoinCollabRoom(shareCode: string, accessPin: string) {
+    await joinRoom(shareCode, accessPin);
 
     const fileList = getSharedFileList();
     const ep = getSharedEntryPoint();
@@ -1686,6 +1685,12 @@
     const savedMainMode = localStorage.getItem('texbrain.compile.mainMode');
     if (savedMainMode === 'active-tab' || savedMainMode === 'entry-point') {
       compileMainMode = savedMainMode;
+    }
+    const join = readJoinFromSearch(window.location.search);
+    if (join && !get(collabActive)) {
+      pendingJoin.set(join);
+      collabPanelOpen.set(true);
+      clearJoinParamsFromUrl();
     }
     if (compileEngine === 'xelatex') {
       void import('$lib/compiler/busytex-bibtex').then((m) =>

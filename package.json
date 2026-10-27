@@ -68,6 +68,7 @@
     "latex.js": "^0.12.6",
     "pdfjs-dist": "^4.9.155",
     "process": "^0.11.10",
+    "uqr": "^0.1.3",
     "y-codemirror.next": "^0.3.5",
     "y-webrtc": "^10.3.0",
     "yjs": "^13.6.30"

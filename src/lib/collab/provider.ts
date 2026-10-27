@@ -2,7 +2,7 @@ import * as Y from 'yjs';
 import { WebrtcProvider } from 'y-webrtc';
 import { get } from 'svelte/store';
 import { collabActive, collabRoom, collabPeers, collabConnected, collabUserName } from './store';
-import type { CollabUser, CollabPeer } from './types';
+import type { CollabPeer, CollabUser } from './types';
 
 const COLORS = [
   { color: '#ff6b6b', colorLight: '#ff6b6b33' },
@@ -12,12 +12,20 @@ const COLORS = [
   { color: '#22c55e', colorLight: '#22c55e33' },
   { color: '#3b82f6', colorLight: '#3b82f633' },
   { color: '#f472b6', colorLight: '#f472b633' },
-  { color: '#eab308', colorLight: '#eab30833' },
+  { color: '#eab308', colorLight: '#eab30833' }
 ];
 
-// replace with your own signaling server url if the public ones go down
+/** Public y-webrtc signaling; room names are prefixed so short IDs stay in our namespace. */
 const SIGNALING = ['wss://signaling.yjs.dev'];
-const SHARE_CODE_SEP = '#';
+const ROOM_PREFIX = 'tb';
+const SHARE_CODE_LEN = 5;
+const ACCESS_PIN_LEN = 6;
+/** Digits + upper/lower letters; case-sensitive when joining. */
+const TOKEN_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+const SHARE_CODE_RE = /^[A-Za-z0-9]{5}$/;
+const ACCESS_PIN_RE = /^[A-Za-z0-9]{6}$/;
+const LEGACY_SHARE_CODE_SEP = '#';
+const COMBINED_SEP = '-';
 
 let ydoc: Y.Doc | null = null;
 let provider: WebrtcProvider | null = null;
@@ -33,28 +41,110 @@ function getUserName(): string {
   return name;
 }
 
-function generateSecret(): string {
-  const bytes = new Uint8Array(16);
+function randomToken(length: number): string {
+  const bytes = new Uint8Array(length);
   crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+  let out = '';
+  for (let i = 0; i < length; i++) out += TOKEN_ALPHABET[bytes[i]! % TOKEN_ALPHABET.length];
+  return out;
 }
 
-// if a password is set, mix it with the secret so both are required
-function deriveEncryptionKey(secret: string, password: string | null): string {
-  return password ? secret + ':' + password : secret;
+/** Signaling channel name from the 5-character display code. */
+export function signalingRoomId(shareCode: string): string {
+  return `${ROOM_PREFIX}${shareCode}`;
 }
 
-function buildShareCode(roomId: string, secret: string): string {
-  return roomId + SHARE_CODE_SEP + secret;
+function deriveEncryptionKey(accessPin: string): string {
+  return accessPin;
 }
 
-export function parseShareCode(code: string): { roomId: string; secret: string } | null {
-  const idx = code.indexOf(SHARE_CODE_SEP);
-  if (idx === -1) return null;
-  const roomId = code.slice(0, idx);
-  const secret = code.slice(idx + 1);
-  if (!roomId || !secret) return null;
-  return { roomId, secret };
+export type JoinCredentials = { shareCode: string; accessPin: string; signalingId: string };
+
+/**
+ * Accepts TeamViewer-style inputs:
+ * - 5-char code + separate 6-char pin (letters + digits, case-sensitive)
+ * - combined `Ab3k9-xY7nQ2`
+ * - older `uuid#hex` / long `room-secret` formats
+ */
+export function parseJoinCredentials(
+  roomOrCode: string,
+  pin: string | null | undefined = null
+): JoinCredentials | null {
+  const code = roomOrCode.trim().replace(/^['"`]+|['"`]+$/g, '');
+  if (!code) return null;
+
+  const legacy = code.indexOf(LEGACY_SHARE_CODE_SEP);
+  if (legacy !== -1) {
+    const roomId = code.slice(0, legacy).trim();
+    const secret = code.slice(legacy + 1).trim();
+    if (!roomId || !secret) return null;
+    return { shareCode: roomId, accessPin: secret, signalingId: roomId };
+  }
+
+  if (SHARE_CODE_RE.test(code)) {
+    const accessPin = (pin || '').trim();
+    if (!ACCESS_PIN_RE.test(accessPin)) return null;
+    return { shareCode: code, accessPin, signalingId: signalingRoomId(code) };
+  }
+
+  const sep = code.indexOf(COMBINED_SEP);
+  if (sep !== -1) {
+    const left = code.slice(0, sep).trim();
+    const right = code.slice(sep + 1).trim();
+    if (SHARE_CODE_RE.test(left) && ACCESS_PIN_RE.test(right)) {
+      return { shareCode: left, accessPin: right, signalingId: signalingRoomId(left) };
+    }
+    // Older long alphanumeric codes
+    if (/^[A-Za-z0-9]{6,64}$/.test(left) && /^[A-Za-z0-9]{8,128}$/.test(right)) {
+      return { shareCode: left, accessPin: right, signalingId: left };
+    }
+  }
+
+  return null;
+}
+
+/** @deprecated Prefer parseJoinCredentials; kept for call sites that only check a combined string. */
+export function parseShareCode(raw: string): { roomId: string; secret: string } | null {
+  const parsed = parseJoinCredentials(raw, null);
+  if (!parsed) return null;
+  return { roomId: parsed.signalingId, secret: parsed.accessPin };
+}
+
+/** Join link carries both the session ID and the access PIN. */
+export function buildJoinUrl(
+  shareCode: string,
+  accessPin: string,
+  opts: { origin?: string; base?: string } = {}
+): string {
+  const origin = opts.origin ?? (typeof location !== 'undefined' ? location.origin : '');
+  const basePath = (opts.base ?? '').replace(/\/$/, '');
+  const url = new URL(`${basePath}/editor`, origin || 'http://localhost');
+  url.searchParams.set('join', shareCode);
+  url.searchParams.set('pin', accessPin);
+  return url.toString();
+}
+
+export function readJoinFromSearch(search = ''): { shareCode: string; accessPin: string } | null {
+  const params = new URLSearchParams(search.startsWith('?') ? search : `?${search}`);
+  const join = (params.get('join') ?? params.get('collab') ?? '').trim();
+  const pin = (params.get('pin') ?? '').trim();
+  if (!join) return null;
+  const parsed = parseJoinCredentials(join, pin || null);
+  if (!parsed) return null;
+  return { shareCode: parsed.shareCode, accessPin: parsed.accessPin };
+}
+
+export function clearJoinParamsFromUrl(): void {
+  if (typeof location === 'undefined' || typeof history === 'undefined') return;
+  const url = new URL(location.href);
+  if (!url.searchParams.has('join') && !url.searchParams.has('collab') && !url.searchParams.has('pin')) {
+    return;
+  }
+  url.searchParams.delete('join');
+  url.searchParams.delete('collab');
+  url.searchParams.delete('pin');
+  const next = url.pathname + (url.searchParams.toString() ? `?${url.searchParams}` : '') + url.hash;
+  history.replaceState({}, '', next);
 }
 
 export function getAwareness() {
@@ -77,16 +167,12 @@ export function getYTextWithUndo(filePath: string): { ytext: Y.Text; undoManager
   return { ytext, undoManager: um };
 }
 
-// returns the share code (roomId#secret) that collaborators need to join
-export function createRoom(
-  password: string | null,
-  projectFiles: Map<string, string>,
-  entryPointPath: string | null
-): string {
-  const roomId = crypto.randomUUID();
-  const secret = generateSecret();
-  const encryptionKey = deriveEncryptionKey(secret, password);
-  const shareCode = buildShareCode(roomId, secret);
+/** Start a session: 5-char 识别码 + 6-char 验证码 (letters + digits). */
+export function createRoom(projectFiles: Map<string, string>, entryPointPath: string | null): string {
+  const shareCode = randomToken(SHARE_CODE_LEN);
+  const accessPin = randomToken(ACCESS_PIN_LEN);
+  const signalingId = signalingRoomId(shareCode);
+  const encryptionKey = deriveEncryptionKey(accessPin);
 
   const doc = new Y.Doc();
   ydoc = doc;
@@ -107,7 +193,7 @@ export function createRoom(
     }
   });
 
-  provider = new WebrtcProvider(roomId, doc, {
+  provider = new WebrtcProvider(signalingId, doc, {
     signaling: SIGNALING,
     maxConns: 20,
     password: encryptionKey
@@ -122,25 +208,32 @@ export function createRoom(
 
   collabActive.set(true);
   collabConnected.set(true);
-  collabRoom.set({ id: roomId, secret, shareCode, password, isHost: true });
+  collabRoom.set({
+    id: signalingId,
+    shareCode,
+    accessPin,
+    secret: accessPin,
+    password: null,
+    isHost: true
+  });
 
   return shareCode;
 }
 
-export function joinRoom(shareCode: string, password: string | null): Promise<void> {
-  const parsed = parseShareCode(shareCode);
+export function joinRoom(shareCodeOrCombined: string, accessPin: string | null): Promise<void> {
+  const parsed = parseJoinCredentials(shareCodeOrCombined, accessPin);
   if (!parsed) {
-    return Promise.reject(new Error('Invalid share code. Expected format: roomId#secret'));
+    return Promise.reject(new Error('Invalid share code or access pin'));
   }
 
-  const { roomId, secret } = parsed;
-  const encryptionKey = deriveEncryptionKey(secret, password);
+  const { shareCode, accessPin: pin, signalingId } = parsed;
+  const encryptionKey = deriveEncryptionKey(pin);
 
   return new Promise((resolve) => {
     const doc = new Y.Doc();
     ydoc = doc;
 
-    provider = new WebrtcProvider(roomId, doc, {
+    provider = new WebrtcProvider(signalingId, doc, {
       signaling: SIGNALING,
       maxConns: 20,
       password: encryptionKey
@@ -154,9 +247,15 @@ export function joinRoom(shareCode: string, password: string | null): Promise<vo
     setupAwarenessListeners();
 
     collabActive.set(true);
-    collabRoom.set({ id: roomId, secret, shareCode, password, isHost: false });
+    collabRoom.set({
+      id: signalingId,
+      shareCode,
+      accessPin: pin,
+      secret: pin,
+      password: null,
+      isHost: false
+    });
 
-    // wait for initial sync with at least one peer
     let resolved = false;
     const done = () => {
       if (resolved) return;
@@ -169,7 +268,6 @@ export function joinRoom(shareCode: string, password: string | null): Promise<vo
       if (e.synced) done();
     });
 
-    // timeout fallback if no peers are online yet
     setTimeout(done, 5000);
   });
 }
@@ -180,12 +278,12 @@ function setupAwarenessListeners() {
   const awareness = provider.awareness;
   const updatePeers = () => {
     const peers: CollabPeer[] = [];
-    awareness.getStates().forEach((state: any, clientId: number) => {
+    awareness.getStates().forEach((state: { user?: CollabUser; currentFile?: string | null }, clientId: number) => {
       if (clientId === awareness.clientID) return;
       if (state.user) {
         peers.push({
           clientId,
-          user: state.user as CollabUser,
+          user: state.user,
           currentFile: state.currentFile ?? null
         });
       }
@@ -238,7 +336,7 @@ export function isHost(): boolean {
   return room?.isHost ?? false;
 }
 
-function getCompileMap(): Y.Map<any> | null {
+function getCompileMap(): Y.Map<unknown> | null {
   if (!ydoc) return null;
   return ydoc.getMap('compile');
 }
@@ -291,16 +389,15 @@ export function readCompileState(): {
     pdf: (map.get('pdf') as Uint8Array) || null,
     log: (map.get('log') as string) || '[]',
     errors: (map.get('errors') as string) || '[]',
-    pageCount: (map.get('pageCount') as number) || 1,
+    pageCount: (map.get('pageCount') as number) || 1
   };
 }
 
-// returns an unsubscribe function
-export function observeCompileState(callback: (key: string, value: any) => void): () => void {
+export function observeCompileState(callback: (key: string, value: unknown) => void): () => void {
   if (!ydoc) return () => {};
   const map = ydoc.getMap('compile');
-  const handler = (event: any) => {
-    event.changes.keys.forEach((_change: any, key: string) => {
+  const handler = (event: { changes: { keys: Map<string, unknown> } }) => {
+    event.changes.keys.forEach((_change, key) => {
       callback(key, map.get(key));
     });
   };

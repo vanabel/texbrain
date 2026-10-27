@@ -229,17 +229,18 @@ export type EditorUi = {
   connected: string;
   connecting: string;
   shareCode: string;
+  accessPin: string;
   copyShareCode: string;
+  copyAccessPin: string;
+  copyJoinLink: string;
+  shareQrLabel: string;
+  shareQrShow: string;
+  shareQrHide: string;
   shareHintEncrypt: string;
-  password: string;
-  passwordShareHint: string;
   collaborators: string;
   waitingPeers: string;
   leaveSession: string;
   startSession: string;
-  createPasswordLabel: string;
-  createPasswordOpt: string;
-  createPwPlaceholder: string;
   starting: string;
   startCollab: string;
   startHintEncrypt: string;
@@ -247,9 +248,8 @@ export type EditorUi = {
   joinSession: string;
   labelShareCode: string;
   pasteCodePlaceholder: string;
-  joinPasswordLabel: string;
-  joinPasswordOpt: string;
-  roomPwPlaceholder: string;
+  joinPinLabel: string;
+  joinPinPlaceholder: string;
   joining: string;
   joinBtn: string;
   toastNameFirst: string;
@@ -259,6 +259,8 @@ export type EditorUi = {
   toastJoinFailed: string;
   toastLeftSession: string;
   toastCodeCopied: string;
+  toastPinCopied: string;
+  toastJoinLinkCopied: string;
   unknownError: string;
 };
 
@@ -471,39 +473,39 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     namePlaceholder: 'Enter your name',
     connected: 'Connected',
     connecting: 'Connecting...',
-    shareCode: 'Share Code',
-    copyShareCode: 'Copy share code',
-    shareHintEncrypt:
-      'End-to-end encrypted. This code contains the encryption key, only share it with people you trust.',
-    password: 'Password',
-    passwordShareHint: 'Collaborators also need this password. Share it separately from the code for extra security.',
+    shareCode: 'Session ID',
+    accessPin: 'Access PIN',
+    copyShareCode: 'Copy session ID',
+    copyAccessPin: 'Copy access PIN',
+    copyJoinLink: 'Copy join link',
+    shareQrLabel: 'Scan to join',
+    shareQrShow: 'Show QR',
+    shareQrHide: 'Hide QR',
+    shareHintEncrypt: 'Share the ID and PIN (case-sensitive), or the join link. The PIN encrypts the session.',
     collaborators: 'Collaborators',
-    waitingPeers: 'Waiting for collaborators to join...',
+    waitingPeers: 'Waiting for others…',
     leaveSession: 'Leave Session',
     startSession: 'Start a Session',
-    createPasswordLabel: 'Password',
-    createPasswordOpt: '(optional, extra security)',
-    createPwPlaceholder: 'Require a password to join',
     starting: 'Starting...',
     startCollab: 'Start Collaboration',
-    startHintEncrypt:
-      'All sessions are end-to-end encrypted. Setting a password adds a second factor. Collaborators will need both the share code and the password.',
+    startHintEncrypt: 'You will get a 5-character ID and a 6-character PIN (letters + digits).',
     or: 'or',
     joinSession: 'Join a Session',
-    labelShareCode: 'Share Code',
-    pasteCodePlaceholder: 'Paste the share code',
-    joinPasswordLabel: 'Password',
-    joinPasswordOpt: '(if required)',
-    roomPwPlaceholder: 'Room password',
+    labelShareCode: 'Session ID',
+    pasteCodePlaceholder: 'e.g. Ab3k9',
+    joinPinLabel: 'Access PIN',
+    joinPinPlaceholder: 'e.g. xY7nQ2',
     joining: 'Joining...',
     joinBtn: 'Join Session',
     toastNameFirst: 'Please enter your name first',
-    toastPasteCode: 'Please paste a share code',
-    toastInvalidCode: 'Invalid share code format',
+    toastPasteCode: 'Enter the 5-character ID and 6-character PIN',
+    toastInvalidCode: 'Invalid session ID or access PIN',
     toastCreateFailed: 'Failed to create room: {msg}',
     toastJoinFailed: 'Failed to join room: {msg}',
     toastLeftSession: 'Left collaboration session',
-    toastCodeCopied: 'Share code copied!',
+    toastCodeCopied: 'Session ID copied!',
+    toastPinCopied: 'Access PIN copied!',
+    toastJoinLinkCopied: 'Join link copied — paste it in chat',
     unknownError: 'Unknown error'
   },
   zh: {
@@ -712,38 +714,39 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     namePlaceholder: '输入你的名字',
     connected: '已连接',
     connecting: '连接中…',
-    shareCode: '分享码',
-    copyShareCode: '复制分享码',
-    shareHintEncrypt: '端到端加密。分享码内含密钥，请只发给信任的人。',
-    password: '密码',
-    passwordShareHint: '协作者也需要此密码。建议与分享码分开告知以提高安全性。',
+    shareCode: '识别码',
+    accessPin: '验证码',
+    copyShareCode: '复制识别码',
+    copyAccessPin: '复制验证码',
+    copyJoinLink: '复制加入链接',
+    shareQrLabel: '扫码加入',
+    shareQrShow: '显示二维码',
+    shareQrHide: '收起二维码',
+    shareHintEncrypt: '告知识别码与验证码（区分大小写），或发送加入链接。验证码用于加密。',
     collaborators: '协作者',
-    waitingPeers: '等待其他人加入…',
+    waitingPeers: '等待加入…',
     leaveSession: '离开会话',
     startSession: '开始会话',
-    createPasswordLabel: '密码',
-    createPasswordOpt: '（可选，额外安全）',
-    createPwPlaceholder: '要求加入者输入密码',
     starting: '正在开始…',
     startCollab: '开始协作',
-    startHintEncrypt:
-      '所有会话均为端到端加密。设置密码相当于第二因素，协作者需要同时掌握分享码与密码。',
+    startHintEncrypt: '将生成 5 位识别码和 6 位验证码（数字 + 大小写字母）。',
     or: '或',
     joinSession: '加入会话',
-    labelShareCode: '分享码',
-    pasteCodePlaceholder: '粘贴分享码',
-    joinPasswordLabel: '密码',
-    joinPasswordOpt: '（若需要）',
-    roomPwPlaceholder: '房间密码',
+    labelShareCode: '识别码',
+    pasteCodePlaceholder: '如 Ab3k9',
+    joinPinLabel: '验证码',
+    joinPinPlaceholder: '如 xY7nQ2',
     joining: '加入中…',
     joinBtn: '加入会话',
     toastNameFirst: '请先填写显示名称',
-    toastPasteCode: '请粘贴分享码',
-    toastInvalidCode: '分享码格式无效',
+    toastPasteCode: '请填写 5 位识别码和 6 位验证码',
+    toastInvalidCode: '识别码或验证码无效',
     toastCreateFailed: '创建房间失败：{msg}',
     toastJoinFailed: '加入房间失败：{msg}',
     toastLeftSession: '已离开协作会话',
-    toastCodeCopied: '已复制分享码！',
+    toastCodeCopied: '已复制识别码！',
+    toastPinCopied: '已复制验证码！',
+    toastJoinLinkCopied: '已复制加入链接，可直接发到聊天',
     unknownError: '未知错误'
   }
 };
