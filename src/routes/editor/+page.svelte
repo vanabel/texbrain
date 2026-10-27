@@ -524,7 +524,7 @@
     return cumLines / totalDocLines;
   }
 
-  async function doCompile() {
+  async function doCompile(opts?: { forceLocal?: boolean }) {
     const af = get(activeFile);
     if (!af) return;
 
@@ -539,24 +539,34 @@
     }
 
     const isCollabMode = get(collabActive);
+    const forceLocal = opts?.forceLocal === true;
 
-    // non-host in collab: delegate compilation to host
-    if (isCollabMode && !isHost()) {
-      compiling = true;
-      compileStuckTimer = Date.now();
-      compileStatus.set('compiling');
-      compileLog.set([`[${ts()}] requesting compilation from host...`]);
-      requestCompile();
+    // non-host in collab: ask host first; fall back to local if alone / host silent
+    // (BusyTeX cold start often exceeds 15s — old timeout falsely reported "host did not respond")
+    if (isCollabMode && !isHost() && !forceLocal) {
+      const peers = get(collabPeers);
+      if (peers.length === 0) {
+        compileLog.set([`[${ts()}] no collab host online — compiling locally...`]);
+      } else {
+        compiling = true;
+        compileStuckTimer = Date.now();
+        compileStatus.set('compiling');
+        compileLog.set([`[${ts()}] requesting compilation from host...`]);
+        requestCompile();
 
-      setTimeout(() => {
-        if (compiling && get(collabActive) && !isHost()) {
-          compiling = false;
-          compileStuckTimer = 0;
-          compileStatus.set('error');
-          compileLog.set([`[${ts()}] host did not respond - try again or compile locally after leaving the session`]);
-        }
-      }, 15_000);
-      return;
+        const waitMs = 120_000;
+        setTimeout(() => {
+          if (compiling && get(collabActive) && !isHost()) {
+            compiling = false;
+            compileStuckTimer = 0;
+            compileLog.set([
+              `[${ts()}] host did not respond within ${waitMs / 1000}s — compiling locally...`
+            ]);
+            void doCompile({ forceLocal: true });
+          }
+        }, waitMs);
+        return;
+      }
     }
 
     let latexEngineMod: typeof import('$lib/compiler/latex-engine') | null = null;

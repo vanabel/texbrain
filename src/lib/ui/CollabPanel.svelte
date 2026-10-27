@@ -5,6 +5,7 @@
     collabActive,
     collabRoom,
     collabPeers,
+    collabLinkCount,
     collabConnected,
     collabPanelOpen,
     collabUserName,
@@ -177,6 +178,8 @@
       </header>
 
       <div class="panel-body">
+        <p class="flow-hint">{E.collabFlowHint}</p>
+
         <div class="field">
           <label for="collab-name">{E.yourName}</label>
           <input
@@ -240,6 +243,10 @@
                 {/each}
               </ul>
             </div>
+          {:else if $collabLinkCount > 0}
+            <p class="hint">
+              {expandEditorTemplate(E.peersLinkedSyncing, { n: $collabLinkCount })}
+            </p>
           {:else}
             <p class="hint">{E.waitingPeers}</p>
           {/if}
@@ -353,6 +360,16 @@
     font-weight: 600;
     color: var(--text-primary);
     margin: 0;
+  }
+  .flow-hint {
+    margin: 0 0 12px;
+    padding: 8px 10px;
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--text-secondary, var(--text-muted));
+    background: color-mix(in srgb, var(--accent, #4ecdc4) 8%, var(--bg-elevated, var(--bg-surface)));
+    border: 1px solid color-mix(in srgb, var(--accent, #4ecdc4) 22%, var(--border));
+    border-radius: 6px;
   }
   .status-chip {
     display: inline-flex;

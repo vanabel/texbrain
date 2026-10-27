@@ -223,6 +223,8 @@ export type EditorUi = {
 
   // Collaboration panel
   collabPanelTitle: string;
+  /** Short how-it-works blurb shown at the top of the collab panel. */
+  collabFlowHint: string;
   collabClose: string;
   yourName: string;
   namePlaceholder: string;
@@ -239,6 +241,8 @@ export type EditorUi = {
   shareHintEncrypt: string;
   collaborators: string;
   waitingPeers: string;
+  /** Shown when WebRTC links exist but awareness names have not arrived yet. */
+  peersLinkedSyncing: string;
   leaveSession: string;
   startSession: string;
   starting: string;
@@ -468,6 +472,8 @@ export const editorUi: Record<AppLocale, EditorUi> = {
       'In the sidebar References list: click a citation key or equation number to jump to its source line. Hold Ctrl (Windows/Linux) or ⌘ (macOS) and click to insert \\cite{key} or \\eq{number} at the editor cursor.',
 
     collabPanelTitle: 'Collaboration',
+    collabFlowHint:
+      'Live room (not Git): guests need not open a folder—tabs come from the host’s room and sync live. PDF updates only after Compile (host first; local fallback if needed). Disk Save / Git Push need a folder. Persist with Git.',
     collabClose: 'Close',
     yourName: 'Your Name',
     namePlaceholder: 'Enter your name',
@@ -483,7 +489,8 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     shareQrHide: 'Hide QR',
     shareHintEncrypt: 'Share the ID and PIN (case-sensitive), or the join link. The PIN encrypts the session.',
     collaborators: 'Collaborators',
-    waitingPeers: 'Waiting for others…',
+    waitingPeers: 'Waiting for others… (no peer link yet — check ID/PIN or network)',
+    peersLinkedSyncing: 'Linked to {n} peer(s); syncing names…',
     leaveSession: 'Leave Session',
     startSession: 'Start a Session',
     starting: 'Starting...',
@@ -709,6 +716,8 @@ export const editorUi: Record<AppLocale, EditorUi> = {
       '侧栏「引用」列表：单击文献键或公式编号可跳转到源码行；按住 Ctrl（Windows/Linux）或 Mac 上的 ⌘ 并单击，可在编辑器光标处插入 \\cite{键名} 或 \\eq{编号}。',
 
     collabPanelTitle: '协作',
+    collabFlowHint:
+      '实时房间（不等于 Git）：访客不必打开本地文件夹——加入后会从主机房间拉出标签并即时共编。PDF 需点「编译」（优先主机，必要时本地）。写磁盘 / Git Push 才需要打开文件夹；持久保存请用 Git。',
     collabClose: '关闭',
     yourName: '显示名称',
     namePlaceholder: '输入你的名字',
@@ -724,7 +733,8 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     shareQrHide: '收起二维码',
     shareHintEncrypt: '告知识别码与验证码（区分大小写），或发送加入链接。验证码用于加密。',
     collaborators: '协作者',
-    waitingPeers: '等待加入…',
+    waitingPeers: '等待加入…（尚未与对方建立连接，请核对识别码/验证码或网络）',
+    peersLinkedSyncing: '已与 {n} 端连通，正在同步协作者名称…',
     leaveSession: '离开会话',
     startSession: '开始会话',
     starting: '正在开始…',

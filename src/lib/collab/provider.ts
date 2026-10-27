@@ -1,7 +1,7 @@
 import * as Y from 'yjs';
 import { WebrtcProvider } from 'y-webrtc';
 import { get } from 'svelte/store';
-import { collabActive, collabRoom, collabPeers, collabConnected, collabUserName } from './store';
+import { collabActive, collabRoom, collabPeers, collabLinkCount, collabConnected, collabUserName } from './store';
 import type { CollabPeer, CollabUser } from './types';
 
 const COLORS = [
@@ -48,8 +48,50 @@ const COMBINED_SEP = '-';
 
 let ydoc: Y.Doc | null = null;
 let provider: WebrtcProvider | null = null;
+let peerPollTimer: ReturnType<typeof setInterval> | null = null;
 const userColor = COLORS[Math.floor(Math.random() * COLORS.length)];
 const undoManagers = new Map<string, Y.UndoManager>();
+
+function announceLocalUser() {
+  if (!provider) return;
+  provider.awareness.setLocalStateField('user', {
+    name: getUserName(),
+    ...userColor
+  });
+}
+
+/** Awareness names can lag behind WebRTC links — refresh both for the panel. */
+function refreshPeerUi() {
+  if (!provider) {
+    collabPeers.set([]);
+    collabLinkCount.set(0);
+    return;
+  }
+
+  const awareness = provider.awareness;
+  const peers: CollabPeer[] = [];
+  awareness.getStates().forEach((state: { user?: CollabUser; currentFile?: string | null }, clientId: number) => {
+    if (clientId === awareness.clientID) return;
+    const user =
+      state.user ??
+      ({
+        name: `Peer-${String(clientId).slice(-4)}`,
+        color: '#94a3b8',
+        colorLight: '#94a3b833'
+      } satisfies CollabUser);
+    peers.push({
+      clientId,
+      user,
+      currentFile: state.currentFile ?? null
+    });
+  });
+  collabPeers.set(peers);
+
+  const room = provider.room;
+  const webrtc = room?.webrtcConns?.size ?? 0;
+  const bc = room?.bcConns?.size ?? 0;
+  collabLinkCount.set(webrtc + bc);
+}
 
 function getUserName(): string {
   let name = get(collabUserName);
@@ -239,12 +281,8 @@ export function createRoom(
     password: encryptionKey
   });
 
-  provider.awareness.setLocalStateField('user', {
-    name: getUserName(),
-    ...userColor
-  });
-
-  setupAwarenessListeners();
+  setupPeerListeners();
+  announceLocalUser();
 
   collabActive.set(true);
   collabConnected.set(true);
@@ -256,6 +294,7 @@ export function createRoom(
     password: null,
     isHost: true
   });
+  refreshPeerUi();
 
   return shareCode;
 }
@@ -279,12 +318,8 @@ export function joinRoom(shareCodeOrCombined: string, accessPin: string | null):
       password: encryptionKey
     });
 
-    provider.awareness.setLocalStateField('user', {
-      name: getUserName(),
-      ...userColor
-    });
-
-    setupAwarenessListeners();
+    setupPeerListeners();
+    announceLocalUser();
 
     collabActive.set(true);
     collabRoom.set({
@@ -295,11 +330,14 @@ export function joinRoom(shareCodeOrCombined: string, accessPin: string | null):
       password: null,
       isHost: false
     });
+    refreshPeerUi();
 
     let resolved = false;
     const done = () => {
       if (resolved) return;
       resolved = true;
+      announceLocalUser();
+      refreshPeerUi();
       collabConnected.set(true);
       resolve();
     };
@@ -313,27 +351,31 @@ export function joinRoom(shareCodeOrCombined: string, accessPin: string | null):
   });
 }
 
-function setupAwarenessListeners() {
+function setupPeerListeners() {
   if (!provider) return;
 
   const awareness = provider.awareness;
-  const updatePeers = () => {
-    const peers: CollabPeer[] = [];
-    awareness.getStates().forEach((state: { user?: CollabUser; currentFile?: string | null }, clientId: number) => {
-      if (clientId === awareness.clientID) return;
-      if (state.user) {
-        peers.push({
-          clientId,
-          user: state.user,
-          currentFile: state.currentFile ?? null
-        });
-      }
-    });
-    collabPeers.set(peers);
-  };
+  awareness.on('change', refreshPeerUi);
+  provider.on('synced', () => {
+    announceLocalUser();
+    refreshPeerUi();
+  });
+  provider.on('peers', () => {
+    announceLocalUser();
+    refreshPeerUi();
+  });
+  provider.on('status', () => {
+    refreshPeerUi();
+  });
 
-  awareness.on('change', updatePeers);
-  updatePeers();
+  if (peerPollTimer) clearInterval(peerPollTimer);
+  // Awareness names often arrive a few seconds after the WebRTC link — poll lightly.
+  peerPollTimer = setInterval(() => {
+    if (!provider || !get(collabActive)) return;
+    refreshPeerUi();
+  }, 2000);
+
+  refreshPeerUi();
 }
 
 export function setCurrentFile(filePath: string | null) {
@@ -343,11 +385,7 @@ export function setCurrentFile(filePath: string | null) {
 
 export function updateUserName(name: string) {
   collabUserName.set(name);
-  if (!provider) return;
-  provider.awareness.setLocalStateField('user', {
-    name,
-    ...userColor
-  });
+  announceLocalUser();
 }
 
 export function getSharedFileList(): string[] {
@@ -475,6 +513,10 @@ export function observeCompileState(callback: (key: string, value: unknown) => v
 }
 
 export function leaveRoom() {
+  if (peerPollTimer) {
+    clearInterval(peerPollTimer);
+    peerPollTimer = null;
+  }
   if (provider) {
     provider.disconnect();
     provider.destroy();
@@ -491,4 +533,5 @@ export function leaveRoom() {
   collabConnected.set(false);
   collabRoom.set(null);
   collabPeers.set([]);
+  collabLinkCount.set(0);
 }

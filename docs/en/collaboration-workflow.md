@@ -107,15 +107,47 @@ Least-privilege or read-only tokens for students; write access on **their fork**
 
 ## Flow B — Live Collab room
 
-For **synchronous** editing only.
+For **synchronous** editing only. Under the hood: **Yjs + WebRTC** (peer-to-peer); the site only provides signaling at `/__texbrain_signaling`.
+
+### Does a guest “refresh” in real time?
+
+| What | Live? | Notes |
+| --- | --- | --- |
+| **Source (`.tex` / `.bib`, …)** | **Yes** | Edits sync to everyone’s editor almost immediately (CRDT; concurrent edits OK) |
+| **Cursors / current file** | **Yes** | Peer list shows names and open files |
+| **PDF preview** | **Not on every keystroke** | Someone must **Compile**. Prefer the **host**; the result is shared via the room. If the host is offline/times out, the guest may compile locally |
+| **Disk / GitHub** | **No** | Room state lives in browser memory (Yjs). Closing the tab or leaving ends it. Persist with Flow A Pull / Commit / Push |
+
+One line: **typing is live; PDF needs compile; hand-in still uses Git.**
+
+### What if the guest never opens a local folder?
+
+**Co-editing still works.** When the host creates the room, the current project (open tabs / collected files) is packed into Yjs. After join, the guest editor **opens those paths as tabs** and binds them to Yjs. So:
+
+| Capability | Guest without a local folder |
+| --- | --- |
+| View/edit sources, live sync with host | **Yes** (room lives in browser memory; no disk grant needed) |
+| Compile / PDF preview | **Yes** (room / local BusyTeX; see above) |
+| Save to disk, Git panel Push | **No** (no folder permission); open a folder later or get the work from host/GitHub |
+| Full disk project tree | Usually **missing**; you mainly see tabs synced from the room |
+
+If the guest joins before the host’s files sync (slow network or empty host room), tabs may stay empty briefly—retry after the host has content.
+
+### Steps
 
 | Role | Action |
 | --- | --- |
-| **Host** | **Open Folder** → **Collab** → create room → share code |
-| **Students** | Join with code |
-| **Before class ends** | **Commit + Push** to GitHub if Flow A is set up |
+| **Host** | **Open Folder** → **Collab** → **Start Collaboration** → share the **session ID + PIN** or **join link / QR** |
+| **Guest** | **No need** to open a folder first. Open the join link (or enter ID + PIN) → **Join Session** → host’s `.tex` tabs appear and sync live |
+| **Before class ends** | Host (or anyone who opened a folder and set up Git) **Commit + Push** to GitHub |
 
-Limits: text files only at room creation (no `.otf` / PDF / images in the room payload); host-driven compile; SyncTeX only reliable on the machine that built with synctex ([FAQ](faq.md#synctex-editor--pdf)).
+### Limits
+
+- Room creation packs text and tries to include images/fonts (very large binaries may be skipped).
+- Signaling must be same-origin `/__texbrain_signaling` (see [Deployment](deployment.md)); without WebSocket upgrade, peers stay on “Waiting…”.
+- Guest compile: ask host first; after ~2 minutes with no host response (or no host in the room), **fall back to local compile**.
+- SyncTeX is most reliable on the machine that produced synctex ([FAQ](faq.md#synctex-editor--pdf)).
+- **Do not** rely on Collab alone for persistence: after the host leaves, unpushed edits are gone for the next session.
 
 ---
 
