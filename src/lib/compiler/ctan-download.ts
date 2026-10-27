@@ -210,34 +210,67 @@ function packageKeyFromFilename(filename: string): string {
   return (dot > 0 ? base.slice(0, dot) : base).toLowerCase();
 }
 
+/**
+ * Filename → CTAN package id candidates.
+ * e.g. `gbt7714-2025-numerical.bst` → gbt7714-2025-numerical, gbt7714
+ */
+function packageKeyCandidates(filename: string): string[] {
+  const key = packageKeyFromFilename(filename);
+  const out: string[] = [key];
+  const gbt = key.match(/^(gbt7714)(?:-|$)/i);
+  if (gbt) out.push('gbt7714');
+  const stripped = key
+    .replace(/-\d{4}-(numeric|numerical|authoryear|author-year)$/i, '')
+    .replace(/-(numeric|numerical|authoryear|author-year)$/i, '');
+  if (stripped && stripped !== key) out.push(stripped);
+  return [...new Set(out)];
+}
+
+/**
+ * Deprecated / alternate BibTeX style names → preferred fetch names
+ * (gbt7714 v2.2+ uses `-numeric` instead of `-numerical`).
+ */
+function bstFetchAliases(basename: string): string[] {
+  const lower = basename.toLowerCase();
+  if (!lower.endsWith('.bst')) return [basename];
+  const aliases = new Set<string>([basename]);
+  const stem = basename.slice(0, -4);
+  const rewritten = stem
+    .replace(/-numerical$/i, '-numeric')
+    .replace(/-author-year$/i, '-authoryear');
+  if (rewritten !== stem) aliases.add(`${rewritten}.bst`);
+  return [...aliases];
+}
+
 async function resolveCtanPackageKey(
   filename: string,
   corsProxy: string
 ): Promise<{ key: string; meta: CtanPkgMeta } | null> {
-  const guess = packageKeyFromFilename(filename);
-  const direct = await fetchJson<CtanPkgMeta>(
-    `${CTAN_JSON_ORIGIN}/json/2.0/pkg/${encodeURIComponent(guess)}`,
-    corsProxy
-  );
-  if (direct?.id) return { key: direct.id, meta: direct };
+  for (const guess of packageKeyCandidates(filename)) {
+    const direct = await fetchJson<CtanPkgMeta>(
+      `${CTAN_JSON_ORIGIN}/json/2.0/pkg/${encodeURIComponent(guess)}`,
+      corsProxy
+    );
+    if (direct?.id) return { key: direct.id, meta: direct };
 
-  type PkgListItem = { key?: string; name?: string };
-  const list = await fetchJson<PkgListItem[]>(
-    `${CTAN_JSON_ORIGIN}/json/2.0/packages?key=${encodeURIComponent(guess)}`,
-    corsProxy
-  );
-  if (!Array.isArray(list) || list.length === 0) return null;
+    type PkgListItem = { key?: string; name?: string };
+    const list = await fetchJson<PkgListItem[]>(
+      `${CTAN_JSON_ORIGIN}/json/2.0/packages?key=${encodeURIComponent(guess)}`,
+      corsProxy
+    );
+    if (!Array.isArray(list) || list.length === 0) continue;
 
-  const exact = list.find(p => (p.key || '').toLowerCase() === guess);
-  const pick = exact ?? list[0];
-  if (!pick?.key) return null;
+    const exact = list.find(p => (p.key || '').toLowerCase() === guess);
+    const pick = exact ?? list[0];
+    if (!pick?.key) continue;
 
-  const meta = await fetchJson<CtanPkgMeta>(
-    `${CTAN_JSON_ORIGIN}/json/2.0/pkg/${encodeURIComponent(pick.key)}`,
-    corsProxy
-  );
-  if (!meta?.id) return null;
-  return { key: meta.id, meta };
+    const meta = await fetchJson<CtanPkgMeta>(
+      `${CTAN_JSON_ORIGIN}/json/2.0/pkg/${encodeURIComponent(pick.key)}`,
+      corsProxy
+    );
+    if (meta?.id) return { key: meta.id, meta };
+  }
+  return null;
 }
 
 /**
@@ -278,11 +311,26 @@ function githubRawUrls(repoUrl: string, wantedBasenames: Iterable<string>): stri
   const urls: string[] = [];
   for (const branch of ['main', 'master'] as const) {
     for (const want of wantedBasenames) {
-      urls.push(`https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${want}`);
-      urls.push(`https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${repo}/${want}`);
+      const base = want.includes('/') ? want.slice(want.lastIndexOf('/') + 1) : want;
+      // Root + common packaging layouts (gbt7714 keeps versioned .bst under variants/).
+      for (const rel of [base, `variants/${base}`, `${repo}/${base}`, `bst/${base}`]) {
+        urls.push(`https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${rel}`);
+      }
     }
   }
   return urls;
+}
+
+function isLikelyTexArchiveText(base: string, text: string): boolean {
+  if (/\.bst$/i.test(base)) {
+    return /ENTRY\s*\{|FUNCTION\s*\{|% ?[Bb]ib[Tt]e[Xx]/.test(text) || text.length > 200;
+  }
+  return (
+    text.includes('\\ProvidesPackage') ||
+    text.includes('\\ProvidesClass') ||
+    text.includes('\\documentclass') ||
+    /\.(sty|cls)$/i.test(base)
+  );
 }
 
 function isZip(buf: ArrayBuffer): boolean {
@@ -356,7 +404,7 @@ function texFilesFromDownloadedBuffer(
   const base = url.slice(url.lastIndexOf('/') + 1);
   if (!TEX_ARCHIVE_EXTS.test(base)) return null;
   const text = utf8Decoder.decode(new Uint8Array(buf));
-  if (text.includes('\\ProvidesPackage') || text.includes('\\documentclass') || base.endsWith('.sty')) {
+  if (isLikelyTexArchiveText(base, text)) {
     const m = new Map<string, string>();
     m.set(base, text);
     logLines.push(`[CTAN]   ok file ${url}`);
@@ -414,19 +462,29 @@ async function downloadPackageTexFiles(
 
   const repo = meta.repository?.trim();
   if (repo) {
-    for (const url of githubRawUrls(repo, wantedBasenames)) {
+    const githubWants = new Set<string>();
+    for (const want of wantedBasenames) {
+      for (const a of bstFetchAliases(want)) githubWants.add(a);
+    }
+    for (const url of githubRawUrls(repo, githubWants)) {
       reportCtanFetchProgress(`[CTAN] trying GitHub ${url}`);
       const got = await fetchBytes(url, corsProxy);
       if (!got) continue;
       const base = url.slice(url.lastIndexOf('/') + 1);
       if (!TEX_ARCHIVE_EXTS.test(base)) continue;
       const text = utf8Decoder.decode(new Uint8Array(got.buf));
-      if (text.includes('\\ProvidesPackage') || base.endsWith('.sty')) {
-        const m = new Map<string, string>();
-        m.set(base, text);
-        logLines.push(`[CTAN]   ok GitHub ${url}`);
-        return m;
+      if (!isLikelyTexArchiveText(base, text)) continue;
+      const m = new Map<string, string>();
+      m.set(base, text);
+      // Also register under the originally requested deprecated names (e.g. numerical → numeric).
+      for (const want of wantedBasenames) {
+        const aliases = bstFetchAliases(want);
+        if (aliases.some((a) => a.toLowerCase() === base.toLowerCase()) && want.toLowerCase() !== base.toLowerCase()) {
+          m.set(want.includes('/') ? want.slice(want.lastIndexOf('/') + 1) : want, text);
+        }
       }
+      logLines.push(`[CTAN]   ok GitHub ${url}`);
+      return m;
     }
   }
 
@@ -444,12 +502,14 @@ export async function fetchMissingTexFromCtan(
   const logLines: string[] = [];
   if (missingBasenames.length === 0) return { added, log: '' };
 
-  const wanted = new Set(missingBasenames.map(f => f.toLowerCase()));
   const byPackage = new Map<string, Set<string>>();
   for (const name of missingBasenames) {
-    const key = packageKeyFromFilename(name);
-    if (!byPackage.has(key)) byPackage.set(key, new Set());
-    byPackage.get(key)!.add(name.toLowerCase());
+    const base = name.includes('/') ? name.slice(name.lastIndexOf('/') + 1) : name;
+    // Prefer short package id (e.g. gbt7714) so versioned .bst share one download.
+    const candidates = packageKeyCandidates(base);
+    const groupKey = candidates[candidates.length - 1] || packageKeyFromFilename(base);
+    if (!byPackage.has(groupKey)) byPackage.set(groupKey, new Set());
+    byPackage.get(groupKey)!.add(base);
   }
 
   for (const [pkgGuess, names] of byPackage) {
@@ -462,12 +522,23 @@ export async function fetchMissingTexFromCtan(
       );
       continue;
     }
-    logLines.push(`[CTAN] resolved ${[...names].join(', ')} → pkg/${resolved.key}`);
-    const files = await downloadPackageTexFiles(resolved.meta, names, corsProxy, logLines);
+    const fetchNames = new Set<string>();
+    for (const n of names) {
+      for (const a of bstFetchAliases(n)) fetchNames.add(a);
+    }
+    const nameLower = new Set([...names].map((n) => n.toLowerCase()));
+    const extraAliases = [...fetchNames].filter((f) => !nameLower.has(f.toLowerCase()));
+    logLines.push(
+      `[CTAN] resolved ${[...names].join(', ')} → pkg/${resolved.key}` +
+        (extraAliases.length ? ` (also try ${extraAliases.join(', ')})` : '')
+    );
+    const files = await downloadPackageTexFiles(resolved.meta, fetchNames, corsProxy, logLines);
     if (files.size === 0) {
       const p = resolved.meta.ctan?.path ?? '?';
       logLines.push(
-        `[CTAN] download failed for pkg/${resolved.key} (${p}); ensure /__texbrain_ctan_json returns JSON (not index.html): use pnpm serve:prod or nginx ^~ locations — see docs deployment`
+        `[CTAN] download failed for pkg/${resolved.key} (${p}); ` +
+          'CTAN source zip may only ship .dtx/.ins — TeXbrain tries GitHub variants/*.bst when available. ' +
+          'ensure /__texbrain_ctan_json returns JSON (not index.html): use pnpm serve:prod or nginx ^~ locations — see docs deployment'
       );
       continue;
     }
@@ -475,6 +546,18 @@ export async function fetchMissingTexFromCtan(
       if (!added.has(base)) {
         added.set(base, content);
         logLines.push(`[CTAN] added ${base} (${content.length} bytes)`);
+      }
+    }
+    // Ensure every originally requested basename is present (alias copy).
+    for (const want of names) {
+      if (added.has(want)) continue;
+      for (const a of bstFetchAliases(want)) {
+        const hit = [...added.entries()].find(([b]) => b.toLowerCase() === a.toLowerCase());
+        if (hit) {
+          added.set(want, hit[1]);
+          logLines.push(`[CTAN] aliased ${hit[0]} → ${want}`);
+          break;
+        }
       }
     }
   }
@@ -509,7 +592,7 @@ export function formatCtanAutoFetchSuccessNote(opts: {
   }
   if (!opts.sawMissingInLog) {
     return (
-      '\n\n[TeXbrain] CTAN auto-fetch: no missing .sty/.cls in the log ' +
+      '\n\n[TeXbrain] CTAN auto-fetch: no missing .sty/.cls/.bst in the log ' +
       '(dependencies were likely satisfied by the built-in BusyTeX TeX Live tree; CTAN download was skipped).\n'
     );
   }
