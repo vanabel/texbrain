@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Production static server with same-origin CTAN proxies (matches vite.config.ts).
+ * Production static server with same-origin CTAN proxies (matches vite.config.ts)
+ * and y-webrtc collab signaling at `/__texbrain_signaling`.
  * Unlike `serve -s`, does not SPA-fallback `/__texbrain_ctan_*` to index.html.
  */
 import http from 'node:http';
@@ -8,6 +9,7 @@ import https from 'node:https';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { attachCollabSignaling } from './collab-signaling.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '../build');
@@ -114,6 +116,11 @@ function serveStatic(req, res) {
 
 const server = http.createServer((req, res) => {
   const pathname = new URL(req.url || '/', 'http://localhost').pathname;
+  if (pathname === '/__texbrain_signaling' || pathname.startsWith('/__texbrain_signaling/')) {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('texbrain collab signaling (use WebSocket)\n');
+    return;
+  }
   for (const rule of CTAN_PROXIES) {
     if (pathname.startsWith(rule.prefix)) {
       proxyToUpstream(req, res, rule);
@@ -123,7 +130,10 @@ const server = http.createServer((req, res) => {
   serveStatic(req, res);
 });
 
+attachCollabSignaling(server, '/__texbrain_signaling');
+
 server.listen(PORT, () => {
   console.log(`TeXbrain static + CTAN proxy listening on http://127.0.0.1:${PORT}`);
+  console.log(`  collab signaling: ws://127.0.0.1:${PORT}/__texbrain_signaling`);
   console.log(`  build root: ${ROOT}`);
 });

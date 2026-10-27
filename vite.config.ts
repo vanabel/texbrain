@@ -1,9 +1,11 @@
 import { execSync } from 'node:child_process';
+import http from 'node:http';
 import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import { texlivePlugin } from './vite-texlive-plugin';
+import { attachCollabSignaling } from './scripts/collab-signaling.mjs';
 
 /** Injected into the client bundle at `vite build` / `vite dev` (see `src/lib/build-meta.ts`). */
 function texbrainBuildMeta(): { revision: string; repoBase: string } {
@@ -63,6 +65,42 @@ const texbrainCtanProxy = {
   }
 } as const;
 
+/** Same-origin collab signaling for `vite dev` / `vite preview` (matches production). */
+const texbrainSignalingProxy = {
+  '/__texbrain_signaling': {
+    target: 'ws://127.0.0.1:4444',
+    ws: true,
+    changeOrigin: true,
+    rewrite: (p: string) => p.replace(/^\/__texbrain_signaling/, '') || '/'
+  }
+} as const;
+
+function collabSignalingDevPlugin(): Plugin {
+  let started = false;
+  return {
+    name: 'texbrain-collab-signaling',
+    configureServer() {
+      if (started) return;
+      started = true;
+      const server = http.createServer((_req, res) => {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end('texbrain collab signaling\n');
+      });
+      attachCollabSignaling(server, '/');
+      server.listen(4444, '127.0.0.1', () => {
+        console.log('TeXbrain collab signaling (dev) ws://127.0.0.1:4444');
+      });
+      server.on('error', (err: NodeJS.ErrnoException) => {
+        if (err.code === 'EADDRINUSE') {
+          console.log('TeXbrain collab signaling already on :4444');
+        } else {
+          console.warn('collab signaling:', err.message);
+        }
+      });
+    }
+  };
+}
+
 export default defineConfig({
   plugins: [
     // Must run before SvelteKit: provides process / Buffer for crypto-browserify → readable-stream
@@ -77,6 +115,7 @@ export default defineConfig({
       },
       protocolImports: true
     }),
+    collabSignalingDevPlugin(),
     tailwindcss(),
     texlivePlugin(),
     sveltekit()
@@ -96,7 +135,7 @@ export default defineConfig({
     format: 'es'
   },
   server: {
-    proxy: { ...texbrainCodeloadProxy, ...texbrainCtanProxy },
+    proxy: { ...texbrainCodeloadProxy, ...texbrainCtanProxy, ...texbrainSignalingProxy },
     watch: {
       // ignore latex artifacts and texlive cache to prevent hot reload on file save
       ignored: [
@@ -108,7 +147,7 @@ export default defineConfig({
     }
   },
   preview: {
-    proxy: { ...texbrainCodeloadProxy, ...texbrainCtanProxy }
+    proxy: { ...texbrainCodeloadProxy, ...texbrainCtanProxy, ...texbrainSignalingProxy }
   },
   build: {
     // Gzip size reporting walks every emitted asset (pdf.worker ~2MB, BusyTeX chunks).

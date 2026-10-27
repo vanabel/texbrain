@@ -111,8 +111,11 @@ Browser → Cloudflare (tex.example.com)
              ├─ /__texbrain_ctan_json/     → www.ctan.org
              ├─ /__texbrain_ctan_ustc/      → USTC mirror
              ├─ /__texbrain_ctan_tsinghua/ → Tsinghua mirror
+             ├─ /__texbrain_signaling      → TeXbrain PM2 (WebSocket upgrade, collab)
              └─ /                         → TeXbrain PM2 (e.g. 127.0.0.1:19903)
 ```
+
+Collab uses **y-webrtc**. Peers need a signaling server; public `signaling.yjs.dev` is often unreachable. TeXbrain defaults to same-origin `wss://your-host/__texbrain_signaling` (embedded in `serve:prod`). **cloudflared is usually fine**; if Nginx sits in front, it must upgrade WebSockets for that path or hosts stay on “Waiting for others…”.
 
 **cloudflared** `ingress` (adjust to your config file):
 
@@ -123,7 +126,7 @@ ingress:
   - service: http_status:404
 ```
 
-Put the three `location` blocks on **Nginx listening on `19003`**, not inside cloudflared. PM2 defaults to `PORT=19903` (`ecosystem.config.cjs`); Nginx `location /` forwards there.
+Put the `location` blocks on **Nginx listening on `19003`**, not inside cloudflared. PM2 defaults to `PORT=19903` (`ecosystem.config.cjs`); Nginx `location /` forwards there.
 
 **Full Nginx example** (`listen 19003`; change the TeXbrain backend port if needed):
 
@@ -131,6 +134,15 @@ Put the three `location` blocks on **Nginx listening on `19003`**, not inside cl
 server {
   listen 19003;
   server_name _;
+
+  location ^~ /__texbrain_signaling {
+    proxy_pass http://127.0.0.1:19903;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_read_timeout 86400;
+  }
 
   location ^~ /__texbrain_ctan_json/ {
     proxy_pass https://www.ctan.org/;

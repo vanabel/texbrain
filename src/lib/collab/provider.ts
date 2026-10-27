@@ -15,8 +15,27 @@ const COLORS = [
   { color: '#eab308', colorLight: '#eab30833' }
 ];
 
-/** Public y-webrtc signaling; room names are prefixed so short IDs stay in our namespace. */
-const SIGNALING = ['wss://signaling.yjs.dev'];
+/**
+ * y-webrtc signaling URLs.
+ * Default: same-origin `/__texbrain_signaling` (served by serve-prod-ctan / Vite proxy).
+ * Override with `VITE_COLLAB_SIGNALING=wss://host/path,wss://…` (comma-separated).
+ * Do not rely on `signaling.yjs.dev` — it is often unreachable (DNS dead).
+ */
+function collabSignalingUrls(): string[] {
+  const fromEnv = (import.meta.env.VITE_COLLAB_SIGNALING as string | undefined)?.trim();
+  if (fromEnv) {
+    return fromEnv
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  if (typeof location !== 'undefined' && location.host) {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return [`${proto}//${location.host}/__texbrain_signaling`];
+  }
+  return ['ws://127.0.0.1:4444'];
+}
+
 const ROOM_PREFIX = 'tb';
 const SHARE_CODE_LEN = 5;
 const ACCESS_PIN_LEN = 6;
@@ -215,7 +234,7 @@ export function createRoom(
   });
 
   provider = new WebrtcProvider(signalingId, doc, {
-    signaling: SIGNALING,
+    signaling: collabSignalingUrls(),
     maxConns: 20,
     password: encryptionKey
   });
@@ -255,7 +274,7 @@ export function joinRoom(shareCodeOrCombined: string, accessPin: string | null):
     ydoc = doc;
 
     provider = new WebrtcProvider(signalingId, doc, {
-      signaling: SIGNALING,
+      signaling: collabSignalingUrls(),
       maxConns: 20,
       password: encryptionKey
     });
@@ -289,7 +308,8 @@ export function joinRoom(shareCodeOrCombined: string, accessPin: string | null):
       if (e.synced) done();
     });
 
-    setTimeout(done, 5000);
+    // Host may be offline; still enter the room so the UI can show status.
+    setTimeout(done, 8000);
   });
 }
 

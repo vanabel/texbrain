@@ -125,7 +125,8 @@ git push -u origin main          # 分支名按仓库实际修改
 
 **限制：**
 
-- 创建房间时只打包**文本类**工程文件（与扫描 `.tex` / `.bib` 等相同），**不包含** `.otf` / `.pdf` / 图片等二进制。
+- 创建房间时会打包文本文件，并尽量带上图片/字体等二进制依赖（过大压缩包等会跳过）。
+- 信令走站点同域 `/__texbrain_signaling`（见 [部署](deployment.md)）。公网 `signaling.yjs.dev` 不可用时，必须部署该路径，否则会一直「等待加入」。
 - 编译：Collab 模式下通常仅 **Host** 驱动完整编译；PDF 不会自动当作「作业提交」分发。
 - SyncTeX：仅本机含 synctex 的编译可靠；见 [常见问题 — SyncTeX](faq.md#synctex编辑器--pdf)。
 

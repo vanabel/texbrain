@@ -102,8 +102,11 @@ pnpm pm2:delete
             ├─ /__texbrain_ctan_json/     → www.ctan.org
             ├─ /__texbrain_ctan_ustc/      → USTC 镜像
             ├─ /__texbrain_ctan_tsinghua/ → 清华镜像
+            ├─ /__texbrain_signaling      → TeXbrain PM2（WebSocket 升级，协作信令）
             └─ /                         → TeXbrain PM2（如 127.0.0.1:19903）
 ```
+
+协作（Collab）用 **y-webrtc**：浏览器之间直连，但需要信令服务器互相发现。公网 `signaling.yjs.dev` 经常不可用。TeXbrain 默认使用 **同域** `wss://你的域名/__texbrain_signaling`（由 `serve:prod` 内嵌）。**cloudflared 本身一般没问题**；若前面还有 Nginx，必须为该路径打开 WebSocket 升级，否则会一直「等待加入」。
 
 **cloudflared** `ingress` 示例（概念上，按你实际配置文件调整）：
 
@@ -122,6 +125,15 @@ ingress:
 server {
   listen 19003;
   server_name _;
+
+  location ^~ /__texbrain_signaling {
+    proxy_pass http://127.0.0.1:19903;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_read_timeout 86400;
+  }
 
   location ^~ /__texbrain_ctan_json/ {
     proxy_pass https://www.ctan.org/;

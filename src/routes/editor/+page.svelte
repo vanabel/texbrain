@@ -35,7 +35,7 @@
   import { resolveCompileMainFile, type CompileMainMode } from '$lib/compiler/compile-main';
   import { compileRootDirOf, sliceProjectToCompileRoot } from '$lib/compiler/compile-root';
   import { yCollab } from 'y-codemirror.next';
-  import { collabActive, collabPanelOpen, collabPeers, collabConnected, collabRoom, pendingJoin } from '$lib/collab/store';
+  import { collabActive, collabPanelOpen, collabPeers, collabConnected, collabRoom, pendingJoin, collabUserName } from '$lib/collab/store';
   import { createRoom, joinRoom, leaveRoom, getYTextWithUndo, getAwareness, setCurrentFile, getSharedFileList, getSharedEntryPoint, isHost, requestCompile, setCompileStatus, setCompileResult, observeCompileState, readCompileState, collectFilesFromYjs, collectBinariesFromYjs, readJoinFromSearch, clearJoinParamsFromUrl } from '$lib/collab/provider';
   import { gitPanelOpen, gitEnabled, gitChangeCount, getEffectiveGitCorsProxy } from '$lib/git/store';
   import {
@@ -1693,6 +1693,19 @@
       pendingJoin.set(join);
       collabPanelOpen.set(true);
       clearJoinParamsFromUrl();
+      // Deep link: auto-join so the guest does not stop at an empty welcome screen.
+      void (async () => {
+        try {
+          if (!get(collabUserName)?.trim()) {
+            collabUserName.set('Guest-' + Math.random().toString(36).slice(2, 6));
+          }
+          await handleJoinCollabRoom(join.shareCode, join.accessPin);
+          pendingJoin.set(null);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          addToast(expandEditorTemplate(uiMsg().toastJoinFailed, { msg }), 'error');
+        }
+      })();
     }
     if (compileEngine === 'xelatex') {
       void import('$lib/compiler/busytex-bibtex').then((m) =>
