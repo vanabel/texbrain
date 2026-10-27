@@ -9,7 +9,7 @@ import https from 'node:https';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { attachCollabSignaling } from './collab-signaling.mjs';
+import { attachCollabSignaling } from './collab-signaling-lib.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '../build');

@@ -5,7 +5,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { defineConfig, type Plugin } from 'vite';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import { texlivePlugin } from './vite-texlive-plugin';
-import { attachCollabSignaling } from './scripts/collab-signaling.mjs';
+import { attachCollabSignaling } from './scripts/collab-signaling-lib.mjs';
 
 /** Injected into the client bundle at `vite build` / `vite dev` (see `src/lib/build-meta.ts`). */
 function texbrainBuildMeta(): { revision: string; repoBase: string } {
