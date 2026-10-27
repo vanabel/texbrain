@@ -1,17 +1,48 @@
 import { get } from 'svelte/store';
 import { base } from '$app/paths';
 import { unzipSync } from 'fflate';
-import { openFileTab, activeFile, markFileSaved, projectTree, projectName, projectHandle, entryPoint, pendingTexFiles, files, closeFileTab } from './store';
+import {
+  openFileTab,
+  activeFile,
+  markFileSaved,
+  markAllFilesSaved,
+  projectTree,
+  projectName,
+  projectHandle,
+  entryPoint,
+  pendingTexFiles,
+  files,
+  closeFileTab
+} from './store';
 import { openLocalFile, saveLocalFile, saveLocalFileAs, openDirectory, readDirectoryTree, readFileFromHandle } from '../fs/local-fs';
 import { openFileFallback, saveFileFallback } from '../fs/fallback-fs';
+import {
+  collectFilesForProjectExport,
+  buildProjectZip,
+  suggestedProjectZipName,
+  downloadZipBytes,
+  writeProjectToDirectory
+} from '../fs/project-export';
+import {
+  pickDownloadDirectory,
+  clearDownloadDirectory,
+  ensureDownloadDirPermission,
+  downloadDirName
+} from '../fs/download-dir';
 import { addToast } from '../stores/app';
 import { initFs as gitInitFs, cloneRepo, readAllFilesFromGit, checkAndLoadGit, syncFilesToGit } from '../git/load-engine';
 import { downloadGithubSubfolderAsMaps, extractSubfolderFromUnzipped, parseGithubRepoUrl } from '../git/github-zip';
 import { gitCorsProxy } from '../git/store';
+import { locale } from '../i18n/locale';
+import { editorUi, expandEditorTemplate } from '../i18n/editor-ui';
 import type { TreeEntry } from './types';
 
 function supportsFileSystemAccess(): boolean {
   return 'showOpenFilePicker' in window;
+}
+
+function ui() {
+  return editorUi[get(locale)];
 }
 
 const DEFAULT_TEX = `\\documentclass{article}
@@ -353,29 +384,115 @@ export async function handleRenameFileInProject(entry: TreeEntry) {
   }
 }
 
+/** Save whole project as ZIP download, or extract into the configured download directory. */
+async function exportProjectWithoutFolder(opts?: { forceZipDownload?: boolean }): Promise<void> {
+  const { textFiles, binaryFiles } = collectFilesForProjectExport();
+  if (textFiles.size === 0 && binaryFiles.size === 0) {
+    addToast(ui().toastProjectExportEmpty, 'warning');
+    return;
+  }
+
+  const forceZip = opts?.forceZipDownload === true;
+  if (!forceZip) {
+    const dir = await ensureDownloadDirPermission();
+    if (dir) {
+      const count = await writeProjectToDirectory(dir, textFiles, binaryFiles);
+      markAllFilesSaved();
+      addToast(
+        expandEditorTemplate(ui().toastProjectExtracted, {
+          n: count,
+          dir: get(downloadDirName) || dir.name
+        }),
+        'success',
+        2500
+      );
+      return;
+    }
+  }
+
+  const zip = buildProjectZip(textFiles, binaryFiles);
+  const zipName = suggestedProjectZipName();
+
+  if (forceZip && supportsFileSystemAccess() && 'showSaveFilePicker' in window) {
+    try {
+      const handle = await (window as any).showSaveFilePicker({
+        suggestedName: zipName,
+        types: [
+          {
+            description: 'ZIP archive',
+            accept: { 'application/zip': ['.zip'] }
+          }
+        ]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(new Blob([new Uint8Array(zip)]));
+      await writable.close();
+      markAllFilesSaved();
+      addToast(expandEditorTemplate(ui().toastProjectZipSaved, { name: handle.name || zipName }), 'success', 2000);
+      return;
+    } catch (e: any) {
+      if (e?.name === 'AbortError') return;
+      // Fall through to anchor download.
+    }
+  }
+
+  downloadZipBytes(zip, zipName);
+  markAllFilesSaved();
+  addToast(expandEditorTemplate(ui().toastProjectZipDownloaded, { name: zipName }), 'success', 2000);
+}
+
+export async function handlePickDownloadDirectory() {
+  try {
+    const handle = await pickDownloadDirectory();
+    if (handle) {
+      addToast(
+        expandEditorTemplate(ui().toastDownloadDirSet, { name: handle.name }),
+        'success',
+        2000
+      );
+    }
+  } catch (e: any) {
+    if (e?.name !== 'AbortError') {
+      addToast(expandEditorTemplate(ui().toastDownloadDirFailed, { msg: e?.message || ui().unknownError }), 'error');
+    }
+  }
+}
+
+export async function handleClearDownloadDirectory() {
+  await clearDownloadDirectory();
+  addToast(ui().toastDownloadDirCleared, 'info', 1500);
+}
+
 export async function handleSaveFile() {
   const file = get(activeFile);
   if (!file) return;
 
   try {
-    if (file.handle) {
-      await saveLocalFile(file.handle, file.content);
-      markFileSaved(file.id);
-      addToast('File saved', 'success', 1500);
-    } else if (supportsFileSystemAccess()) {
-      const handle = await saveLocalFileAs(file.content, file.name);
-      if (handle) {
+    // Host / local folder: keep writing the active file to disk.
+    if (get(projectHandle)) {
+      if (file.handle) {
+        await saveLocalFile(file.handle, file.content);
         markFileSaved(file.id);
-        addToast('File saved', 'success', 1500);
+        addToast(ui().toastFileSaved, 'success', 1500);
+      } else if (supportsFileSystemAccess()) {
+        const handle = await saveLocalFileAs(file.content, file.name);
+        if (handle) {
+          markFileSaved(file.id);
+          addToast(ui().toastFileSaved, 'success', 1500);
+        }
+      } else {
+        saveFileFallback(file.content, file.name);
+        markFileSaved(file.id);
+        addToast(ui().toastFileDownloaded, 'success', 1500);
       }
-    } else {
-      saveFileFallback(file.content, file.name);
-      markFileSaved(file.id);
-      addToast('File downloaded', 'success', 1500);
+      return;
     }
+
+    // Guest / no project folder: export the whole project (ZIP or extract to download dir).
+    await exportProjectWithoutFolder();
   } catch (e: any) {
     if (e.name !== 'AbortError') {
-      addToast(`Failed to save: ${e.message}`, 'error');
+      addToast(expandEditorTemplate(ui().toastSaveFailed, { msg: e.message }), 'error');
     }
   }
 }
@@ -385,20 +502,26 @@ export async function handleSaveFileAs() {
   if (!file) return;
 
   try {
-    if (supportsFileSystemAccess()) {
-      const handle = await saveLocalFileAs(file.content, file.name);
-      if (handle) {
+    if (get(projectHandle)) {
+      if (supportsFileSystemAccess()) {
+        const handle = await saveLocalFileAs(file.content, file.name);
+        if (handle) {
+          markFileSaved(file.id);
+          addToast(ui().toastFileSaved, 'success', 1500);
+        }
+      } else {
+        saveFileFallback(file.content, file.name);
         markFileSaved(file.id);
-        addToast('File saved', 'success', 1500);
+        addToast(ui().toastFileDownloaded, 'success', 1500);
       }
-    } else {
-      saveFileFallback(file.content, file.name);
-      markFileSaved(file.id);
-      addToast('File downloaded', 'success', 1500);
+      return;
     }
+
+    // No folder: always produce a project ZIP (picker when available).
+    await exportProjectWithoutFolder({ forceZipDownload: true });
   } catch (e: any) {
     if (e.name !== 'AbortError') {
-      addToast(`Failed to save: ${e.message}`, 'error');
+      addToast(expandEditorTemplate(ui().toastSaveFailed, { msg: e.message }), 'error');
     }
   }
 }

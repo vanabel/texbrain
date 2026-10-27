@@ -5,7 +5,20 @@
   import { get } from 'svelte/store';
   import { sidebarOpen, sidebarPanel, previewOpen, editorOpen, snippetPickerOpen, commandPaletteOpen, projectSearchOpen, compileStatus, compileLog, compileErrors, staticDiagnostics, pdfStale, previewTab, addToast } from '$lib/stores/app';
   import { files, activeFile, activeFileId, updateFileContent, projectHandle, projectTree, entryPoint, openFileTab } from '$lib/project/store';
-  import { handleOpenFile, handleSaveFile, handleSaveFileAs, handleDroppedFiles, handleOpenDirectory, handleNewProject, cloneProject, loadBundledBibtexExample, refreshProjectTree } from '$lib/project/manager';
+  import {
+    handleOpenFile,
+    handleSaveFile,
+    handleSaveFileAs,
+    handleDroppedFiles,
+    handleOpenDirectory,
+    handleNewProject,
+    cloneProject,
+    loadBundledBibtexExample,
+    refreshProjectTree,
+    handlePickDownloadDirectory,
+    handleClearDownloadDirectory
+  } from '$lib/project/manager';
+  import { downloadDirHandle, downloadDirName, loadDownloadDirFromIdb } from '$lib/fs/download-dir';
   import { insertAtCursor, createEditor, replaceEditorContent, setEditorTheme, setEditorBehavior, setVimSaveHandler } from '$lib/editor/setup';
   import { snippetFieldKeys } from '$lib/editor/key-conflicts';
   import { preferences } from '$lib/stores/preferences';
@@ -1306,6 +1319,28 @@
     { id: 'open', label: E.cmdOpenFile, shortcut: 'Ctrl+O', action: handleOpenFile, category: 'file' },
     { id: 'save', label: E.cmdSaveCompile, shortcut: 'Ctrl+S', action: saveAndCompile, category: 'file' },
     { id: 'saveas', label: E.cmdSaveAs, shortcut: 'Ctrl+Shift+S', action: handleSaveFileAs, category: 'file' },
+    ...(!$projectHandle
+      ? [
+          {
+            id: 'setdownloaddir',
+            label: E.cmdSetDownloadDir,
+            shortcut: '',
+            action: () => void handlePickDownloadDirectory(),
+            category: 'file'
+          },
+          ...($downloadDirHandle
+            ? [
+                {
+                  id: 'cleardownloaddir',
+                  label: E.cmdClearDownloadDir,
+                  shortcut: '',
+                  action: () => void handleClearDownloadDirectory(),
+                  category: 'file'
+                }
+              ]
+            : [])
+        ]
+      : []),
     { id: 'compile', label: E.cmdCompile, shortcut: 'Ctrl+Enter', action: compilePreview, category: 'compile' },
     { id: 'sidebar', label: E.cmdToggleSidebar, shortcut: 'Ctrl+B', action: () => sidebarOpen.update(v => !v), category: 'view' },
     { id: 'togglepreview', label: E.cmdTogglePreview, shortcut: 'Ctrl+P', action: togglePreview, category: 'view' },
@@ -1759,6 +1794,7 @@
   $: if ($collabPanelOpen) collabPanelLoaded = true;
 
   onMount(() => {
+    void loadDownloadDirFromIdb();
     const savedEngine = localStorage.getItem('texbrain.compile.engine');
     if (savedEngine === 'pdflatex' || savedEngine === 'xelatex') {
       compileEngine = savedEngine;
@@ -1857,6 +1893,28 @@
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M12.5 14H3.5a1 1 0 01-1-1V3a1 1 0 011-1h7l3 3v8a1 1 0 01-1 1z" stroke="currentColor" stroke-width="1.3"/><path d="M11.5 14v-4h-7v4" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 2v3h4" stroke="currentColor" stroke-width="1.3"/></svg>
           <span>{E.save}</span>
         </button>
+        {#if !$projectHandle}
+          <button
+            class="action-btn"
+            class:download-dir-active={!!$downloadDirHandle}
+            on:click={() => void handlePickDownloadDirectory()}
+            title={$downloadDirHandle
+              ? expandEditorTemplate(E.ttDownloadDirSet, { name: $downloadDirName || $downloadDirHandle.name })
+              : E.ttSetDownloadDir}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 13V5a1 1 0 011-1h3l1.5 1.5H13a1 1 0 011 1V13a1 1 0 01-1 1H3a1 1 0 01-1-1z" stroke="currentColor" stroke-width="1.3"/><path d="M8 7v5M5.5 9.5L8 12l2.5-2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>
+              {$downloadDirHandle
+                ? expandEditorTemplate(E.downloadDirSet, { name: $downloadDirName || $downloadDirHandle.name })
+                : E.setDownloadDir}
+            </span>
+          </button>
+          {#if $downloadDirHandle}
+            <button class="action-btn" on:click={() => void handleClearDownloadDirectory()} title={E.cmdClearDownloadDir}>
+              <span>{E.clearDownloadDir}</span>
+            </button>
+          {/if}
+        {/if}
       </div>
       <div class="separator"></div>
       <div class="topbar-group">
@@ -2636,6 +2694,8 @@
 
   .action-btn.git-active { color: var(--accent); }
   .action-btn.git-active:hover { color: var(--accent); }
+  .action-btn.download-dir-active { color: var(--accent); }
+  .action-btn.download-dir-active:hover { color: var(--accent); }
   .git-change-badge {
     font-size: 9px;
     font-weight: 700;

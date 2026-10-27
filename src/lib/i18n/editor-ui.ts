@@ -16,6 +16,9 @@ export type EditorUi = {
   cmdOpenFile: string;
   cmdSaveCompile: string;
   cmdSaveAs: string;
+  /** Pick a folder used to auto-extract project ZIP saves (no project folder open). */
+  cmdSetDownloadDir: string;
+  cmdClearDownloadDir: string;
   cmdCompile: string;
   cmdToggleSidebar: string;
   cmdTogglePreview: string;
@@ -37,6 +40,13 @@ export type EditorUi = {
   openFolder: string;
   openFile: string;
   save: string;
+  /** Top-bar: choose download/extract folder when no project folder is open. */
+  setDownloadDir: string;
+  /** Top-bar label when a download directory is already set. Use {name}. */
+  downloadDirSet: string;
+  clearDownloadDir: string;
+  ttSetDownloadDir: string;
+  ttDownloadDirSet: string;
   compile: string;
   compiling: string;
   /** Compile button label while BusyTeX WASM/runtime is loading before TeX runs */
@@ -191,6 +201,21 @@ export type EditorUi = {
   toastExportNoProject: string;
   toastExported: string;
   toastExportFailed: string;
+  toastFileSaved: string;
+  toastFileDownloaded: string;
+  toastSaveFailed: string;
+  toastProjectExportEmpty: string;
+  /** Use {n} {dir} */
+  toastProjectExtracted: string;
+  /** Use {name} */
+  toastProjectZipDownloaded: string;
+  /** Use {name} */
+  toastProjectZipSaved: string;
+  /** Use {name} */
+  toastDownloadDirSet: string;
+  toastDownloadDirCleared: string;
+  /** Use {msg} */
+  toastDownloadDirFailed: string;
   toastCollabStarted: string;
   toastCollabJoined: string;
   toastCloneCors: string;
@@ -278,6 +303,8 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     cmdOpenFile: 'Open File',
     cmdSaveCompile: 'Save + Compile',
     cmdSaveAs: 'Save As...',
+    cmdSetDownloadDir: 'Set download directory…',
+    cmdClearDownloadDir: 'Clear download directory',
     cmdCompile: 'Compile',
     cmdToggleSidebar: 'Toggle Sidebar',
     cmdTogglePreview: 'Toggle Preview',
@@ -298,6 +325,13 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     openFolder: 'Open Folder',
     openFile: 'Open File',
     save: 'Save',
+    setDownloadDir: 'Download dir',
+    downloadDirSet: 'Dir: {name}',
+    clearDownloadDir: 'Clear',
+    ttSetDownloadDir:
+      'Choose a folder to auto-extract the project on Save (when no project folder is open). Without a folder, Save downloads a ZIP.',
+    ttDownloadDirSet:
+      'Download directory: {name}. Save writes/extracts the whole project here. Click to change.',
     compile: 'Compile',
     compiling: 'Compiling...',
     compilingBusyTex: 'Loading BusyTeX…',
@@ -448,6 +482,16 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     toastExportNoProject: 'Export: no project handle',
     toastExported: 'Exported {name}',
     toastExportFailed: 'Export failed: {msg}',
+    toastFileSaved: 'File saved',
+    toastFileDownloaded: 'File downloaded',
+    toastSaveFailed: 'Failed to save: {msg}',
+    toastProjectExportEmpty: 'No project files to export',
+    toastProjectExtracted: 'Saved {n} file(s) to {dir}',
+    toastProjectZipDownloaded: 'Project downloaded as {name}',
+    toastProjectZipSaved: 'Project ZIP saved as {name}',
+    toastDownloadDirSet: 'Download directory set: {name}',
+    toastDownloadDirCleared: 'Download directory cleared',
+    toastDownloadDirFailed: 'Could not set download directory: {msg}',
     toastCollabStarted: 'Collaboration session started!',
     toastCollabJoined: 'Joined collaboration session!',
     toastCloneCors:
@@ -480,7 +524,7 @@ export const editorUi: Record<AppLocale, EditorUi> = {
       'Host: open the project → Start Collaboration → share ID / PIN or join link.',
       'Guest: no local folder needed — host files open as tabs and sync live.',
       'PDF: click Compile (host first; guest can compile locally if host is silent).',
-      'Keep work: Git Commit + Push before leaving (disk Save also needs a folder).'
+      'Keep work: Save downloads a project ZIP (or auto-extracts if you set a download directory); Git Commit + Push if the host uses Git.'
     ],
     collabClose: 'Close',
     yourName: 'Your Name',
@@ -533,6 +577,8 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     cmdOpenFile: '打开文件',
     cmdSaveCompile: '保存并编译',
     cmdSaveAs: '另存为…',
+    cmdSetDownloadDir: '设置下载目录…',
+    cmdClearDownloadDir: '清除下载目录',
     cmdCompile: '编译',
     cmdToggleSidebar: '切换侧栏',
     cmdTogglePreview: '切换预览',
@@ -553,6 +599,12 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     openFolder: '打开文件夹',
     openFile: '打开文件',
     save: '保存',
+    setDownloadDir: '下载目录',
+    downloadDirSet: '目录：{name}',
+    clearDownloadDir: '清除',
+    ttSetDownloadDir:
+      '选择文件夹后，无工程文件夹时点保存会自动解压整项目到该目录；未设置则下载 ZIP。',
+    ttDownloadDirSet: '当前下载目录：{name}。保存时会将整项目写入/解压到此。点击可更换。',
     compile: '编译',
     compiling: '编译中…',
     compilingBusyTex: 'BusyTeX 加载中…',
@@ -701,6 +753,16 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     toastExportNoProject: '导出失败：没有工程句柄',
     toastExported: '已导出 {name}',
     toastExportFailed: '导出失败：{msg}',
+    toastFileSaved: '文件已保存',
+    toastFileDownloaded: '文件已下载',
+    toastSaveFailed: '保存失败：{msg}',
+    toastProjectExportEmpty: '没有可导出的工程文件',
+    toastProjectExtracted: '已将 {n} 个文件保存到 {dir}',
+    toastProjectZipDownloaded: '工程已下载为 {name}',
+    toastProjectZipSaved: '工程 ZIP 已保存为 {name}',
+    toastDownloadDirSet: '已设置下载目录：{name}',
+    toastDownloadDirCleared: '已清除下载目录',
+    toastDownloadDirFailed: '无法设置下载目录：{msg}',
     toastCollabStarted: '协作已开始！',
     toastCollabJoined: '已加入协作会话！',
     toastCloneCors:
@@ -733,7 +795,7 @@ export const editorUi: Record<AppLocale, EditorUi> = {
       '主机：打开工程 → 开始协作 → 分享识别码/验证码或加入链接。',
       '访客：不必打开本地文件夹；加入后自动出现主机文件标签，源码实时共编。',
       'PDF：需点「编译」（优先主机；主机无响应时访客可本地编译）。',
-      '保存成果：离开前 Git Commit + Push（写本机磁盘也需先打开文件夹）。'
+      '保存成果：保存会下载整项目 ZIP（若已设置下载目录则自动解压）；主机用 Git 时可 Commit + Push。'
     ],
     collabClose: '关闭',
     yourName: '显示名称',

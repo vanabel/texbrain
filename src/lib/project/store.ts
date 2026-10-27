@@ -72,6 +72,17 @@ export function markFileSaved(id: string, newContent?: string) {
   );
 }
 
+/** Mark every open tab clean after a full-project export / extract. */
+export function markAllFilesSaved() {
+  files.update((f) =>
+    f.map((file) => ({
+      ...file,
+      originalContent: file.content,
+      dirty: false
+    }))
+  );
+}
+
 export function closeFileTab(id: string) {
   const $files = get(files);
   const $activeFileId = get(activeFileId);
