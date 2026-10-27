@@ -36,7 +36,7 @@
   import { compileRootDirOf, sliceProjectToCompileRoot } from '$lib/compiler/compile-root';
   import { yCollab } from 'y-codemirror.next';
   import { collabActive, collabPanelOpen, collabPeers, collabConnected, collabRoom, pendingJoin, collabUserName } from '$lib/collab/store';
-  import { createRoom, joinRoom, leaveRoom, getYTextWithUndo, getAwareness, setCurrentFile, getSharedFileList, getSharedEntryPoint, isHost, requestCompile, setCompileStatus, setCompileResult, observeCompileState, readCompileState, collectFilesFromYjs, collectBinariesFromYjs, readJoinFromSearch, clearJoinParamsFromUrl } from '$lib/collab/provider';
+  import { createRoom, joinRoom, leaveRoom, getYTextWithUndo, getAwareness, setCurrentFile, getSharedFileList, getSharedEntryPoint, waitForSharedFileList, observeSharedFileList, isHost, requestCompile, setCompileStatus, setCompileResult, observeCompileState, readCompileState, collectFilesFromYjs, collectBinariesFromYjs, readJoinFromSearch, clearJoinParamsFromUrl } from '$lib/collab/provider';
   import { gitPanelOpen, gitEnabled, gitChangeCount, getEffectiveGitCorsProxy } from '$lib/git/store';
   import {
     initFs as gitInitFs, initRepo as gitInitRepo, syncFilesToGit,
@@ -1418,30 +1418,44 @@
     buildEditor();
   }
 
+  let stopSharedFileObserve: (() => void) | null = null;
+
+  function applySharedProjectToTabs(fileList: string[]) {
+    const ep = getSharedEntryPoint();
+    for (const path of fileList) {
+      const data = getYTextWithUndo(path);
+      if (!data) continue;
+      const content = data.ytext.toString();
+      const name = path.split('/').pop() || path;
+      openFileTab(name, content, null, path);
+    }
+    if (ep) entryPoint.set(ep);
+    if (fileList.length > 0) buildEditor();
+  }
+
   async function handleJoinCollabRoom(shareCode: string, accessPin: string) {
     await joinRoom(shareCode, accessPin);
 
-    const fileList = getSharedFileList();
-    const ep = getSharedEntryPoint();
+    addToast(uiMsg().toastCollabWaitingHostFiles, 'info');
+    const fileList = await waitForSharedFileList(30000);
+    applySharedProjectToTabs(fileList);
 
-    for (const path of fileList) {
-      const data = getYTextWithUndo(path);
-      if (data) {
-        const content = data.ytext.toString();
-        const name = path.split('/').pop() || path;
-        openFileTab(name, content, null, path);
-      }
+    stopSharedFileObserve?.();
+    stopSharedFileObserve = observeSharedFileList((paths) => {
+      applySharedProjectToTabs(paths);
+    });
+
+    if (fileList.length === 0) {
+      addToast(uiMsg().toastCollabNoHostFiles, 'warning');
+    } else {
+      addToast(uiMsg().toastCollabJoined, 'success');
     }
-
-    if (ep) {
-      entryPoint.set(ep);
-    }
-
-    addToast(uiMsg().toastCollabJoined, 'success');
     buildEditor();
   }
 
   function handleLeaveCollab() {
+    stopSharedFileObserve?.();
+    stopSharedFileObserve = null;
     compiling = false;
     compileStuckTimer = 0;
     buildEditor();

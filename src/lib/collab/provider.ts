@@ -371,12 +371,63 @@ export function joinRoom(shareCodeOrCombined: string, accessPin: string | null):
     };
 
     provider.on('synced', (e: { synced: boolean }) => {
-      if (e.synced) done();
+      if (!e.synced) return;
+      // Empty peer set reports synced=true immediately — wait until a link exists
+      // or fileList arrives, otherwise guests open zero tabs before the host syncs.
+      const links = provider?.room?.webrtcConns?.size ?? 0;
+      if (links === 0 && getSharedFileList().length === 0) return;
+      done();
     });
 
     // Host may be offline; still enter the room so the UI can show status.
-    setTimeout(done, 8000);
+    setTimeout(done, 15000);
   });
+}
+
+/**
+ * Wait until the host's `project-files` list is present (or timeout).
+ * Call after joinRoom — guests often resolve "synced" before the map arrives.
+ */
+export function waitForSharedFileList(timeoutMs = 30000): Promise<string[]> {
+  const immediate = getSharedFileList();
+  if (immediate.length > 0) return Promise.resolve(immediate);
+  if (!ydoc) return Promise.resolve([]);
+
+  return new Promise((resolve) => {
+    const doc = ydoc!;
+    const fileMap = doc.getMap('project-files');
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fileMap.unobserve(onMap);
+      doc.off('update', onUpdate);
+      resolve(getSharedFileList());
+    };
+    const onMap = () => {
+      if (getSharedFileList().length > 0) finish();
+    };
+    const onUpdate = () => onMap();
+    const timer = setTimeout(finish, timeoutMs);
+    fileMap.observe(onMap);
+    doc.on('update', onUpdate);
+  });
+}
+
+/** Keep applying host file-list changes while the guest stays in the room. */
+export function observeSharedFileList(onFiles: (paths: string[]) => void): () => void {
+  if (!ydoc) return () => {};
+  const doc = ydoc;
+  const fileMap = doc.getMap('project-files');
+  const emit = () => onFiles(getSharedFileList());
+  fileMap.observe(emit);
+  doc.on('update', emit);
+  emit();
+  return () => {
+    fileMap.unobserve(emit);
+    doc.off('update', emit);
+  };
 }
 
 function setupPeerListeners() {

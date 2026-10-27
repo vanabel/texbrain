@@ -261,6 +261,8 @@ export type EditorUi = {
   toastInvalidCode: string;
   toastCreateFailed: string;
   toastJoinFailed: string;
+  toastCollabWaitingHostFiles: string;
+  toastCollabNoHostFiles: string;
   toastLeftSession: string;
   toastCodeCopied: string;
   toastPinCopied: string;
@@ -510,6 +512,9 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     toastInvalidCode: 'Invalid session ID or access PIN',
     toastCreateFailed: 'Failed to create room: {msg}',
     toastJoinFailed: 'Failed to join room: {msg}',
+    toastCollabWaitingHostFiles: 'Joined — waiting for the host project to sync…',
+    toastCollabNoHostFiles:
+      'Connected, but no host files yet. Ask the host to keep the session open with the project loaded.',
     toastLeftSession: 'Left collaboration session',
     toastCodeCopied: 'Session ID copied!',
     toastPinCopied: 'Access PIN copied!',
@@ -754,6 +759,8 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     toastInvalidCode: '识别码或验证码无效',
     toastCreateFailed: '创建房间失败：{msg}',
     toastJoinFailed: '加入房间失败：{msg}',
+    toastCollabWaitingHostFiles: '已加入，正在等待主机工程同步…',
+    toastCollabNoHostFiles: '已连通，但尚未收到主机文件。请确认主机保持会话且已打开工程。',
     toastLeftSession: '已离开协作会话',
     toastCodeCopied: '已复制识别码！',
     toastPinCopied: '已复制验证码！',
