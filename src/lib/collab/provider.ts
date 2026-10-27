@@ -344,6 +344,7 @@ export function createRoom(
 
     if (entryPointPath) {
       meta.set('entryPoint', entryPointPath);
+      meta.set('hostCurrentFile', entryPointPath);
     }
   });
 
@@ -563,6 +564,13 @@ function setupPeerListeners() {
 export function setCurrentFile(filePath: string | null) {
   if (!provider) return;
   provider.awareness.setLocalStateField('currentFile', filePath);
+  // Persist on the host so late-joining guests can open the same file (awareness alone is racy).
+  const room = get(collabRoom);
+  if (room?.isHost && ydoc) {
+    const meta = ydoc.getMap('project-meta');
+    if (filePath) meta.set('hostCurrentFile', filePath);
+    else meta.delete('hostCurrentFile');
+  }
 }
 
 export function updateUserName(name: string) {
@@ -592,6 +600,28 @@ export function getSharedEntryPoint(): string | null {
   if (!ydoc) return null;
   const meta = ydoc.getMap('project-meta');
   return (meta.get('entryPoint') as string) || null;
+}
+
+/** Host's last focused path (Yjs meta); preferred over awareness for first guest open. */
+export function getSharedHostCurrentFile(): string | null {
+  if (!ydoc) return null;
+  const meta = ydoc.getMap('project-meta');
+  const fromMeta = meta.get('hostCurrentFile');
+  if (typeof fromMeta === 'string' && fromMeta) return fromMeta;
+  return null;
+}
+
+/** Remote peers' awareness `currentFile` values (may lag; use as fallback). */
+export function getRemotePeerCurrentFiles(): string[] {
+  if (!provider) return [];
+  const out: string[] = [];
+  const selfId = provider.awareness.clientID;
+  provider.awareness.getStates().forEach((state: { currentFile?: string | null }, clientId: number) => {
+    if (clientId === selfId) return;
+    const p = state.currentFile;
+    if (typeof p === 'string' && p) out.push(p);
+  });
+  return out;
 }
 
 export function collectFilesFromYjs(): Map<string, string> {

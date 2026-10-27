@@ -36,7 +36,7 @@
   import { compileRootDirOf, sliceProjectToCompileRoot } from '$lib/compiler/compile-root';
   import { yCollab } from 'y-codemirror.next';
   import { collabActive, collabPanelOpen, collabPeers, collabConnected, collabRoom, pendingJoin, collabUserName } from '$lib/collab/store';
-  import { createRoom, joinRoom, leaveRoom, getYTextWithUndo, getAwareness, setCurrentFile, getSharedFileList, getSharedEntryPoint, waitForSharedFileList, observeSharedFileList, isHost, requestCompile, setCompileStatus, setCompileResult, observeCompileState, readCompileState, collectFilesFromYjs, collectBinariesFromYjs, readJoinFromSearch, clearJoinParamsFromUrl } from '$lib/collab/provider';
+  import { createRoom, joinRoom, leaveRoom, getYTextWithUndo, getAwareness, setCurrentFile, getSharedFileList, getSharedEntryPoint, getSharedHostCurrentFile, getRemotePeerCurrentFiles, waitForSharedFileList, observeSharedFileList, isHost, requestCompile, setCompileStatus, setCompileResult, observeCompileState, readCompileState, collectFilesFromYjs, collectBinariesFromYjs, readJoinFromSearch, clearJoinParamsFromUrl } from '$lib/collab/provider';
   import { gitPanelOpen, gitEnabled, gitChangeCount, getEffectiveGitCorsProxy } from '$lib/git/store';
   import {
     initFs as gitInitFs, initRepo as gitInitRepo, syncFilesToGit,
@@ -1414,15 +1414,49 @@
 
     const ep = get(entryPoint);
     createRoom(projectFiles, binaryFiles, ep);
+    const af = get(activeFile);
+    if (af?.path) setCurrentFile(af.path);
     addToast(uiMsg().toastCollabStarted, 'success');
     buildEditor();
   }
 
   let stopSharedFileObserve: (() => void) | null = null;
 
-  function applySharedProjectToTabs(fileList: string[]) {
+  /** Prefer host's open file, then entry point, then first .tex — never “last file in list” (.bib). */
+  function preferCollabFocusPath(fileList: string[]): string | null {
+    if (fileList.length === 0) return null;
+    const hostFile = getSharedHostCurrentFile();
+    if (hostFile && fileList.includes(hostFile)) return hostFile;
+    const remoteTex = getRemotePeerCurrentFiles().find(
+      (p) => fileList.includes(p) && /\.(tex|ltx)$/i.test(p)
+    );
+    if (remoteTex) return remoteTex;
+    const remoteAny = getRemotePeerCurrentFiles().find((p) => fileList.includes(p));
+    if (remoteAny) return remoteAny;
     const ep = getSharedEntryPoint();
-    console.info('[texbrain:collab] ui:apply-tabs', { count: fileList.length, paths: fileList, entryPoint: ep });
+    if (ep && fileList.includes(ep)) return ep;
+    const tex = fileList.find((p) => /\.(tex|ltx)$/i.test(p));
+    if (tex) return tex;
+    return fileList[0] ?? null;
+  }
+
+  /**
+   * Mirror host project tabs into the guest UI.
+   * - Never activate every path (that left guests stuck on the last .bib).
+   * - `focus: true` on first join → host's current .tex / entry point.
+   * - Later list updates only add tabs; keep the guest's active file.
+   */
+  function applySharedProjectToTabs(fileList: string[], opts?: { focus?: boolean }) {
+    const ep = getSharedEntryPoint();
+    const prevActivePath = get(activeFile)?.path ?? null;
+    const prevActiveId = get(activeFileId);
+    console.info('[texbrain:collab] ui:apply-tabs', {
+      count: fileList.length,
+      paths: fileList,
+      entryPoint: ep,
+      hostCurrentFile: getSharedHostCurrentFile(),
+      focus: !!opts?.focus
+    });
     for (const path of fileList) {
       const data = getYTextWithUndo(path);
       if (!data) {
@@ -1431,10 +1465,27 @@
       }
       const content = data.ytext.toString();
       const name = path.split('/').pop() || path;
-      openFileTab(name, content, null, path);
+      openFileTab(name, content, null, path, false);
     }
     if (ep) entryPoint.set(ep);
-    if (fileList.length > 0) buildEditor();
+
+    const activeStillValid = !!(prevActivePath && fileList.includes(prevActivePath));
+    const shouldFocus = opts?.focus === true || !activeStillValid;
+    if (shouldFocus) {
+      const target = preferCollabFocusPath(fileList);
+      if (target) {
+        const tab = get(files).find((f) => f.path === target);
+        if (tab) {
+          activeFileId.set(tab.id);
+          console.info('[texbrain:collab] ui:focus-tab', { path: target });
+        }
+      }
+    }
+
+    const focusedChanged = get(activeFileId) !== prevActiveId;
+    if (fileList.length > 0 && (opts?.focus || focusedChanged || !editorView)) {
+      buildEditor();
+    }
   }
 
   async function handleJoinCollabRoom(shareCode: string, accessPin: string) {
@@ -1443,11 +1494,11 @@
 
     addToast(uiMsg().toastCollabWaitingHostFiles, 'info');
     const fileList = await waitForSharedFileList(30000);
-    applySharedProjectToTabs(fileList);
+    applySharedProjectToTabs(fileList, { focus: true });
 
     stopSharedFileObserve?.();
     stopSharedFileObserve = observeSharedFileList((paths) => {
-      applySharedProjectToTabs(paths);
+      applySharedProjectToTabs(paths, { focus: false });
     });
 
     if (fileList.length === 0) {
@@ -1455,7 +1506,6 @@
     } else {
       addToast(uiMsg().toastCollabJoined, 'success');
     }
-    buildEditor();
   }
 
   function handleLeaveCollab() {

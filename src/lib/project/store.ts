@@ -27,12 +27,14 @@ export function openFileTab(
   name: string,
   content: string,
   handle: FileSystemFileHandle | null = null,
-  path?: string
+  path?: string,
+  /** When false, open/ensure the tab without stealing the active editor focus. */
+  activate = true
 ): string {
   if (path) {
     const existing = get(files).find((f) => f.path === path);
     if (existing) {
-      activeFileId.set(existing.id);
+      if (activate) activeFileId.set(existing.id);
       return existing.id;
     }
   }
@@ -48,7 +50,7 @@ export function openFileTab(
     handle
   };
   files.update((f) => [...f, tab]);
-  activeFileId.set(id);
+  if (activate) activeFileId.set(id);
   return id;
 }
 
