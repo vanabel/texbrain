@@ -5,6 +5,10 @@
  *
  * Also: do not skip post-bibtex LaTeX when bibtex8 writes an empty .bbl, and rerun LaTeX
  * (up to two extra passes) when .log still reports undefined citations/references.
+ *
+ * Also: before bibtex8, repair main.aux from main.tex when \bibstyle/\bibdata/\citation
+ * are missing (BusyTeX WASM + gbt7714/natbib quirk), and snapshot .aux/.bbl before the
+ * WASM heap reset so artifacts are not lost between pipeline steps.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -133,6 +137,69 @@ const UNRESOLVED_RERUN_NEW = `            if (exit_code != 0)
 
         console.log('LOGS', logs);`;
 
+const snippetsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'snippets');
+
+/** Insert aux-repair method + loop body from scripts/snippets/ (survives download-busytex). */
+function applyAuxRepairPatch(src) {
+  if (src.includes('texbrainRepairAuxForBibtex')) {
+    console.log('[patch-busytex-crossref] pipeline: aux-repair already patched');
+    return { src, changed: false };
+  }
+
+  const methodPath = path.join(snippetsDir, 'busytex-aux-repair-method.js');
+  const loopPath = path.join(snippetsDir, 'busytex-aux-repair-loop.js');
+  if (!fs.existsSync(methodPath) || !fs.existsSync(loopPath)) {
+    console.warn('[patch-busytex-crossref] pipeline: aux-repair snippets missing under scripts/snippets/');
+    return { src, changed: false };
+  }
+  const method = fs.readFileSync(methodPath, 'utf8');
+  const loopNew = fs.readFileSync(loopPath, 'utf8');
+
+  const methodAnchor =
+    '    terminate() {\n        this.Module = null;\n    }\n\n    async reload_module_if_needed(cond, env, project_dir, data_packages_js) {';
+  const methodReplacement =
+    '    terminate() {\n        this.Module = null;\n    }\n\n' +
+    method +
+    '    async reload_module_if_needed(cond, env, project_dir, data_packages_js) {';
+
+  const loopOld =
+    '            this.remove(FS, this.texmflog);\n' +
+    '            this.remove(FS, this.missfontlog);\n' +
+    '            this.remove(FS, cmd_log_path);\n\n' +
+    "            this.print('$ busytex ' + cmd.join(' '));\n" +
+    '            ({ exit_code, stdout, stderr } = Module.callMainWithRedirects([...cmd], verbose != BusytexPipeline.VerboseSilent));\n\n' +
+    '            Module.HEAPU8.fill(0);\n' +
+    '            Module.HEAPU8.set(mem_header);\n\n' +
+    "            this.print('$ echo $?');\n" +
+    '            this.print(`${exit_code}\\n`);\n\n' +
+    "            if (is_bibtex && this.read_all_text(FS, bbl_path).trim() == '' && (exit_code == 0 || exit_code == 2)) {\n" +
+    '                skip = true;\n' +
+    "                this.print('$ # bibtex found no citation commands, skipping extra calls');\n" +
+    '            }\n\n' +
+    '            aux = this.read_all_text(FS, cmd_aux_path);\n' +
+    '            log = this.read_all_text(FS, cmd_log_path);\n' +
+    '            exit_code = stdout.trim() ? (error_messages.some(err => stdout.includes(err)) ? exit_code : 0) : exit_code;';
+
+  let changed = false;
+  if (src.includes(methodAnchor)) {
+    src = src.replace(methodAnchor, methodReplacement);
+    changed = true;
+    console.log('[patch-busytex-crossref] pipeline: inserted texbrainRepairAuxForBibtex');
+  } else {
+    console.warn('[patch-busytex-crossref] pipeline: terminate()/reload anchor not found for aux-repair method');
+  }
+
+  if (src.includes(loopOld)) {
+    src = src.replace(loopOld, loopNew);
+    changed = true;
+    console.log('[patch-busytex-crossref] pipeline: patched bibtex aux-repair loop');
+  } else {
+    console.warn('[patch-busytex-crossref] pipeline: aux-repair loop pattern not found');
+  }
+
+  return { src, changed };
+}
+
 function applyReplacements(src, pairs, label) {
   let changed = false;
   for (const [oldText, newText, okMsg, skipMsg, warnMsg] of pairs) {
@@ -191,8 +258,9 @@ function patchPipeline() {
     ],
     'pipeline'
   );
-  if (changed) fs.writeFileSync(pipelinePath, next);
-  return changed;
+  const aux = applyAuxRepairPatch(next);
+  if (changed || aux.changed) fs.writeFileSync(pipelinePath, aux.src);
+  return changed || aux.changed;
 }
 
 function patchWorker() {

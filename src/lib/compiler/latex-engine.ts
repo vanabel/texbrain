@@ -398,19 +398,18 @@ export async function compileLaTeX(
   );
   if (!autoFetch) return result;
 
-  if (result.status === 0) {
-    reportCtanFetchProgress(
-      '[TeXbrain] CTAN auto-fetch: skipped (no missing .sty/.cls in log; BusyTeX TeX Live satisfied dependencies)'
-    );
-    return appendCtanSuccessNote(result);
-  }
-
   for (let round = 0; round < MAX_CTAN_FETCH_ROUNDS; round++) {
-    if (result.status === 0) {
+    // BusyTeX often returns exit 0 even when bibtex8 failed (empty .bbl / missing .bst).
+    // Still scan the log for missing .sty/.cls/.bst and recompile after CTAN fetch.
+    const missing = parseMissingTexFilesFromLog(result.log);
+    if (missing.length === 0) {
+      if (round === 0 && result.status === 0) {
+        reportCtanFetchProgress(
+          '[TeXbrain] CTAN auto-fetch: skipped (no missing .sty/.cls/.bst in log; BusyTeX TeX Live satisfied dependencies)'
+        );
+      }
       return appendCtanSuccessNote(result);
     }
-    const missing = parseMissingTexFilesFromLog(result.log);
-    if (missing.length === 0) return result;
 
     sawMissingInLog = true;
     const fetched = await fetchMissingTexFromLog(result.log, corsProxy);
@@ -419,6 +418,10 @@ export async function compileLaTeX(
     if (fetched.added.size === 0) {
       return { ...result, log: result.log + fetched.log };
     }
+
+    reportCtanFetchProgress(
+      `[TeXbrain] CTAN auto-fetch: got ${fetched.added.size} file(s), recompiling (round ${round + 1})...`
+    );
 
     const merged = new Map(workFiles);
     for (const [base, content] of fetched.added) {

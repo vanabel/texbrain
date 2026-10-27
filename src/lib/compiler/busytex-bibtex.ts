@@ -484,12 +484,31 @@ export async function compileWithBusyTexBibtex(
   const bblFromResult = extractBusyTexBbl(result as any);
   const fromRunner = bblFromResult ? { attempted: [] } : await tryReadBblFromRunner(runner, mainFile);
   const bbl = bblFromResult || fromRunner.bbl;
+
+  const latexLogs = Array.isArray(result.logs)
+    ? result.logs.filter((l: LogEntry) => /xelatex|pdflatex|lualatex/i.test(l.cmd || ''))
+    : [];
+  const firstLatexAux = typeof latexLogs[0]?.aux === 'string' ? latexLogs[0].aux : '';
+  const auxHasBibstyle = /\\bibstyle\{/.test(firstLatexAux);
+  const auxHasBibdata = /\\bibdata\{/.test(firstLatexAux);
+  const auxHasCitation = /\\citation\{/.test(firstLatexAux);
+  const auxExcerpt = firstLatexAux
+    ? firstLatexAux.split('\n').slice(0, 12).join('\n')
+    : '(empty or unavailable)';
+  const emptyBblNote =
+    typeof rawBbl === 'string' && rawBbl.length === 0
+      ? 'result.bbl is empty string (BibTeX produced no entries — often missing \\bibstyle in .aux or missing .bst)\n'
+      : '';
+
   const bblDiag =
     '\n\n[TeXbrain] BusyTeX bbl diagnostics:\n' +
     `result.bbl runtime type: ${bblRuntimeType(rawBbl)}\n` +
+    emptyBblNote +
     `extracted from result: ${bblFromResult ? `yes (${bblFromResult.path}, ${bblFromResult.content.length} chars)` : 'no'}\n` +
     `runner read candidates: ${(fromRunner.attempted || []).join(', ') || '(skipped)'}\n` +
-    `final bbl: ${bbl ? `${bbl.path} (${bbl.content.length} chars)` : '(none)'}`;
+    `final bbl: ${bbl ? `${bbl.path} (${bbl.content.length} chars)` : '(none)'}\n` +
+    `first LaTeX .aux: bibstyle=${auxHasBibstyle}, bibdata=${auxHasBibdata}, citation=${auxHasCitation}\n` +
+    `first LaTeX .aux excerpt:\n${auxExcerpt}`;
 
   let synctexProbe = '';
   if (status === 0 && result.pdf) {

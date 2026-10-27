@@ -560,6 +560,34 @@ export async function fetchMissingTexFromCtan(
         }
       }
     }
+
+    // gbt7714.sty alone is not enough for BibTeX — pull companion .bst from GitHub variants/.
+    const addedGbtSty = [...added.keys()].some((b) => /^gbt7714\.sty$/i.test(b));
+    const askedOnlySty = [...names].every((n) => /\.sty$/i.test(n));
+    if (addedGbtSty && askedOnlySty && resolved.meta.repository) {
+      const companionBsts = [
+        'gbt7714-2025-numeric.bst',
+        'gbt7714-2025-authoryear.bst',
+        'gbt7714-2015-numeric.bst',
+        'gbt7714-numeric.bst'
+      ];
+      const missingBst = companionBsts.filter((b) => ![...added.keys()].some((k) => k.toLowerCase() === b.toLowerCase()));
+      if (missingBst.length) {
+        logLines.push(`[CTAN] also fetching companion .bst for gbt7714: ${missingBst.join(', ')}`);
+        const bstFiles = await downloadPackageTexFiles(
+          resolved.meta,
+          new Set(missingBst),
+          corsProxy,
+          logLines
+        );
+        for (const [base, content] of bstFiles) {
+          if (!added.has(base)) {
+            added.set(base, content);
+            logLines.push(`[CTAN] added ${base} (${content.length} bytes)`);
+          }
+        }
+      }
+    }
   }
 
   const note =
