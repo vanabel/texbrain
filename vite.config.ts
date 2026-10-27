@@ -111,6 +111,11 @@ export default defineConfig({
     proxy: { ...texbrainCodeloadProxy, ...texbrainCtanProxy }
   },
   build: {
+    // Gzip size reporting walks every emitted asset (pdf.worker ~2MB, BusyTeX chunks).
+    // On a NAS CPU this alone can add minutes; sizes still show in the file listing.
+    reportCompressedSize: false,
+    sourcemap: false,
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         manualChunks(id) {

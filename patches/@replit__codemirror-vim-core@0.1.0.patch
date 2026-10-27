@@ -1,0 +1,18 @@
+diff --git a/vim.js b/vim.js
+index 3cafa6bcf0c99f2ae25a5da8936d3f29445f2d6d..f5f23aa1e7d3a650ca6cb672a3a7ba94d1f32f6e 100644
+--- a/vim.js
++++ b/vim.js
+@@ -3958,6 +3958,13 @@ export function initVim(CM) {
+     if (moveHead !== false) {
+       cm.setCursor(clipCursorToContent(cm, vim.sel.head));
+     }
++    // Outside a vim operation (a typed <Esc> exits from handleEsc in findKey),
++    // the cursor move above reports cursor activity, and
++    // handleExternalSelection exits visual mode itself, recording the last
++    // selection with its linewise/blockwise flags. Recording it again here,
++    // after those flags were cleared, would make `gv` reselect charwise.
++    // Upstream: https://github.com/replit/codemirror-vim/pull/281
++    if (!vim.visualMode) return;
+     updateLastSelection(cm, vim);
+     vim.visualMode = false;
+     vim.visualLine = false;

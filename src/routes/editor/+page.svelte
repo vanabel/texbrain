@@ -36,7 +36,7 @@
   import { compileRootDirOf, sliceProjectToCompileRoot } from '$lib/compiler/compile-root';
   import { yCollab } from 'y-codemirror.next';
   import { collabActive, collabPanelOpen, collabPeers, collabConnected, collabRoom, pendingJoin } from '$lib/collab/store';
-  import { createRoom, joinRoom, leaveRoom, getYTextWithUndo, getAwareness, setCurrentFile, getSharedFileList, getSharedEntryPoint, isHost, requestCompile, setCompileStatus, setCompileResult, observeCompileState, readCompileState, collectFilesFromYjs, readJoinFromSearch, clearJoinParamsFromUrl } from '$lib/collab/provider';
+  import { createRoom, joinRoom, leaveRoom, getYTextWithUndo, getAwareness, setCurrentFile, getSharedFileList, getSharedEntryPoint, isHost, requestCompile, setCompileStatus, setCompileResult, observeCompileState, readCompileState, collectFilesFromYjs, collectBinariesFromYjs, readJoinFromSearch, clearJoinParamsFromUrl } from '$lib/collab/provider';
   import { gitPanelOpen, gitEnabled, gitChangeCount, getEffectiveGitCorsProxy } from '$lib/git/store';
   import {
     initFs as gitInitFs, initRepo as gitInitRepo, syncFilesToGit,
@@ -575,14 +575,9 @@
       let binaryFiles = new Map<string, ArrayBuffer>();
 
       if (isCollabMode) {
-        // read text files from yjs (authoritative source during collab)
+        // Yjs is authoritative during collab: text + binary deps (images, fonts, …)
         projectFiles = collectFilesFromYjs();
-        const handle = get(projectHandle);
-        if (handle) {
-          try {
-            await readDirRecursive(handle, '', new Map(), binaryFiles);
-          } catch {}
-        }
+        binaryFiles = collectBinariesFromYjs();
       } else {
         const collected = await collectProjectFiles();
         projectFiles = collected.projectFiles;
@@ -885,9 +880,13 @@
       'ipynb'
     ]);
     const binaryExts = new Set([
-      'png', 'jpg', 'jpeg', 'pdf', 'eps', 'mps', 'svg', 'gif', 'bmp',
-      'tfm', 'pfb', 'vf', 'map', 'enc', 'otf', 'ttf'
+      'png', 'jpg', 'jpeg', 'pdf', 'eps', 'mps', 'svg', 'gif', 'bmp', 'webp', 'tif', 'tiff',
+      'ps', 'pz', 'gz', 'mp', 'meta',
+      'tfm', 'pfb', 'vf', 'map', 'enc', 'otf', 'ttf', 'woff', 'woff2'
     ]);
+    /** Skip huge archives that are not compile deps. */
+    const skipExts = new Set(['zip', 'tar', '7z', 'rar', 'iso', 'dmg', 'exe', 'dll', 'so', 'dylib']);
+    const maxBinaryBytes = 20 * 1024 * 1024;
     for await (const entry of (dirHandle as any).values()) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
       if (entry.kind === 'file') {
@@ -898,9 +897,10 @@
             const content = await file.text();
             fileMap.set(path, content);
           } catch {}
-        } else if (binaryMap && binaryExts.has(ext)) {
+        } else if (binaryMap && !skipExts.has(ext) && (binaryExts.has(ext) || ext !== '')) {
           try {
             const file = await entry.getFile();
+            if (file.size > maxBinaryBytes) continue;
             const data = await file.arrayBuffer();
             binaryMap.set(path, data);
           } catch {}
@@ -1390,9 +1390,11 @@
 
   async function handleCreateCollabRoom() {
     let projectFiles = new Map<string, string>();
+    let binaryFiles = new Map<string, ArrayBuffer>();
     try {
       const collected = await collectProjectFiles();
       projectFiles = collected.projectFiles;
+      binaryFiles = collected.binaryFiles;
     } catch (err) {
       console.warn('collectProjectFiles failed, using open tabs only:', err);
       for (const tab of get(files)) {
@@ -1401,7 +1403,7 @@
     }
 
     const ep = get(entryPoint);
-    createRoom(projectFiles, ep);
+    createRoom(projectFiles, binaryFiles, ep);
     addToast(uiMsg().toastCollabStarted, 'success');
     buildEditor();
   }

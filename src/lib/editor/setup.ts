@@ -33,6 +33,8 @@ export interface EditorConfig {
 
 const themeCompartment = new Compartment();
 const behaviorCompartment = new Compartment();
+/** Avoid reconfigure when `$preferences` updates but vimMode is unchanged (wipes `gv` state). */
+const appliedVimMode = new WeakMap<EditorView, boolean>();
 
 let vimSave: ((view: EditorView) => void) | null = null;
 
@@ -269,6 +271,8 @@ function editorBehavior(vimMode: boolean): Extension {
 }
 
 export function setEditorBehavior(view: EditorView, vimMode: boolean) {
+  if (appliedVimMode.get(view) === vimMode) return;
+  appliedVimMode.set(view, vimMode);
   view.dispatch({
     effects: behaviorCompartment.reconfigure(editorBehavior(vimMode))
   });
@@ -408,7 +412,9 @@ export function createEditor(config: EditorConfig): EditorView {
     extensions
   });
 
-  return new EditorView({ state, parent: config.parent });
+  const view = new EditorView({ state, parent: config.parent });
+  appliedVimMode.set(view, config.vimMode ?? false);
+  return view;
 }
 
 export function replaceEditorContent(view: EditorView, content: string) {

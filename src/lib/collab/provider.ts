@@ -167,8 +167,20 @@ export function getYTextWithUndo(filePath: string): { ytext: Y.Text; undoManager
   return { ytext, undoManager: um };
 }
 
+function toUint8(buf: ArrayBuffer | Uint8Array): Uint8Array {
+  return buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+}
+
+function toArrayBuffer(data: Uint8Array): ArrayBuffer {
+  return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
+}
+
 /** Start a session: 5-char 识别码 + 6-char 验证码 (letters + digits). */
-export function createRoom(projectFiles: Map<string, string>, entryPointPath: string | null): string {
+export function createRoom(
+  projectFiles: Map<string, string>,
+  binaryFiles: Map<string, ArrayBuffer>,
+  entryPointPath: string | null
+): string {
   const shareCode = randomToken(SHARE_CODE_LEN);
   const accessPin = randomToken(ACCESS_PIN_LEN);
   const signalingId = signalingRoomId(shareCode);
@@ -178,6 +190,7 @@ export function createRoom(projectFiles: Map<string, string>, entryPointPath: st
   ydoc = doc;
 
   const fileMap = doc.getMap('project-files');
+  const binMap = doc.getMap('project-binaries');
   const meta = doc.getMap('project-meta');
 
   doc.transact(() => {
@@ -188,6 +201,14 @@ export function createRoom(projectFiles: Map<string, string>, entryPointPath: st
       fileList.push(path);
     }
     fileMap.set('fileList', fileList);
+
+    const binaryList: string[] = [];
+    for (const [path, buf] of binaryFiles) {
+      binMap.set(path, toUint8(buf));
+      binaryList.push(path);
+    }
+    fileMap.set('binaryList', binaryList);
+
     if (entryPointPath) {
       meta.set('entryPoint', entryPointPath);
     }
@@ -315,6 +336,18 @@ export function getSharedFileList(): string[] {
   return (fileMap.get('fileList') as string[]) || [];
 }
 
+export function getSharedBinaryList(): string[] {
+  if (!ydoc) return [];
+  const fileMap = ydoc.getMap('project-files');
+  const listed = (fileMap.get('binaryList') as string[]) || [];
+  if (listed.length) return listed;
+  // Older rooms may only have the binary map keys.
+  const binMap = ydoc.getMap('project-binaries');
+  const keys: string[] = [];
+  binMap.forEach((_value, key) => keys.push(key));
+  return keys;
+}
+
 export function getSharedEntryPoint(): string | null {
   if (!ydoc) return null;
   const meta = ydoc.getMap('project-meta');
@@ -327,6 +360,22 @@ export function collectFilesFromYjs(): Map<string, string> {
   for (const path of getSharedFileList()) {
     const ytext = ydoc.getText('file:' + path);
     result.set(path, ytext.toString());
+  }
+  return result;
+}
+
+/** Images, fonts, and other binary dependencies shared with the room. */
+export function collectBinariesFromYjs(): Map<string, ArrayBuffer> {
+  const result = new Map<string, ArrayBuffer>();
+  if (!ydoc) return result;
+  const binMap = ydoc.getMap('project-binaries');
+  for (const path of getSharedBinaryList()) {
+    const data = binMap.get(path);
+    if (data instanceof Uint8Array) {
+      result.set(path, toArrayBuffer(data));
+    } else if (data instanceof ArrayBuffer) {
+      result.set(path, data);
+    }
   }
   return result;
 }
