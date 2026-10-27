@@ -178,7 +178,14 @@
       </header>
 
       <div class="panel-body">
-        <p class="flow-hint">{E.collabFlowHint}</p>
+        <div class="flow-hint">
+          <p class="flow-hint-title">{E.collabFlowTitle}</p>
+          <ol class="flow-hint-list">
+            {#each E.collabFlowSteps as step}
+              <li>{step}</li>
+            {/each}
+          </ol>
+        </div>
 
         <div class="field">
           <label for="collab-name">{E.yourName}</label>
@@ -370,6 +377,22 @@
     background: color-mix(in srgb, var(--accent, #4ecdc4) 8%, var(--bg-elevated, var(--bg-surface)));
     border: 1px solid color-mix(in srgb, var(--accent, #4ecdc4) 22%, var(--border));
     border-radius: 6px;
+  }
+  .flow-hint-title {
+    margin: 0 0 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .flow-hint-list {
+    margin: 0;
+    padding-left: 1.15rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .flow-hint-list li {
+    padding-left: 2px;
   }
   .status-chip {
     display: inline-flex;

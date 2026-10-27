@@ -223,8 +223,9 @@ export type EditorUi = {
 
   // Collaboration panel
   collabPanelTitle: string;
-  /** Short how-it-works blurb shown at the top of the collab panel. */
-  collabFlowHint: string;
+  /** How-it-works title + ordered steps at the top of the collab panel. */
+  collabFlowTitle: string;
+  collabFlowSteps: string[];
   collabClose: string;
   yourName: string;
   namePlaceholder: string;
@@ -474,8 +475,13 @@ export const editorUi: Record<AppLocale, EditorUi> = {
       'In the sidebar References list: click a citation key or equation number to jump to its source line. Hold Ctrl (Windows/Linux) or ⌘ (macOS) and click to insert \\cite{key} or \\eq{number} at the editor cursor.',
 
     collabPanelTitle: 'Collaboration',
-    collabFlowHint:
-      'Live room (not Git): guests need not open a folder—tabs come from the host’s room and sync live. PDF updates only after Compile (host first; local fallback if needed). Disk Save / Git Push need a folder. Persist with Git.',
+    collabFlowTitle: 'How it works',
+    collabFlowSteps: [
+      'Host: open the project → Start Collaboration → share ID / PIN or join link.',
+      'Guest: no local folder needed — host files open as tabs and sync live.',
+      'PDF: click Compile (host first; guest can compile locally if host is silent).',
+      'Keep work: Git Commit + Push before leaving (disk Save also needs a folder).'
+    ],
     collabClose: 'Close',
     yourName: 'Your Name',
     namePlaceholder: 'Enter your name',
@@ -722,8 +728,13 @@ export const editorUi: Record<AppLocale, EditorUi> = {
       '侧栏「引用」列表：单击文献键或公式编号可跳转到源码行；按住 Ctrl（Windows/Linux）或 Mac 上的 ⌘ 并单击，可在编辑器光标处插入 \\cite{键名} 或 \\eq{编号}。',
 
     collabPanelTitle: '协作',
-    collabFlowHint:
-      '实时房间（不等于 Git）：访客不必打开本地文件夹——加入后会从主机房间拉出标签并即时共编。PDF 需点「编译」（优先主机，必要时本地）。写磁盘 / Git Push 才需要打开文件夹；持久保存请用 Git。',
+    collabFlowTitle: '流程说明',
+    collabFlowSteps: [
+      '主机：打开工程 → 开始协作 → 分享识别码/验证码或加入链接。',
+      '访客：不必打开本地文件夹；加入后自动出现主机文件标签，源码实时共编。',
+      'PDF：需点「编译」（优先主机；主机无响应时访客可本地编译）。',
+      '保存成果：离开前 Git Commit + Push（写本机磁盘也需先打开文件夹）。'
+    ],
     collabClose: '关闭',
     yourName: '显示名称',
     namePlaceholder: '输入你的名字',
