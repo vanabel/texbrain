@@ -85,33 +85,57 @@ function sendFile(res, filePath) {
   fs.createReadStream(filePath).pipe(res);
 }
 
-function serveStatic(req, res) {
-  const incoming = new URL(req.url || '/', 'http://localhost');
-  let rel = decodeURIComponent(incoming.pathname);
-  if (rel.endsWith('/')) rel += 'index.html';
+/**
+ * Resolve adapter-static pages: `/editor` → `editor.html`, `/` → `index.html`.
+ * Do NOT fall back unknown paths to the landing `index.html` (that made join
+ * links open the homepage instead of the editor).
+ */
+function candidateStaticPaths(pathname) {
+  let rel = decodeURIComponent(pathname || '/');
+  if (!rel.startsWith('/')) rel = `/${rel}`;
+  /** @type {string[]} */
+  const out = [];
+  const push = (p) => {
+    const n = path.normalize(path.join(ROOT, p));
+    if (n.startsWith(ROOT) && !out.includes(n)) out.push(n);
+  };
 
-  const filePath = path.normalize(path.join(ROOT, rel));
-  if (!filePath.startsWith(ROOT)) {
-    res.writeHead(403);
-    res.end();
-    return;
+  if (rel === '/') {
+    push('index.html');
+    return out;
   }
 
-  fs.stat(filePath, (err, stat) => {
-    if (!err && stat.isFile()) {
-      sendFile(res, filePath);
+  const trimmed = rel.replace(/\/+$/, '') || '/';
+  if (trimmed !== '/') {
+    push(trimmed);
+    push(`${trimmed}.html`);
+    push(`${trimmed}/index.html`);
+  }
+  // SPA fallback shell from adapter-static (client-side routes)
+  push('404.html');
+  return out;
+}
+
+function serveStatic(req, res) {
+  const incoming = new URL(req.url || '/', 'http://localhost');
+  const candidates = candidateStaticPaths(incoming.pathname);
+
+  const tryNext = (i) => {
+    if (i >= candidates.length) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not found');
       return;
     }
-    const indexPath = path.join(ROOT, 'index.html');
-    fs.stat(indexPath, (err2, stat2) => {
-      if (err2 || !stat2.isFile()) {
-        res.writeHead(404);
-        res.end('Not found');
+    const filePath = candidates[i];
+    fs.stat(filePath, (err, stat) => {
+      if (!err && stat.isFile()) {
+        sendFile(res, filePath);
         return;
       }
-      sendFile(res, indexPath);
+      tryNext(i + 1);
     });
-  });
+  };
+  tryNext(0);
 }
 
 const server = http.createServer((req, res) => {

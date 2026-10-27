@@ -157,6 +157,9 @@ server {
     proxy_pass http://127.0.0.1:19903;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
+    # WebSocket (signaling) also works via the dedicated location above.
+    # Do not use `try_files … /index.html` here if Nginx serves `build/` itself:
+    # `/editor` must map to `editor.html`, not the landing page.
   }
 }
 ```
