@@ -70,7 +70,9 @@ TeXbrain 在浏览器里用 **两套 WASM 后端**，按工程与顶栏引擎**�
 
 ## CTAN 自动拉包（缺 .sty / .cls）
 
-编译日志出现 `File 'foo.sty' not found`（或 `.cls`、`.clo` 等）时，TeXbrain 会**自动**在 [CTAN](https://ctan.org/) 解析包名、从镜像下载压缩包，将所需文件以**文件名**并入**编译根目录**（与 `sliceProjectToCompileRoot` 规则一致），并**重试编译**（最多三轮）。编译日志中可见 `[CTAN]`、`[TeXbrain] CTAN auto-fetch:` 等行。
+编译日志出现 `File 'foo.sty' not found`（或 `.cls`、`.clo`、`.bst` 等），或 BibTeX 报 `I couldn't open style file ….bst` 时，TeXbrain 会**自动**在 [CTAN](https://ctan.org/) 解析包名、从镜像下载压缩包，将所需文件以**文件名**并入**编译根目录**（与 `sliceProjectToCompileRoot` 规则一致），并**重试编译**（最多三轮）。编译日志中可见 `[CTAN]`、`[TeXbrain] CTAN auto-fetch:` 等行。
+
+**说明（如 gbt7714）：** CTAN 源码包有时只带 `.dtx` / `.ins`，预生成的 `.bst` 在上游仓库（如 GitHub `variants/`）。TeXbrain 会尝试拉取这些预生成样式，并把已弃用的 `-numerical` 名称映射到现行的 `-numeric`（例如 `gbt7714-2025-numerical.bst` → `gbt7714-2025-numeric.bst`）。浏览器端不会现场跑 `latex xxx.ins` 做完整 docstrip。
 
 **不会触发的情况：** 日志里没有缺包错误时，说明依赖已由引擎自带树满足（BusyTeX 内置 TeX Live 或 SwiftLaTeX 缓存）。编译成功时也可能提示「已跳过 CTAN」。
 

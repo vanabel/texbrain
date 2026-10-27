@@ -66,9 +66,9 @@ TeXbrain **keeps both** [SwiftLaTeX](https://github.com/SwiftLaTeX/SwiftLaTeX) a
 - **Entry Point** — always compile the project entry file (`Entry: …`).
 - **Target** — the bar shows the file actually compiled last time.
 
-### CTAN auto-fetch (missing `.sty` / `.cls`)
+### CTAN auto-fetch (missing `.sty` / `.cls` / `.bst`)
 
-On compile failure, `compileLaTeX` parses the log (`parse-missing-tex.ts`), may download from CTAN (`ctan-download.ts` — JSON API, mirror zips, `/install/…` TDS archives), merge basenames into the compile-root file map, and re-run (default **on**, max three rounds). The browser tries same-origin `/__texbrain_ctan_*` first (Vite on dev; nginx on NAS — [Deployment — CTAN proxy](deployment.md#static-deploy-same-origin-ctan-proxy-missing-sty--cls)); git-only CORS proxies are skipped. [FAQ — CTAN auto-fetch](faq.md#ctan-auto-fetch-missing-packages).
+On compile failure, `compileLaTeX` parses the log (`parse-missing-tex.ts`, including BibTeX missing-style lines), may download from CTAN (`ctan-download.ts` — JSON API, mirror zips, `/install/…` TDS archives, GitHub raw for prebuilt `.bst` when the CTAN zip only has `.dtx`/`.ins`), merge basenames into the compile-root file map, and re-run (default **on**, max three rounds). The browser tries same-origin `/__texbrain_ctan_*` first (Vite on dev; nginx on NAS — [Deployment — CTAN proxy](deployment.md#static-deploy-same-origin-ctan-proxy-missing-sty--cls)); git-only CORS proxies are skipped. [FAQ — CTAN auto-fetch](faq.md#ctan-auto-fetch-missing-packages).
 
 ### Git
 

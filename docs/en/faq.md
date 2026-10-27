@@ -74,7 +74,9 @@ Engine routing: [Two compile engines](#two-compile-engines-swiftlatex--busytex).
 
 ## CTAN auto-fetch (missing packages)
 
-When a compile log contains `File 'foo.sty' not found` (or `.cls`, `.clo`, …), TeXbrain can **automatically** resolve the package on [CTAN](https://ctan.org/), download archives from mirrors, merge the needed files into the **compile root** (basename keys, same rule as `sliceProjectToCompileRoot`), and **retry** the compile (up to three rounds). Progress and results appear in the compile log as `[CTAN]` / `[TeXbrain] CTAN auto-fetch:` lines.
+When a compile log contains `File 'foo.sty' not found` (or `.cls`, `.clo`, `.bst`, …), or BibTeX reports `I couldn't open style file ….bst`, TeXbrain can **automatically** resolve the package on [CTAN](https://ctan.org/), download archives from mirrors, merge the needed files into the **compile root** (basename keys, same rule as `sliceProjectToCompileRoot`), and **retry** the compile (up to three rounds). Progress and results appear in the compile log as `[CTAN]` / `[TeXbrain] CTAN auto-fetch:` lines.
+
+**Note (e.g. gbt7714):** Some CTAN source zips ship only `.dtx` / `.ins`; prebuilt `.bst` files live in the upstream repo (e.g. GitHub `variants/`). TeXbrain fetches those when needed and aliases deprecated `-numerical` names to `-numeric` (e.g. `gbt7714-2025-numerical.bst` → `gbt7714-2025-numeric.bst`). It does **not** run a full in-browser `latex xxx.ins` docstrip.
 
 **When it does *not* run:** if the log has no missing-package error, dependencies were satisfied by the engine tree (BusyTeX’s bundled TeX Live or SwiftLaTeX’s cache). A successful compile may still show a note that CTAN was skipped.
 
