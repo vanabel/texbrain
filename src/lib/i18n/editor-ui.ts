@@ -490,7 +490,8 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     shareHintEncrypt: 'Share the ID and PIN (case-sensitive), or the join link. The PIN encrypts the session.',
     collaborators: 'Collaborators',
     waitingPeers: 'Waiting for others… (no peer link yet — check ID/PIN or network)',
-    peersLinkedSyncing: 'Linked to {n} peer(s); syncing names…',
+    peersLinkedSyncing:
+      'Linked to {n} peer(s). Source can sync even if names are still catching up.',
     leaveSession: 'Leave Session',
     startSession: 'Start a Session',
     starting: 'Starting...',
@@ -734,7 +735,7 @@ export const editorUi: Record<AppLocale, EditorUi> = {
     shareHintEncrypt: '告知识别码与验证码（区分大小写），或发送加入链接。验证码用于加密。',
     collaborators: '协作者',
     waitingPeers: '等待加入…（尚未与对方建立连接，请核对识别码/验证码或网络）',
-    peersLinkedSyncing: '已与 {n} 端连通，正在同步协作者名称…',
+    peersLinkedSyncing: '已与 {n} 端连通。名称可能稍晚出现，源码一般已可实时共编。',
     leaveSession: '离开会话',
     startSession: '开始会话',
     starting: '正在开始…',

@@ -52,15 +52,27 @@ let peerPollTimer: ReturnType<typeof setInterval> | null = null;
 const userColor = COLORS[Math.floor(Math.random() * COLORS.length)];
 const undoManagers = new Map<string, Y.UndoManager>();
 
-function announceLocalUser() {
+function announceLocalUser(force = false) {
   if (!provider) return;
+  // Changing `t` forces an awareness update broadcast (same name alone may no-op).
   provider.awareness.setLocalStateField('user', {
     name: getUserName(),
-    ...userColor
+    ...userColor,
+    ...(force ? { t: Date.now() } : {})
   });
 }
 
-/** Awareness names can lag behind WebRTC links — refresh both for the panel. */
+/** Stable negative id so synthetic WebRTC peers do not collide with Yjs clientIDs. */
+function peerIdToClientId(peerId: string): number {
+  let h = 0;
+  for (let i = 0; i < peerId.length; i++) h = (Math.imul(31, h) + peerId.charCodeAt(i)) | 0;
+  return h === 0 ? -1 : -Math.abs(h);
+}
+
+/**
+ * Awareness names can lag (or never arrive) even when WebRTC is up.
+ * Prefer awareness; if empty, show connected WebRTC peers so the panel is not stuck.
+ */
 function refreshPeerUi() {
   if (!provider) {
     collabPeers.set([]);
@@ -85,12 +97,28 @@ function refreshPeerUi() {
       currentFile: state.currentFile ?? null
     });
   });
-  collabPeers.set(peers);
 
   const room = provider.room;
-  const webrtc = room?.webrtcConns?.size ?? 0;
-  const bc = room?.bcConns?.size ?? 0;
-  collabLinkCount.set(webrtc + bc);
+  let linked = 0;
+  const fromWebrtc: CollabPeer[] = [];
+  room?.webrtcConns?.forEach((conn, peerId) => {
+    if (!(conn.connected || conn.synced)) return;
+    linked += 1;
+    fromWebrtc.push({
+      clientId: peerIdToClientId(peerId),
+      user: {
+        name: `Collaborator-${peerId.slice(0, 4)}`,
+        color: '#4ecdc4',
+        colorLight: '#4ecdc433'
+      },
+      currentFile: null
+    });
+  });
+  linked += room?.bcConns?.size ?? 0;
+
+  // Awareness list wins; otherwise surface WebRTC links so UI matches “already connected”.
+  collabPeers.set(peers.length > 0 ? peers : fromWebrtc);
+  collabLinkCount.set(linked);
 }
 
 function getUserName(): string {
@@ -369,12 +397,23 @@ function setupPeerListeners() {
   });
 
   if (peerPollTimer) clearInterval(peerPollTimer);
-  // Awareness names often arrive a few seconds after the WebRTC link — poll lightly.
+  // Re-announce + refresh: names often lag the WebRTC link (or never arrive).
   peerPollTimer = setInterval(() => {
     if (!provider || !get(collabActive)) return;
+    const room = provider.room;
+    let linked = 0;
+    room?.webrtcConns?.forEach((conn) => {
+      if (conn.connected || conn.synced) linked += 1;
+    });
+    linked += room?.bcConns?.size ?? 0;
+    const namedRemote = [...provider.awareness.getStates().keys()].some(
+      (id) => id !== provider!.awareness.clientID
+    );
+    if (linked > 0 && !namedRemote) announceLocalUser(true);
     refreshPeerUi();
   }, 2000);
 
+  announceLocalUser(true);
   refreshPeerUi();
 }
 
